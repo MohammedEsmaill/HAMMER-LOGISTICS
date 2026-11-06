@@ -11,6 +11,7 @@ export const PERMISSIONS = {
   'clearers.prices.manage': 'تعديل أسعار أتعاب المستخلصين',
   'clients.view': 'عرض العملاء والمصانع',
   'clients.manage': 'إدارة العملاء والمصانع والكوتيشن',
+  'clients.quote.view': 'عرض كوتيشن العملاء',
   'lookups.manage': 'إدارة القوائم الثابتة',
   'shipments.view.all': 'عرض كل الشحنات',
   'shipments.view.own': 'عرض الشحنات المسؤول عنها بس',

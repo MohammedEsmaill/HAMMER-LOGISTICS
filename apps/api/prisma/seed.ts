@@ -89,12 +89,12 @@ const ROLES: {
   {
     name: 'ACCOUNTANT',
     description: 'المحاسب',
-    permissions: ['clients.view', 'shipments.view.all'],
+    permissions: ['clients.quote.view', 'clients.view', 'shipments.view.all'],
   },
   {
     name: 'ACCOUNTS_MANAGER',
     description: 'مدير الحسابات',
-    permissions: ['clients.view', 'shipments.view.all'],
+    permissions: ['clients.quote.view', 'clients.view', 'shipments.view.all'],
   },
   {
     name: 'FINANCIAL_RELATIONS',
