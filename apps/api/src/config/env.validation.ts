@@ -42,6 +42,11 @@ class EnvironmentVariables {
   @IsOptional()
   @IsInt()
   PORT: number = 3000;
+
+  /** cloudinary://API_KEY:API_SECRET@CLOUD_NAME — needed only for document uploads. */
+  @IsOptional()
+  @IsString()
+  CLOUDINARY_URL?: string;
 }
 
 export type AppConfig = EnvironmentVariables;

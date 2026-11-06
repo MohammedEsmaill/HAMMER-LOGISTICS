@@ -4,6 +4,7 @@ import { AuthUser } from '../auth/auth-user';
 import { Page, pageArgs } from '../common/dto/list-query.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { shipmentScope } from './access-scope';
+import { DOCUMENT_SELECT } from './shipment-documents.service';
 import { ShipmentsQueryDto } from './dto/shipments-query.dto';
 import { STAGE_FLOWS, shipmentKind, stageLabel } from './stages';
 
@@ -44,6 +45,11 @@ const DETAIL_INCLUDE = {
   freeZone: NAME,
   storageYard: NAME,
   containers: { orderBy: { seq: 'asc' } },
+  documents: {
+    where: { deletedAt: null },
+    select: DOCUMENT_SELECT,
+    orderBy: { createdAt: 'desc' },
+  },
   createdBy: { select: { id: true, email: true } },
 } satisfies Prisma.ShipmentInclude;
 

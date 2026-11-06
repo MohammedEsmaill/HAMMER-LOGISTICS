@@ -5,10 +5,27 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/main';
+import { FILE_STORAGE, FileStorage } from '../src/storage/file-storage';
 import { TEST_CEO } from './global-setup';
+
+/** Keeps uploads in memory so tests need no Cloudinary account. */
+export class MemoryStorage implements FileStorage {
+  readonly files = new Map<string, Buffer>();
+  upload(file: Buffer, options: { folder: string; fileName: string }) {
+    const publicId = `${options.folder}/${options.fileName}`;
+    this.files.set(publicId, file);
+    return Promise.resolve({ url: `https://files.test/${publicId}`, publicId });
+  }
+
+  remove(publicId: string) {
+    this.files.delete(publicId);
+    return Promise.resolve();
+  }
+}
 
 export interface TestContext {
   app: INestApplication<App>;
+  storage: MemoryStorage;
   prisma: PrismaClient;
   ceoToken: string;
   login: (email: string, password: string) => Promise<string>;
@@ -27,9 +44,13 @@ export interface TestContext {
 }
 
 export async function createTestContext(): Promise<TestContext> {
+  const storage = new MemoryStorage();
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    .overrideProvider(FILE_STORAGE)
+    .useValue(storage)
+    .compile();
   const app = moduleRef.createNestApplication<INestApplication<App>>();
   configureApp(app, 'http://localhost:5173');
   await app.init();
@@ -94,7 +115,7 @@ export async function createTestContext(): Promise<TestContext> {
     };
   };
 
-  return { app, prisma, ceoToken, login, api, userWithRole };
+  return { app, storage, prisma, ceoToken, login, api, userWithRole };
 }
 
 export async function closeTestContext(ctx: TestContext) {
