@@ -9,6 +9,7 @@ import { ClientsModule } from './clients/clients.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { validateEnv } from './config/env.validation';
 import { EmployeesModule } from './employees/employees.module';
+import { LookupsModule } from './lookups/lookups.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
@@ -25,6 +26,7 @@ import { UsersModule } from './users/users.module';
     EmployeesModule,
     ClearersModule,
     ClientsModule,
+    LookupsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: PrismaExceptionFilter }],
 })

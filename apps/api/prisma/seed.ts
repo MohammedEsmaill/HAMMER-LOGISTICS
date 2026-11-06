@@ -5,7 +5,18 @@
  */
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+import countries from 'i18n-iso-countries';
+import arabic from 'i18n-iso-countries/langs/ar.json';
+import english from 'i18n-iso-countries/langs/en.json';
 import { Permission } from '../src/auth/permissions';
+import {
+  AIRLINES,
+  EGYPT_AIRPORTS,
+  EGYPT_SEA_PORTS,
+  SHIPPING_LINES,
+  WORLD_AIRPORTS,
+  WORLD_SEA_PORTS,
+} from './seed-data/lookups';
 
 const prisma = new PrismaClient();
 
@@ -176,7 +187,82 @@ async function main() {
     },
   });
 
+  await seedLookups();
   await seedCeo();
+}
+
+async function seedLookups() {
+  countries.registerLocale(arabic);
+  countries.registerLocale(english);
+  for (const code of Object.keys(countries.getAlpha2Codes())) {
+    const nameEn = countries.getName(code, 'en') ?? code;
+    const nameAr = countries.getName(code, 'ar') ?? nameEn;
+    await prisma.country.upsert({
+      where: { code },
+      update: {},
+      create: { code, nameAr, nameEn },
+    });
+  }
+  const countryId = new Map(
+    (await prisma.country.findMany()).map((c) => [c.code, c.id]),
+  );
+
+  const ports: {
+    name: string;
+    code: string | null;
+    kind: 'SEA' | 'AIR';
+    country: string;
+  }[] = [
+    ...EGYPT_SEA_PORTS.map(([name, code]) => ({
+      name,
+      code,
+      kind: 'SEA' as const,
+      country: 'EG',
+    })),
+    ...EGYPT_AIRPORTS.map(([name, code]) => ({
+      name,
+      code,
+      kind: 'AIR' as const,
+      country: 'EG',
+    })),
+    ...WORLD_SEA_PORTS.map(([name, code]) => ({
+      name,
+      code,
+      kind: 'SEA' as const,
+      country: code.slice(0, 2),
+    })),
+    ...WORLD_AIRPORTS.map(([name, code, country]) => ({
+      name,
+      code,
+      kind: 'AIR' as const,
+      country,
+    })),
+  ];
+  for (const port of ports) {
+    await prisma.port.upsert({
+      where: { kind_name: { kind: port.kind, name: port.name } },
+      update: {},
+      create: {
+        name: port.name,
+        code: port.code,
+        kind: port.kind,
+        countryId: countryId.get(port.country)!,
+        isEgyptian: port.country === 'EG',
+      },
+    });
+  }
+
+  const carriers = [
+    ...SHIPPING_LINES.map((name) => ({ name, kind: 'SEA' as const })),
+    ...AIRLINES.map((name) => ({ name, kind: 'AIR' as const })),
+  ];
+  for (const carrier of carriers) {
+    await prisma.carrier.upsert({
+      where: { kind_name: carrier },
+      update: {},
+      create: carrier,
+    });
+  }
 }
 
 async function seedCeo() {
