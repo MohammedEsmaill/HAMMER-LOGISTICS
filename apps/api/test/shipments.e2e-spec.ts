@@ -108,6 +108,11 @@ describe('Shipment registration (e2e)', () => {
             fullName: `Clearer ${nationalId}`,
             phone: '0',
             nationalId,
+            importFinalBase: 3000,
+            importTemporaryBase: 2600,
+            importExtraContainer: 700,
+            exportBase: 2000,
+            exportExtraContainer: 500,
           })
           .expect(201)
       ).body.id as number;

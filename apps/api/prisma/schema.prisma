@@ -288,18 +288,20 @@ model Port {
   countryId  Int           @map("country_id")
   isEgyptian Boolean       @default(false) @map("is_egyptian")
 
-  country            Country    @relation(fields: [countryId], references: [id], onDelete: Restrict)
-  loadingShipments   Shipment[] @relation("ShipmentLoadingPort")
-  dischargeShipments Shipment[] @relation("ShipmentDischargePort")
+  country            Country       @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  loadingShipments   Shipment[]    @relation("ShipmentLoadingPort")
+  dischargeShipments Shipment[]    @relation("ShipmentDischargePort")
+  storageYards       StorageYard[]
 
   @@unique([kind, name])
   @@map("ports")
 }
 
 model Carrier {
-  id   Int           @id @default(autoincrement())
-  name String
-  kind TransportKind // SEA = shipping line, AIR = airline
+  id        Int           @id @default(autoincrement())
+  name      String
+  kind      TransportKind // SEA = shipping line, AIR = airline
+  sortOrder Int           @default(1000) @map("sort_order") // lists show the busiest first
 
   shipments Shipment[]
 
@@ -317,10 +319,12 @@ model FreeZone {
 }
 
 model StorageYard {
-  id   Int           @id @default(autoincrement())
-  name String
-  kind TransportKind // SEA = yard / container terminal, AIR = airport warehouse
+  id     Int           @id @default(autoincrement())
+  name   String
+  kind   TransportKind // SEA = yard / container terminal, AIR = airport warehouse
+  portId Int?          @map("port_id") // the Egyptian port / airport the yard belongs to
 
+  port      Port?      @relation(fields: [portId], references: [id], onDelete: Restrict)
   shipments Shipment[]
 
   @@unique([kind, name])

@@ -1,5 +1,5 @@
 import { TransportKind } from '@prisma/client';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
@@ -28,6 +28,13 @@ export class KindQueryDto extends SearchQueryDto {
   @IsOptional()
   @IsEnum(TransportKind)
   kind?: TransportKind;
+
+  /** Storage yards of one port / airport. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  portId?: number;
 }
 
 export class PortsQueryDto extends KindQueryDto {
@@ -46,11 +53,41 @@ export class NameDto {
   name!: string;
 }
 
-/** kind is required for carriers and storage yards, ignored for the other lists. */
+/** kind: required for carriers and storage yards. sortOrder: carriers. portId: storage yards. */
 export class CreateLookupDto extends NameDto {
   @IsOptional()
   @IsEnum(TransportKind)
   kind?: TransportKind;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  portId?: number;
+}
+
+export class UpdateLookupDto {
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(150)
+  name?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  sortOrder?: number;
+
+  /** null detaches the yard from its port. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  portId?: number | null;
 }
 
 export class CreatePortDto extends NameDto {

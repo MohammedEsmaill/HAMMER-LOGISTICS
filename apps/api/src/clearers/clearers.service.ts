@@ -1,12 +1,11 @@
 import {
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser, can } from '../auth/auth-user';
+import { AuthUser } from '../auth/auth-user';
 import { Page, pageArgs } from '../common/dto/list-query.dto';
 import { toDecimal } from '../common/validation';
 import { PrismaService } from '../prisma/prisma.service';
@@ -94,12 +93,8 @@ export class ClearersService {
   }
 
   async create(actor: AuthUser, dto: CreateClearerDto) {
-    const sentPrices = PRICE_FIELDS.some((f) => dto[f] !== undefined);
-    if (sentPrices && !can(actor, 'clearers.prices.manage')) {
-      throw new ForbiddenException('أسعار المستخلصين يحطها الـ CEO بس');
-    }
     const prices = Object.fromEntries(
-      PRICE_FIELDS.map((f) => [f, toDecimal(dto[f] ?? 0)]),
+      PRICE_FIELDS.map((f) => [f, toDecimal(dto[f])]),
     ) as Record<(typeof PRICE_FIELDS)[number], Prisma.Decimal>;
 
     return this.prisma.$transaction(async (tx) => {

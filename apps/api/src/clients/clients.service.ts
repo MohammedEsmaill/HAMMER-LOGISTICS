@@ -276,8 +276,8 @@ export class ClientsService {
   }
 
   private select(actor: AuthUser) {
-    const quote =
-      can(actor, 'clients.manage') || can(actor, 'clients.quote.view');
+    // the quotation is seen only by financial relations and the CEO
+    const quote = can(actor, 'clients.manage');
     return {
       id: true,
       name: true,

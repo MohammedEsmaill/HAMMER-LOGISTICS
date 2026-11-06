@@ -69,7 +69,7 @@ export class ClearersController {
   }
 
   @Patch(':id/prices')
-  @RequirePermissions('clearers.prices.manage')
+  @RequirePermissions('clearers.manage')
   updatePrices(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,

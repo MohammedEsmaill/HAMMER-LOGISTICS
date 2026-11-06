@@ -7,12 +7,11 @@ export const PERMISSIONS = {
   'users.manage': 'إدارة المستخدمين',
   'employees.manage': 'إدارة الموظفين',
   'employees.salary.view': 'عرض المرتبات',
-  'clearers.manage': 'إدارة المستخلصين',
-  'clearers.prices.manage': 'تعديل أسعار أتعاب المستخلصين',
+  'clearers.manage': 'إدارة المستخلصين وأسعار أتعابهم',
   'clients.view': 'عرض العملاء والمصانع',
   'clients.manage': 'إدارة العملاء والمصانع والكوتيشن',
-  'clients.quote.view': 'عرض كوتيشن العملاء',
-  'lookups.manage': 'إدارة القوائم الثابتة',
+  'lookups.add': 'إضافة عناصر للقوائم الثابتة (موانئ، خطوط، ساحات...)',
+  'lookups.manage': 'تعديل وحذف عناصر القوائم الثابتة',
   'shipments.view.all': 'عرض كل الشحنات',
   'shipments.view.own': 'عرض الشحنات المسؤول عنها بس',
   'shipments.create': 'تسجيل شحنة جديدة',
@@ -34,7 +33,7 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 /** Held only by the system (CEO) role: no other role may be given these. */
 export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'roles.manage',
-  'clearers.prices.manage',
+  'clearers.manage',
   'shipments.reassign',
 ]);
 

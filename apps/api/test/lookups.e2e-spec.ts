@@ -3,10 +3,12 @@ import { closeTestContext, createTestContext, TestContext } from './helpers';
 describe('Lookups (e2e)', () => {
   let ctx: TestContext;
   let scan: string;
+  let nafeza: string;
 
   beforeAll(async () => {
     ctx = await createTestContext();
     scan = (await ctx.userWithRole('401', 'SCAN')).token;
+    nafeza = (await ctx.userWithRole('402', 'NAFEZA', 'NAFEZA')).token;
   });
 
   afterAll(() => closeTestContext(ctx));
@@ -97,4 +99,90 @@ describe('Lookups (e2e)', () => {
       .delete(`/api/lookups/ports/${created.body.id}`)
       .expect(204);
   });
+
+  it('NAFEZA adds ports and lines but cannot edit or delete them', async () => {
+    const line = await ctx
+      .api(nafeza)
+      .post('/api/lookups/carriers', { name: 'NEW LOCAL LINE', kind: 'SEA' })
+      .expect(201);
+    await ctx
+      .api(nafeza)
+      .patch(`/api/lookups/carriers/${line.body.id}`, { name: 'Renamed' })
+      .expect(403);
+    await ctx
+      .api(nafeza)
+      .delete(`/api/lookups/carriers/${line.body.id}`)
+      .expect(403);
+    const china = await ctx.prisma.country.findUniqueOrThrow({
+      where: { code: 'CN' },
+    });
+    await ctx
+      .api(nafeza)
+      .post('/api/lookups/ports', {
+        name: 'Lianyungang',
+        kind: 'SEA',
+        countryId: china.id,
+      })
+      .expect(201);
+  });
+
+  it('lists shipping lines busiest first, and the CEO reorders them', async () => {
+    const res = await ctx
+      .api(scan)
+      .get('/api/lookups/carriers?kind=SEA')
+      .expect(200);
+    expect(res.body.slice(0, 3).map((c: { name: string }) => c.name)).toEqual([
+      'MSC',
+      'Maersk',
+      'CMA CGM',
+    ]);
+    const nutic = res.body.find((c: { name: string }) => c.name === 'NUTIC');
+    await ctx
+      .api(ctx.ceoToken)
+      .patch(`/api/lookups/carriers/${nutic.id}`, { sortOrder: 1 })
+      .expect(200);
+    const reordered = await ctx
+      .api(scan)
+      .get('/api/lookups/carriers?kind=SEA')
+      .expect(200);
+    expect(
+      reordered.body.slice(0, 2).map((c: { name: string }) => c.name),
+    ).toContain('NUTIC');
+  });
+
+  it('serves the yards of one port, and a yard must sit in an Egyptian port', async () => {
+    const alexandria = await ctx.prisma.port.findFirstOrThrow({
+      where: { code: 'EGALY' },
+    });
+    const yards = await ctx
+      .api(scan)
+      .get(`/api/lookups/storage-yards?portId=${alexandria.id}`)
+      .expect(200);
+    expect(yards.body.map((y: { name: string }) => y.name)).toContain(
+      'تحيا مصر',
+    );
+    expect(
+      yards.body.every(
+        (y: { port: { id: number } }) => y.port.id === alexandria.id,
+      ),
+    ).toBe(true);
+
+    const shanghai = await ctx.prisma.port.findFirstOrThrow({
+      where: { code: 'CNSHA' },
+    });
+    await ctx
+      .api(ctx.ceoToken)
+      .post('/api/lookups/storage-yards', {
+        name: 'Foreign yard',
+        kind: 'SEA',
+        portId: shanghai.id,
+      })
+      .expect(400);
+  });
+
+  it('sortOrder is only for carriers', () =>
+    ctx
+      .api(ctx.ceoToken)
+      .post('/api/lookups/free-zones', { name: 'Zone X', sortOrder: 2 })
+      .expect(400));
 });

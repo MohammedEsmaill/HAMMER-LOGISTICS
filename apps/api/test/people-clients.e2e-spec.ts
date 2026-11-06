@@ -129,54 +129,75 @@ describe('Employees, clearers, clients (e2e)', () => {
   });
 
   describe('clearers', () => {
+    const prices = {
+      importFinalBase: 3000,
+      importTemporaryBase: 2600,
+      importExtraContainer: 700,
+      exportBase: 2000,
+      exportExtraContainer: 500,
+    };
     const clearerBody = {
       fullName: 'Clearer One',
       phone: '01222222222',
       nationalId: '28001010000001',
       customsOffices: ['جمرك الإسكندرية'],
+      ...prices,
     };
 
-    it('HR creates a clearer with zero prices, but cannot set prices', async () => {
+    it('only the CEO adds clearers and changes their data and prices', async () => {
+      await ctx.api(hr).post('/api/clearers', clearerBody).expect(403);
+      await ctx.api(hr).get('/api/clearers').expect(403);
+
       const res = await ctx
-        .api(hr)
+        .api(ctx.ceoToken)
         .post('/api/clearers', clearerBody)
         .expect(201);
-      expect(res.body.importFinalBase).toBe('0');
-      await ctx
-        .api(hr)
-        .post('/api/clearers', {
-          ...clearerBody,
-          nationalId: '28001010000002',
-          importFinalBase: 3000,
-        })
-        .expect(403);
-      await ctx
-        .api(hr)
+      expect(res.body.importExtraContainer).toBe('700');
+
+      const updated = await ctx
+        .api(ctx.ceoToken)
         .patch(`/api/clearers/${res.body.id}/prices`, {
-          importFinalBase: 3000,
-          importTemporaryBase: 2600,
-          importExtraContainer: 700,
-          exportBase: 2000,
-          exportExtraContainer: 500,
+          ...prices,
+          importFinalBase: 3200,
         })
-        .expect(403);
+        .expect(200);
+      expect(updated.body.importFinalBase).toBe('3200');
     });
 
-    it('the CEO sets the prices', async () => {
+    it('a clearer cannot be created without prices', () =>
+      ctx
+        .api(ctx.ceoToken)
+        .post('/api/clearers', {
+          fullName: 'No prices',
+          phone: '0',
+          nationalId: '28001010000003',
+        })
+        .expect(400));
+
+    it('HR can still open a login account for a clearer', async () => {
       const clearer = await ctx.prisma.clearer.findFirstOrThrow({
         where: { nationalId: '28001010000001' },
       });
-      const res = await ctx
-        .api(ctx.ceoToken)
-        .patch(`/api/clearers/${clearer.id}/prices`, {
-          importFinalBase: 3000,
-          importTemporaryBase: 2600,
-          importExtraContainer: 700,
-          exportBase: 2000,
-          exportExtraContainer: 500,
-        })
+      const role = await ctx.prisma.role.findUniqueOrThrow({
+        where: { name: 'CLEARER' },
+      });
+      const candidates = await ctx
+        .api(hr)
+        .get('/api/users/candidates?type=CLEARER')
         .expect(200);
-      expect(res.body.importExtraContainer).toBe('700');
+      expect(candidates.body.map((c: { id: number }) => c.id)).toContain(
+        clearer.id,
+      );
+      await ctx
+        .api(hr)
+        .post('/api/users', {
+          accountType: 'CLEARER',
+          ownerId: clearer.id,
+          email: 'clearer.one@hammerline.com',
+          password: 'Passw0rd1',
+          roleId: role.id,
+        })
+        .expect(201);
     });
 
     it('SCAN can list clearer options for the shipment form', async () => {
@@ -237,7 +258,7 @@ describe('Employees, clearers, clients (e2e)', () => {
         .expect(400);
     });
 
-    it('SCAN sees the client without the quote; the accountant sees the quote', async () => {
+    it('only financial relations and the CEO see the quote', async () => {
       const forScan = await ctx
         .api(scan)
         .get(`/api/clients/${clientId}`)
@@ -247,7 +268,17 @@ describe('Employees, clearers, clients (e2e)', () => {
         .api(accountant)
         .get(`/api/clients/${clientId}`)
         .expect(200);
-      expect(forAccountant.body.quoteFinalBase).toBe('7000');
+      expect(forAccountant.body).not.toHaveProperty('quoteFinalBase');
+      const forRelations = await ctx
+        .api(relations)
+        .get(`/api/clients/${clientId}`)
+        .expect(200);
+      expect(forRelations.body.quoteFinalBase).toBe('7000');
+      const forCeo = await ctx
+        .api(ctx.ceoToken)
+        .get(`/api/clients/${clientId}`)
+        .expect(200);
+      expect(forCeo.body.quoteFinalBase).toBe('7000');
       await ctx.api(scan).post('/api/clients', {}).expect(403);
     });
 

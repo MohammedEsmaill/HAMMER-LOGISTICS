@@ -116,21 +116,45 @@ export const WORLD_AIRPORTS: [string, string, string][] = [
   ['Los Angeles', 'LAX', 'US'],
 ];
 
+/**
+ * Shipping lines in Egypt, in list order. Global lines first by fleet capacity
+ * (Alphaliner 2026 ranking), then the lines and agencies the office works with.
+ * The CEO can reorder them later (carriers.sort_order).
+ */
 export const SHIPPING_LINES = [
   'MSC',
   'Maersk',
   'CMA CGM',
-  'COSCO Shipping',
+  'COSCO',
+  'OOCL',
   'Hapag-Lloyd',
-  'ONE (Ocean Network Express)',
+  'ONE',
   'Evergreen',
   'HMM',
   'Yang Ming',
   'ZIM',
-  'OOCL',
-  'PIL',
   'Wan Hai',
+  'PIL',
+  'X-Press Feeders',
+  'Emirates Shipping Line',
+  'Grimaldi',
   'Arkas',
+  'Turkon',
+  'B&G',
+  'خدمات الشحن المصرية',
+  'MLH',
+  'MED EGYPT',
+  'MEDKON',
+  'SEA GLORY',
+  'TRY STAR',
+  'SACCO',
+  'EL FATTH',
+  'EGL',
+  'ADMIRAL',
+  'OCEAN EXPRESS',
+  'FINMAR',
+  'G MAC',
+  'NUTIC',
 ];
 
 export const AIRLINES = [
@@ -144,4 +168,53 @@ export const AIRLINES = [
   'Air France KLM Martinair Cargo',
   'Cathay Cargo',
   'China Southern Cargo',
+];
+
+/** Yards and terminals, by the Egyptian port (code, or name when it has no code) they belong to. */
+export const STORAGE_YARDS: {
+  port: string;
+  kind: 'SEA' | 'AIR';
+  names: string[];
+}[] = [
+  {
+    port: 'EGALY',
+    kind: 'SEA',
+    names: [
+      'حاويات الإسكندرية',
+      'تحيا مصر',
+      'صينية الإسكندرية',
+      'خدمات الشحن',
+      'أركاس',
+      'طاروس',
+      'أوشن إكسبريس الإسكندرية',
+      'ميناء أبو قير البحري',
+    ],
+  },
+  {
+    port: 'EGEDK',
+    kind: 'SEA',
+    names: ['حاويات الدخيلة', 'صينية الدخيلة', 'أوشن إكسبريس الدخيلة'],
+  },
+  {
+    port: 'EGSOK',
+    kind: 'SEA',
+    names: ['ساحة 600 السخنة', 'ساحة 800 السخنة', 'حاويات البحر الأحمر'],
+  },
+  {
+    port: 'EGDAM',
+    kind: 'SEA',
+    names: ['حاويات دمياط (DCHC)', 'Damietta Alliance (DACT)'],
+  },
+  {
+    port: 'East Port Said',
+    kind: 'SEA',
+    names: ['قناة السويس للحاويات (SCCT)'],
+  },
+  {
+    port: 'EGPSD',
+    kind: 'SEA',
+    names: ['بورسعيد لتداول الحاويات'],
+  },
+  { port: 'CAI', kind: 'AIR', names: ['قرية البضائع - مطار القاهرة'] },
+  { port: 'HBE', kind: 'AIR', names: ['مبنى الشحن - مطار برج العرب'] },
 ];

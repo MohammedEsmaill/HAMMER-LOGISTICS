@@ -11,7 +11,7 @@ import {
 import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { Money, NATIONAL_ID, Trim } from '../../common/validation';
 
-/** Fee prices: set and changed by the CEO only. */
+/** Fee prices (the whole clearers module is CEO-only). */
 export class ClearerPricesDto {
   @Money()
   importFinalBase!: number;
@@ -58,26 +58,21 @@ export class CreateClearerDto {
   @MaxLength(1000)
   notes?: string;
 
-  /** Only the CEO may send prices; anyone else creates the clearer with zero prices. */
-  @IsOptional()
+  // fee prices: the CEO enters them with the clearer
   @Money()
-  importFinalBase?: number;
+  importFinalBase!: number;
 
-  @IsOptional()
   @Money()
-  importTemporaryBase?: number;
+  importTemporaryBase!: number;
 
-  @IsOptional()
   @Money()
-  importExtraContainer?: number;
+  importExtraContainer!: number;
 
-  @IsOptional()
   @Money()
-  exportBase?: number;
+  exportBase!: number;
 
-  @IsOptional()
   @Money()
-  exportExtraContainer?: number;
+  exportExtraContainer!: number;
 }
 
 export class UpdateClearerDto {

@@ -7,7 +7,14 @@ import { TransportKind } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
-import { CreatePortDto, PortsQueryDto, UpdatePortDto } from './dto/lookup.dto';
+import {
+  CreateLookupDto,
+  CreatePortDto,
+  KindQueryDto,
+  PortsQueryDto,
+  UpdateLookupDto,
+  UpdatePortDto,
+} from './dto/lookup.dto';
 
 /** Lists whose rows are just a name; carriers and storage yards also carry a SEA / AIR kind. */
 export const SIMPLE_LOOKUPS = [
@@ -67,15 +74,20 @@ export class LookupsService {
     });
   }
 
-  list(lookup: SimpleLookup, kind?: TransportKind, search?: string) {
-    const name = contains(search);
+  list(lookup: SimpleLookup, query: KindQueryDto) {
+    const { kind, portId } = query;
+    const name = contains(query.search);
     const orderBy = { name: 'asc' } as const;
     switch (lookup) {
       case 'carriers':
-        return this.prisma.carrier.findMany({ where: { kind, name }, orderBy });
+        return this.prisma.carrier.findMany({
+          where: { kind, name },
+          orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        });
       case 'storage-yards':
         return this.prisma.storageYard.findMany({
-          where: { kind, name },
+          where: { kind, name, portId },
+          include: { port: { select: { id: true, name: true, code: true } } },
           orderBy,
         });
       case 'free-zones':
@@ -112,34 +124,64 @@ export class LookupsService {
     });
   }
 
-  async create(
-    actor: AuthUser,
-    lookup: SimpleLookup,
-    name: string,
-    kind?: TransportKind,
-  ) {
-    if (KIND_LOOKUPS.has(lookup) && !kind) {
+  async create(actor: AuthUser, lookup: SimpleLookup, dto: CreateLookupDto) {
+    if (KIND_LOOKUPS.has(lookup) && !dto.kind) {
       throw new BadRequestException('لازم تحدد النوع: بحري أو جوي');
     }
+    this.assertFieldsFit(lookup, dto);
     return this.prisma.$transaction(async (tx) => {
-      const row = await this.createRow(tx, lookup, name, kind!);
+      if (dto.portId) await this.assertYardPort(tx, dto.portId, dto.kind!);
+      const row = await this.createRow(tx, lookup, dto);
       await this.log(tx, actor, 'CREATE', lookup, row.id, null, row);
       return row;
     });
   }
 
-  async rename(
+  async update(
     actor: AuthUser,
     lookup: SimpleLookup,
     id: number,
-    name: string,
+    dto: UpdateLookupDto,
   ) {
+    this.assertFieldsFit(lookup, dto);
     return this.prisma.$transaction(async (tx) => {
       const before = await this.findRow(tx, lookup, id);
-      const row = await this.renameRow(tx, lookup, id, name);
+      if (dto.portId) {
+        // assertFieldsFit guarantees this is a storage yard
+        const yard = await tx.storageYard.findUniqueOrThrow({ where: { id } });
+        await this.assertYardPort(tx, dto.portId, yard.kind);
+      }
+      const row = await this.updateRow(tx, lookup, id, dto);
       await this.log(tx, actor, 'UPDATE', lookup, id, before, row);
       return row;
     });
+  }
+
+  /** sortOrder belongs to carriers, portId to storage yards. */
+  private assertFieldsFit(
+    lookup: SimpleLookup,
+    dto: { sortOrder?: number; portId?: number | null },
+  ) {
+    if (dto.sortOrder !== undefined && lookup !== 'carriers') {
+      throw new BadRequestException(
+        'الترتيب للخطوط الملاحية وشركات الطيران بس',
+      );
+    }
+    if (dto.portId !== undefined && lookup !== 'storage-yards') {
+      throw new BadRequestException('الميناء للساحات بس');
+    }
+  }
+
+  /** A yard sits in an Egyptian port (sea) or airport (air) of its own kind. */
+  private async assertYardPort(tx: Tx, portId: number, kind: TransportKind) {
+    const port = await tx.port.findUnique({ where: { id: portId } });
+    if (!port || !port.isEgyptian || port.kind !== kind) {
+      throw new BadRequestException(
+        kind === 'SEA'
+          ? 'الساحة لازم تتبع ميناء مصري'
+          : 'المخزن لازم يتبع مطار مصري',
+      );
+    }
   }
 
   /** Refused with 409 by the foreign keys while any shipment uses the row. */
@@ -158,17 +200,17 @@ export class LookupsService {
     });
   }
 
-  private createRow(
-    tx: Tx,
-    lookup: SimpleLookup,
-    name: string,
-    kind: TransportKind,
-  ) {
+  private createRow(tx: Tx, lookup: SimpleLookup, dto: CreateLookupDto) {
+    const { name } = dto;
     switch (lookup) {
       case 'carriers':
-        return tx.carrier.create({ data: { name, kind } });
+        return tx.carrier.create({
+          data: { name, kind: dto.kind!, sortOrder: dto.sortOrder },
+        });
       case 'storage-yards':
-        return tx.storageYard.create({ data: { name, kind } });
+        return tx.storageYard.create({
+          data: { name, kind: dto.kind!, portId: dto.portId },
+        });
       case 'free-zones':
         return tx.freeZone.create({ data: { name } });
       case 'inspection-authorities':
@@ -190,17 +232,29 @@ export class LookupsService {
     return row;
   }
 
-  private renameRow(tx: Tx, lookup: SimpleLookup, id: number, name: string) {
-    const args = { where: { id }, data: { name } };
+  private updateRow(
+    tx: Tx,
+    lookup: SimpleLookup,
+    id: number,
+    dto: UpdateLookupDto,
+  ) {
+    const where = { id };
+    const { name } = dto;
     switch (lookup) {
       case 'carriers':
-        return tx.carrier.update(args);
+        return tx.carrier.update({
+          where,
+          data: { name, sortOrder: dto.sortOrder },
+        });
       case 'storage-yards':
-        return tx.storageYard.update(args);
+        return tx.storageYard.update({
+          where,
+          data: { name, portId: dto.portId },
+        });
       case 'free-zones':
-        return tx.freeZone.update(args);
+        return tx.freeZone.update({ where, data: { name } });
       case 'inspection-authorities':
-        return tx.inspectionAuthority.update(args);
+        return tx.inspectionAuthority.update({ where, data: { name } });
     }
   }
 

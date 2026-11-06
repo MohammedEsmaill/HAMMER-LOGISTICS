@@ -8,12 +8,17 @@ import * as argon2 from 'argon2';
 import countries from 'i18n-iso-countries';
 import arabic from 'i18n-iso-countries/langs/ar.json';
 import english from 'i18n-iso-countries/langs/en.json';
-import { Permission } from '../src/auth/permissions';
+import {
+  CEO_ONLY_PERMISSIONS,
+  isPermission,
+  Permission,
+} from '../src/auth/permissions';
 import {
   AIRLINES,
   EGYPT_AIRPORTS,
   EGYPT_SEA_PORTS,
   SHIPPING_LINES,
+  STORAGE_YARDS,
   WORLD_AIRPORTS,
   WORLD_SEA_PORTS,
 } from './seed-data/lookups';
@@ -33,12 +38,7 @@ const ROLES: {
   {
     name: 'HR',
     description: 'الموظفين والمستخدمين والمستخلصين',
-    permissions: [
-      'users.manage',
-      'employees.manage',
-      'employees.salary.view',
-      'clearers.manage',
-    ],
+    permissions: ['users.manage', 'employees.manage', 'employees.salary.view'],
   },
   {
     name: 'SCAN',
@@ -71,6 +71,7 @@ const ROLES: {
     name: 'NAFEZA',
     description: 'الإجراءات على النافذة الموحدة',
     permissions: [
+      'lookups.add',
       'clients.view',
       'shipments.view.all',
       'shipments.customs.update',
@@ -100,12 +101,12 @@ const ROLES: {
   {
     name: 'ACCOUNTANT',
     description: 'المحاسب',
-    permissions: ['clients.quote.view', 'clients.view', 'shipments.view.all'],
+    permissions: ['clients.view', 'shipments.view.all'],
   },
   {
     name: 'ACCOUNTS_MANAGER',
     description: 'مدير الحسابات',
-    permissions: ['clients.quote.view', 'clients.view', 'shipments.view.all'],
+    permissions: ['clients.view', 'shipments.view.all'],
   },
   {
     name: 'FINANCIAL_RELATIONS',
@@ -158,6 +159,21 @@ async function main() {
       create: role,
     });
   }
+  // drop permissions that left the catalog or became CEO-only
+  for (const role of await prisma.role.findMany({
+    where: { isSystem: false },
+  })) {
+    const kept = role.permissions.filter(
+      (p) => isPermission(p) && !CEO_ONLY_PERMISSIONS.has(p),
+    );
+    if (kept.length !== role.permissions.length) {
+      await prisma.role.update({
+        where: { id: role.id },
+        data: { permissions: kept },
+      });
+    }
+  }
+
   for (const name of FREE_ZONES) {
     await prisma.freeZone.upsert({
       where: { name },
@@ -253,15 +269,40 @@ async function seedLookups() {
   }
 
   const carriers = [
-    ...SHIPPING_LINES.map((name) => ({ name, kind: 'SEA' as const })),
-    ...AIRLINES.map((name) => ({ name, kind: 'AIR' as const })),
+    ...SHIPPING_LINES.map((name, i) => ({
+      name,
+      kind: 'SEA' as const,
+      sortOrder: i + 1,
+    })),
+    ...AIRLINES.map((name, i) => ({
+      name,
+      kind: 'AIR' as const,
+      sortOrder: i + 1,
+    })),
   ];
-  for (const carrier of carriers) {
+  for (const { name, kind, sortOrder } of carriers) {
+    // only create: the CEO may have reordered the list since
     await prisma.carrier.upsert({
-      where: { kind_name: carrier },
+      where: { kind_name: { kind, name } },
       update: {},
-      create: carrier,
+      create: { name, kind, sortOrder },
     });
+  }
+
+  for (const group of STORAGE_YARDS) {
+    const port = await prisma.port.findFirstOrThrow({
+      where: {
+        kind: group.kind,
+        OR: [{ code: group.port }, { name: group.port }],
+      },
+    });
+    for (const name of group.names) {
+      await prisma.storageYard.upsert({
+        where: { kind_name: { kind: group.kind, name } },
+        update: {},
+        create: { name, kind: group.kind, portId: port.id },
+      });
+    }
   }
 }
 

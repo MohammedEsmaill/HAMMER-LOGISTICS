@@ -14,14 +14,17 @@ import {
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermissions,
+} from '../auth/decorators/permissions.decorator';
 import {
   CreatePortDto,
   CreateLookupDto,
   KindQueryDto,
-  NameDto,
   PortsQueryDto,
   SearchQueryDto,
+  UpdateLookupDto,
   UpdatePortDto,
 } from './dto/lookup.dto';
 import { LookupsService, SIMPLE_LOOKUPS } from './lookups.service';
@@ -31,7 +34,10 @@ const lookupPipe = new ParseEnumPipe(
   Object.fromEntries(SIMPLE_LOOKUPS.map((l) => [l, l])),
 );
 
-/** Reading the lists needs only a login (every form uses them); changing them needs lookups.manage. */
+/**
+ * Reading the lists needs only a login (every form uses them). Adding needs lookups.add
+ * (NAFEZA) or lookups.manage; editing and deleting need lookups.manage (CEO).
+ */
 @Controller('lookups')
 export class LookupsController {
   constructor(private readonly lookups: LookupsService) {}
@@ -47,7 +53,7 @@ export class LookupsController {
   }
 
   @Post('ports')
-  @RequirePermissions('lookups.manage')
+  @RequireAnyPermission('lookups.add', 'lookups.manage')
   createPort(@CurrentUser() actor: AuthUser, @Body() dto: CreatePortDto) {
     return this.lookups.createPort(actor, dto);
   }
@@ -77,28 +83,28 @@ export class LookupsController {
     @Param('lookup', lookupPipe) lookup: SimpleLookup,
     @Query() query: KindQueryDto,
   ) {
-    return this.lookups.list(lookup, query.kind, query.search);
+    return this.lookups.list(lookup, query);
   }
 
   @Post(':lookup')
-  @RequirePermissions('lookups.manage')
+  @RequireAnyPermission('lookups.add', 'lookups.manage')
   create(
     @CurrentUser() actor: AuthUser,
     @Param('lookup', lookupPipe) lookup: SimpleLookup,
     @Body() dto: CreateLookupDto,
   ) {
-    return this.lookups.create(actor, lookup, dto.name, dto.kind);
+    return this.lookups.create(actor, lookup, dto);
   }
 
   @Patch(':lookup/:id')
   @RequirePermissions('lookups.manage')
-  rename(
+  update(
     @CurrentUser() actor: AuthUser,
     @Param('lookup', lookupPipe) lookup: SimpleLookup,
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: NameDto,
+    @Body() dto: UpdateLookupDto,
   ) {
-    return this.lookups.rename(actor, lookup, id, dto.name);
+    return this.lookups.update(actor, lookup, id, dto);
   }
 
   @Delete(':lookup/:id')
