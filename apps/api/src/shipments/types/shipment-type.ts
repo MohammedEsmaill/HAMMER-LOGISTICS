@@ -1,6 +1,57 @@
 import { Direction, ShipmentMode, TransportKind } from '@prisma/client';
 import { ShipmentKind } from '../stages';
 
+/** The fields of the customs (Nafeza) tab, per the spec (section 7). */
+export const CUSTOMS_FIELDS = [
+  'certificateNo',
+  'certificateDate',
+  'deliveryOrderDate',
+  'form46Date',
+  'storageYardId',
+  'deliveredToPortDate',
+  'examinationDate',
+  'inspectionDate',
+  'approvalDate',
+  'paymentDate',
+  'releaseDate',
+  'releaseReceivedDate',
+  'shippedDate',
+] as const;
+export type CustomsField = (typeof CUSTOMS_FIELDS)[number];
+
+const IMPORT_CUSTOMS: CustomsField[] = [
+  'certificateNo',
+  'deliveryOrderDate',
+  'form46Date',
+  'storageYardId',
+  'examinationDate',
+  'inspectionDate',
+  'approvalDate',
+  'paymentDate',
+  'releaseDate',
+];
+const FREE_ZONE_CUSTOMS: CustomsField[] = [
+  'certificateNo',
+  'certificateDate',
+  'examinationDate',
+  'inspectionDate',
+  'approvalDate',
+  'paymentDate',
+  'releaseDate',
+];
+const EXPORT_CUSTOMS: CustomsField[] = [
+  'certificateNo',
+  'certificateDate',
+  'storageYardId',
+  'deliveredToPortDate',
+  'examinationDate',
+  'inspectionDate',
+  'approvalDate',
+  'paymentDate',
+  'releaseReceivedDate',
+  'shippedDate',
+];
+
 export interface PortRule {
   kind: TransportKind;
   egyptian: boolean;
@@ -27,6 +78,8 @@ export interface ShipmentTypeRules {
   voyageAndBooking: boolean;
   containers: boolean;
   customsRegime: boolean;
+  /** Fields of the customs tab this type uses. */
+  customsFields: readonly CustomsField[];
 }
 
 const WORLD_SEA: PortRule = {
@@ -60,6 +113,7 @@ export const SHIPMENT_TYPES: Record<ShipmentKind, ShipmentTypeRules> = {
     voyageAndBooking: true,
     containers: true,
     customsRegime: true,
+    customsFields: IMPORT_CUSTOMS,
   },
   IMPORT_AIR: {
     kind: 'IMPORT_AIR',
@@ -74,6 +128,7 @@ export const SHIPMENT_TYPES: Record<ShipmentKind, ShipmentTypeRules> = {
     voyageAndBooking: true,
     containers: false,
     customsRegime: true,
+    customsFields: IMPORT_CUSTOMS,
   },
   IMPORT_FREE_ZONE: {
     kind: 'IMPORT_FREE_ZONE',
@@ -88,6 +143,7 @@ export const SHIPMENT_TYPES: Record<ShipmentKind, ShipmentTypeRules> = {
     voyageAndBooking: false,
     containers: false,
     customsRegime: true,
+    customsFields: FREE_ZONE_CUSTOMS,
   },
   EXPORT_SEA: {
     kind: 'EXPORT_SEA',
@@ -102,6 +158,7 @@ export const SHIPMENT_TYPES: Record<ShipmentKind, ShipmentTypeRules> = {
     voyageAndBooking: true,
     containers: true,
     customsRegime: false,
+    customsFields: EXPORT_CUSTOMS,
   },
   EXPORT_AIR: {
     kind: 'EXPORT_AIR',
@@ -116,5 +173,6 @@ export const SHIPMENT_TYPES: Record<ShipmentKind, ShipmentTypeRules> = {
     voyageAndBooking: true,
     containers: false,
     customsRegime: false,
+    customsFields: EXPORT_CUSTOMS,
   },
 };
