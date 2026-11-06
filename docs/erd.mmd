@@ -1,0 +1,169 @@
+erDiagram
+    roles ||--o{ users : "role_id"
+    employees |o--o| users : "employee_id"
+    clearers |o--o| users : "clearer_id"
+    employees ||--o{ attendance_logs : "employee_id"
+    employees ||--o{ clients : "import_operation_employee_id"
+    employees |o--o{ clients : "export_operation_employee_id"
+    clients ||--o{ factories : "client_id"
+    clients ||--o{ shipments : "client_id"
+    factories ||--o{ shipments : "(factory_id, client_id)"
+    clearers ||--o{ shipments : "clearer_id"
+    employees ||--o{ shipments : "operation_employee_id"
+    users ||--o{ shipments : "created_by"
+    countries ||--o{ ports : "country_id"
+    countries ||--o{ shipments : "country_id"
+    ports |o--o{ shipments : "loading_port_id"
+    ports |o--o{ shipments : "discharge_port_id"
+    carriers |o--o{ shipments : "carrier_id"
+    free_zones |o--o{ shipments : "free_zone_id"
+    storage_yards |o--o{ shipments : "storage_yard_id"
+    shipments ||--o{ shipment_containers : "shipment_id"
+    shipments ||--o{ bill_numbers : "shipment_id"
+    shipments ||--o{ shipment_documents : "shipment_id"
+    users ||--o{ shipment_documents : "uploaded_by"
+    users |o--o{ audit_logs : "user_id"
+
+    roles {
+        int id PK
+        string name UK
+        string_array permissions
+        bool is_system
+    }
+    users {
+        int id PK
+        string email UK "ends with @hammerline.com"
+        int role_id FK
+        enum account_type "EMPLOYEE / CLEARER"
+        int employee_id FK,UK
+        int clearer_id FK,UK
+        string session_id "one active session"
+        int deleted_by FK
+    }
+    employees {
+        int id PK
+        string code UK "ZKTeco user id"
+        string national_id UK
+        enum department
+        enum status
+        decimal basic_salary
+        int deleted_by FK
+    }
+    clearers {
+        int id PK
+        string national_id UK
+        decimal import_final_base
+        decimal import_temporary_base
+        decimal import_extra_container
+        decimal export_base
+        decimal export_extra_container
+        int deleted_by FK
+    }
+    attendance_logs {
+        int id PK
+        string device_sn UK "with employee_code + punched_at"
+        string employee_code UK
+        datetime punched_at UK
+        int employee_id FK
+    }
+    clients {
+        int id PK
+        string name UK
+        int import_operation_employee_id FK
+        int export_operation_employee_id FK
+        decimal quote_final_base
+        decimal quote_temporary_base
+        decimal quote_export_base
+        int deleted_by FK
+    }
+    factories {
+        int id PK
+        int client_id FK "UK (id, client_id)"
+        string tax_number UK
+        int deleted_by FK
+    }
+    countries {
+        int id PK
+        string code UK
+    }
+    ports {
+        int id PK
+        enum kind "SEA / AIR"
+        int country_id FK
+        bool is_egyptian
+    }
+    carriers {
+        int id PK
+        enum kind "shipping line / airline"
+    }
+    free_zones {
+        int id PK
+        string name UK
+    }
+    storage_yards {
+        int id PK
+        enum kind "yard / airport warehouse"
+    }
+    shipments {
+        int id PK
+        string file_no UK "HL26-0001"
+        enum direction
+        enum mode
+        int client_id FK
+        int factory_id FK "composite FK with client_id"
+        int clearer_id FK
+        int operation_employee_id FK
+        int country_id FK
+        int carrier_id FK
+        int loading_port_id FK
+        int discharge_port_id FK
+        int free_zone_id FK
+        int storage_yard_id FK
+        string reference_number UK "ACID / UCR"
+        string hbl_number
+        string mbl_number
+        enum current_stage
+        jsonb stage_history
+        jsonb inspections "authority_id per item"
+        int version
+        int created_by FK
+    }
+    shipment_containers {
+        int id PK
+        int shipment_id FK "UK (shipment_id, seq)"
+        int seq UK
+        string container_no
+        enum type
+        decimal weight
+    }
+    bill_numbers {
+        string number PK "HB/L and MB/L, once"
+        int shipment_id FK
+    }
+    shipment_documents {
+        int id PK
+        int shipment_id FK
+        string public_id "Cloudinary"
+        int uploaded_by FK
+        int deleted_by FK
+    }
+    audit_logs {
+        bigint id PK
+        int user_id FK
+        string entity
+        string entity_id
+        jsonb before
+        jsonb after
+    }
+    inspection_authorities {
+        int id PK
+        string name UK
+    }
+    sequences {
+        string key PK "file_no:26"
+        int value
+    }
+    settings {
+        string key PK
+        jsonb value
+    }

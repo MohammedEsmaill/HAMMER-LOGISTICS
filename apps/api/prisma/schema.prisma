@@ -1,0 +1,504 @@
+// HAMMER LOGISTICS — Phase 1 schema
+// Business rules that Prisma cannot express (CHECK constraints, partial unique
+// indexes, composite rules per shipment type) live in the SQL of the first migration.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Department {
+  MANAGEMENT
+  SCAN
+  OPERATION
+  NAFEZA
+  ACCOUNTS
+  AGENTS
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  LEFT
+}
+
+enum AccountType {
+  EMPLOYEE
+  CLEARER
+}
+
+enum Direction {
+  IMPORT
+  EXPORT
+}
+
+enum ShipmentMode {
+  SEA
+  AIR
+  FREE_ZONE
+}
+
+enum CustomsRegime {
+  FINAL
+  TEMPORARY
+}
+
+enum LoadType {
+  FCL
+  LCL
+}
+
+enum ContainerType {
+  HQ20
+  HQ40
+  LCL
+}
+
+enum TransportKind {
+  SEA
+  AIR
+}
+
+/// Every stage of every shipment type. The ordered list per type lives in code.
+enum ShipmentStage {
+  REGISTERED
+  // import sea / air
+  IN_TRANSIT
+  ARRIVED
+  UNLOADING
+  UNLOADED
+  RECEIVED_AT_WAREHOUSE
+  DO_COLLECTED
+  // customs (import, all types)
+  SUBMITTED
+  EXAMINATION
+  INSPECTION
+  VALUATION
+  APPROVAL_PENDING
+  APPROVED
+  DUTIES_PAID
+  RELEASE_DELIVERED
+  CLEARED
+  // export
+  DELIVERED_TO_PORT
+  RELEASE_RECEIVED
+  SHIPPED
+  ARRIVED_DESTINATION
+  DELIVERED_TO_IMPORTER
+}
+
+// ───────────────────────── Users & people ─────────────────────────
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  permissions String[]
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model Employee {
+  id          Int            @id @default(autoincrement())
+  code        String // = user id on the ZKTeco device
+  fullName    String         @map("full_name")
+  nationalId  String         @map("national_id")
+  phone       String
+  address     String?
+  department  Department
+  jobTitle    String         @map("job_title")
+  hireDate    DateTime       @map("hire_date") @db.Date
+  status      EmployeeStatus @default(ACTIVE)
+  leaveDate   DateTime?      @map("leave_date") @db.Date
+  basicSalary Decimal        @default(0) @map("basic_salary") @db.Decimal(14, 2)
+  notes       String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  deletedAt   DateTime?      @map("deleted_at")
+  deletedById Int?           @map("deleted_by")
+
+  deletedBy         User?           @relation("EmployeeDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  user              User?           @relation("UserEmployee")
+  attendanceLogs    AttendanceLog[]
+  importClients     Client[]        @relation("ClientImportOperation")
+  exportClients     Client[]        @relation("ClientExportOperation")
+  operatedShipments Shipment[]      @relation("ShipmentOperation")
+
+  @@index([department, status])
+  @@map("employees")
+}
+
+model Clearer {
+  id                   Int       @id @default(autoincrement())
+  fullName             String    @map("full_name")
+  phone                String
+  nationalId           String    @map("national_id")
+  customsOffices       String[]  @map("customs_offices")
+  // fee prices — set and changed by the CEO only
+  importFinalBase      Decimal   @map("import_final_base") @db.Decimal(14, 2)
+  importTemporaryBase  Decimal   @map("import_temporary_base") @db.Decimal(14, 2)
+  importExtraContainer Decimal   @map("import_extra_container") @db.Decimal(14, 2)
+  exportBase           Decimal   @map("export_base") @db.Decimal(14, 2)
+  exportExtraContainer Decimal   @map("export_extra_container") @db.Decimal(14, 2)
+  isActive             Boolean   @default(true) @map("is_active")
+  notes                String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+  deletedById          Int?      @map("deleted_by")
+
+  deletedBy User?      @relation("ClearerDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  user      User?      @relation("UserClearer")
+  shipments Shipment[]
+
+  @@map("clearers")
+}
+
+model User {
+  id             Int         @id @default(autoincrement())
+  email          String // login; must end with @hammerline.com
+  passwordHash   String      @map("password_hash")
+  roleId         Int         @map("role_id")
+  isActive       Boolean     @default(true) @map("is_active")
+  accountType    AccountType @map("account_type")
+  employeeId     Int?        @unique @map("employee_id")
+  clearerId      Int?        @unique @map("clearer_id")
+  failedAttempts Int         @default(0) @map("failed_attempts")
+  lockedUntil    DateTime?   @map("locked_until")
+  sessionId      String?     @map("session_id") // one active session; a new login replaces it
+  lastLoginAt    DateTime?   @map("last_login_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  deletedAt      DateTime?   @map("deleted_at")
+  deletedById    Int?        @map("deleted_by")
+
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  employee  Employee? @relation("UserEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  clearer   Clearer?  @relation("UserClearer", fields: [clearerId], references: [id], onDelete: Restrict)
+  deletedBy User?     @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+
+  deletedUsers      User[]             @relation("UserDeletedBy")
+  deletedEmployees  Employee[]         @relation("EmployeeDeletedBy")
+  deletedClearers   Clearer[]          @relation("ClearerDeletedBy")
+  deletedClients    Client[]           @relation("ClientDeletedBy")
+  deletedFactories  Factory[]          @relation("FactoryDeletedBy")
+  createdShipments  Shipment[]         @relation("ShipmentCreatedBy")
+  uploadedDocuments ShipmentDocument[] @relation("DocumentUploadedBy")
+  deletedDocuments  ShipmentDocument[] @relation("DocumentDeletedBy")
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model AttendanceLog {
+  id           Int      @id @default(autoincrement())
+  deviceSn     String   @map("device_sn")
+  employeeCode String   @map("employee_code")
+  employeeId   Int?     @map("employee_id")
+  punchedAt    DateTime @map("punched_at")
+  punchType    String?  @map("punch_type")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([deviceSn, employeeCode, punchedAt])
+  @@index([employeeId, punchedAt])
+  @@map("attendance_logs")
+}
+
+// ───────────────────────── Clients & factories ─────────────────────────
+
+model Client {
+  id                        Int       @id @default(autoincrement())
+  name                      String
+  mobile                    String
+  email                     String
+  importOperationEmployeeId Int       @map("import_operation_employee_id")
+  exportOperationEmployeeId Int?      @map("export_operation_employee_id")
+  // CLEARANCE quotation
+  quoteFinalBase            Decimal   @map("quote_final_base") @db.Decimal(14, 2)
+  quoteTemporaryBase        Decimal   @map("quote_temporary_base") @db.Decimal(14, 2)
+  quoteImportExtraContainer Decimal   @map("quote_import_extra_container") @db.Decimal(14, 2)
+  quoteExportBase           Decimal   @map("quote_export_base") @db.Decimal(14, 2)
+  quoteExportExtraContainer Decimal   @map("quote_export_extra_container") @db.Decimal(14, 2)
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+  deletedAt                 DateTime? @map("deleted_at")
+  deletedById               Int?      @map("deleted_by")
+
+  importOperationEmployee Employee   @relation("ClientImportOperation", fields: [importOperationEmployeeId], references: [id], onDelete: Restrict)
+  exportOperationEmployee Employee?  @relation("ClientExportOperation", fields: [exportOperationEmployeeId], references: [id], onDelete: Restrict)
+  deletedBy               User?      @relation("ClientDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  factories               Factory[]
+  shipments               Shipment[]
+
+  @@map("clients")
+}
+
+model Factory {
+  id                 Int       @id @default(autoincrement())
+  clientId           Int       @map("client_id")
+  name               String
+  taxNumber          String    @map("tax_number")
+  commercialRegister String    @map("commercial_register")
+  address            String
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+  deletedById        Int?      @map("deleted_by")
+
+  client    Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  deletedBy User?      @relation("FactoryDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  shipments Shipment[]
+
+  @@unique([id, clientId]) // target of the composite FK that ties a shipment's factory to its client
+  @@index([clientId])
+  @@map("factories")
+}
+
+// ───────────────────────────── Lookups ─────────────────────────────
+
+model Country {
+  id     Int    @id @default(autoincrement())
+  code   String @unique // ISO 3166-1 alpha-2
+  nameAr String @map("name_ar")
+  nameEn String @map("name_en")
+
+  ports     Port[]
+  shipments Shipment[]
+
+  @@map("countries")
+}
+
+model Port {
+  id         Int           @id @default(autoincrement())
+  name       String
+  code       String?       @unique // UN/LOCODE or IATA
+  kind       TransportKind
+  countryId  Int           @map("country_id")
+  isEgyptian Boolean       @default(false) @map("is_egyptian")
+
+  country            Country    @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  loadingShipments   Shipment[] @relation("ShipmentLoadingPort")
+  dischargeShipments Shipment[] @relation("ShipmentDischargePort")
+
+  @@unique([kind, name])
+  @@map("ports")
+}
+
+model Carrier {
+  id   Int           @id @default(autoincrement())
+  name String
+  kind TransportKind // SEA = shipping line, AIR = airline
+
+  shipments Shipment[]
+
+  @@unique([kind, name])
+  @@map("carriers")
+}
+
+model FreeZone {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  shipments Shipment[]
+
+  @@map("free_zones")
+}
+
+model StorageYard {
+  id   Int           @id @default(autoincrement())
+  name String
+  kind TransportKind // SEA = yard / container terminal, AIR = airport warehouse
+
+  shipments Shipment[]
+
+  @@unique([kind, name])
+  @@map("storage_yards")
+}
+
+model InspectionAuthority {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  @@map("inspection_authorities")
+}
+
+// ───────────────────────────── Shipments ─────────────────────────────
+
+model Shipment {
+  id                  Int            @id @default(autoincrement())
+  fileNo              String         @unique @map("file_no") // HL26-0001
+  direction           Direction
+  mode                ShipmentMode
+  clientId            Int            @map("client_id")
+  factoryId           Int            @map("factory_id")
+  clearerId           Int            @map("clearer_id")
+  operationEmployeeId Int            @map("operation_employee_id")
+  foreignPartyName    String         @map("foreign_party_name") // supplier (import) / importer (export)
+  countryId           Int            @map("country_id") // origin (import) / destination (export)
+  consignee           String
+  commodity           String
+  customsRegime       CustomsRegime? @map("customs_regime") // import only
+  packagesCount       Int            @map("packages_count")
+  totalWeight         Decimal        @map("total_weight") @db.Decimal(14, 3)
+  notificationDate    DateTime       @map("notification_date") @db.Date
+
+  // shipping
+  carrierId       Int?      @map("carrier_id")
+  hblNumber       String?   @map("hbl_number") // empty → shown/printed as MB/L
+  mblNumber       String?   @map("mbl_number")
+  referenceNumber String?   @unique @map("reference_number") // ACID (import) / UCR (export), 19 digits
+  voyageNo        String?   @map("voyage_no")
+  bookingNo       String?   @map("booking_no")
+  loadingPortId   Int?      @map("loading_port_id")
+  dischargePortId Int?      @map("discharge_port_id")
+  freeZoneId      Int?      @map("free_zone_id")
+  loadType        LoadType? @map("load_type")
+  containersCount Int?      @map("containers_count")
+
+  // operation
+  vesselName String?   @map("vessel_name")
+  eta        DateTime? @db.Date
+
+  // customs (Nafeza) tab
+  certificateNo       String?   @map("certificate_no")
+  certificateDate     DateTime? @map("certificate_date") @db.Date
+  deliveryOrderDate   DateTime? @map("delivery_order_date") @db.Date
+  form46Date          DateTime? @map("form46_date") @db.Date
+  storageYardId       Int?      @map("storage_yard_id")
+  examinationDate     DateTime? @map("examination_date") @db.Date
+  inspectionDate      DateTime? @map("inspection_date") @db.Date
+  approvalDate        DateTime? @map("approval_date") @db.Date
+  paymentDate         DateTime? @map("payment_date") @db.Date
+  releaseDate         DateTime? @map("release_date") @db.Date // import: تاريخ الصرف
+  deliveredToPortDate DateTime? @map("delivered_to_port_date") @db.Date // export
+  releaseReceivedDate DateTime? @map("release_received_date") @db.Date // export
+  shippedDate         DateTime? @map("shipped_date") @db.Date // export
+
+  currentStage ShipmentStage @default(REGISTERED) @map("current_stage")
+  stageHistory Json          @default("[]") @map("stage_history") // [{from,to,movement,at,by,reason}]
+  inspections  Json          @default("[]") // [{authorityId,requestedAt,result,resultDate,notes}]
+
+  version     Int      @default(0) // optimistic locking
+  createdById Int      @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  client            Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  factory           Factory      @relation(fields: [factoryId, clientId], references: [id, clientId], onDelete: Restrict)
+  clearer           Clearer      @relation(fields: [clearerId], references: [id], onDelete: Restrict)
+  operationEmployee Employee     @relation("ShipmentOperation", fields: [operationEmployeeId], references: [id], onDelete: Restrict)
+  country           Country      @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  carrier           Carrier?     @relation(fields: [carrierId], references: [id], onDelete: Restrict)
+  loadingPort       Port?        @relation("ShipmentLoadingPort", fields: [loadingPortId], references: [id], onDelete: Restrict)
+  dischargePort     Port?        @relation("ShipmentDischargePort", fields: [dischargePortId], references: [id], onDelete: Restrict)
+  freeZone          FreeZone?    @relation(fields: [freeZoneId], references: [id], onDelete: Restrict)
+  storageYard       StorageYard? @relation(fields: [storageYardId], references: [id], onDelete: Restrict)
+  createdBy         User         @relation("ShipmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  containers  ShipmentContainer[]
+  billNumbers BillNumber[]
+  documents   ShipmentDocument[]
+
+  @@index([clientId])
+  @@index([operationEmployeeId])
+  @@index([clearerId])
+  @@index([currentStage])
+  @@map("shipments")
+}
+
+model ShipmentContainer {
+  id          Int           @id @default(autoincrement())
+  shipmentId  Int           @map("shipment_id")
+  seq         Int // 1..10
+  containerNo String?       @map("container_no") // optional for LCL
+  type        ContainerType
+  weight      Decimal       @db.Decimal(14, 3)
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, seq])
+  @@index([containerNo])
+  @@map("shipment_containers")
+}
+
+/// Every HB/L and MB/L number, once. Blocks the same number on two shipments in
+/// either column, while HB/L = MB/L on the same shipment is stored once.
+model BillNumber {
+  number     String @id
+  shipmentId Int    @map("shipment_id")
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId])
+  @@map("bill_numbers")
+}
+
+model ShipmentDocument {
+  id           Int       @id @default(autoincrement())
+  shipmentId   Int       @map("shipment_id")
+  name         String // typed by the uploader
+  fileName     String    @map("file_name")
+  url          String
+  publicId     String    @map("public_id") // Cloudinary
+  mimeType     String    @map("mime_type")
+  size         Int
+  uploadedById Int       @map("uploaded_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  deletedAt    DateTime? @map("deleted_at")
+  deletedById  Int?      @map("deleted_by")
+
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+  uploadedBy User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  deletedBy  User?    @relation("DocumentDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId])
+  @@map("shipment_documents")
+}
+
+// ───────────────────────────── System ─────────────────────────────
+
+/// Gap-free counters, e.g. key "file_no:26" → last used number of 2026.
+model Sequence {
+  key   String @id
+  value Int    @default(0)
+
+  @@map("sequences")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  action    String // CREATE / UPDATE / DELETE / LOGIN / STAGE_MOVE ...
+  entity    String
+  entityId  String   @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
