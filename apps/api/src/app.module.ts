@@ -12,6 +12,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { LookupsModule } from './lookups/lookups.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RolesModule } from './roles/roles.module';
+import { ShipmentsModule } from './shipments/shipments.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { UsersModule } from './users/users.module';
     ClearersModule,
     ClientsModule,
     LookupsModule,
+    ShipmentsModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: PrismaExceptionFilter }],
 })

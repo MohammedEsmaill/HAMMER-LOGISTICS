@@ -11,6 +11,7 @@ export interface TestContext {
   app: INestApplication<App>;
   prisma: PrismaClient;
   ceoToken: string;
+  login: (email: string, password: string) => Promise<string>;
   api: (token: string) => {
     get: (path: string) => request.Test;
     post: (path: string, body?: object) => request.Test;
@@ -93,7 +94,7 @@ export async function createTestContext(): Promise<TestContext> {
     };
   };
 
-  return { app, prisma, ceoToken, api, userWithRole };
+  return { app, prisma, ceoToken, login, api, userWithRole };
 }
 
 export async function closeTestContext(ctx: TestContext) {

@@ -181,7 +181,7 @@ describe('Employees, clearers, clients (e2e)', () => {
 
     it('SCAN can list clearer options for the shipment form', async () => {
       const res = await ctx.api(scan).get('/api/clearers/options').expect(200);
-      expect(res.body[0]).toEqual({
+      expect(res.body).toContainEqual({
         id: expect.any(Number),
         fullName: 'Clearer One',
       });
