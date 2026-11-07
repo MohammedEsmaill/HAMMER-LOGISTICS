@@ -15,6 +15,8 @@ interface ComboFieldProps {
   className?: string;
   /** Shown when nothing matches. */
   empty?: string;
+  /** For server-side search: called with what the user types. */
+  onQueryChange?: (query: string) => void;
 }
 
 const MAX_SHOWN = 80;
@@ -31,6 +33,7 @@ export function ComboField({
   disabled,
   className = '',
   empty = 'مفيش نتايج',
+  onQueryChange,
 }: ComboFieldProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -125,6 +128,7 @@ export function ComboField({
                 className="h-11 w-full bg-transparent outline-none placeholder:text-muted/60"
                 onChange={(e) => {
                   setQuery(e.target.value);
+                  onQueryChange?.(e.target.value);
                   setActive(0);
                 }}
                 onKeyDown={(e) => {

@@ -1,5 +1,7 @@
 import {
   BadgeCheck,
+  BookOpenText,
+  Briefcase,
   HandCoins,
   Receipt,
   Landmark,
@@ -54,6 +56,18 @@ export const NAV: NavItem[] = [
     label: 'المصاريف العمومية',
     icon: Receipt,
     any: ['finance.expenses.manage', 'finance.expenses.report'],
+  },
+  {
+    to: '/custodies',
+    label: 'العهد',
+    icon: Briefcase,
+    any: ['finance.custody.manage', 'finance.ledgers.view', 'finance.review', 'finance.manager_approve', 'finance.approve'],
+  },
+  {
+    to: '/ledgers',
+    label: 'كشوف الحساب',
+    icon: BookOpenText,
+    any: ['finance.ledgers.view', 'finance.ledger.own'],
   },
   {
     to: '/approvals',

@@ -23,6 +23,8 @@ const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/approvals': lazy(() => import('@/features/finance/ApprovalsPage')),
   '/payroll': lazy(() => import('@/features/finance/PayrollPage')),
   '/expenses': lazy(() => import('@/features/finance/ExpensesPage')),
+  '/custodies': lazy(() => import('@/features/finance/CustodiesPage')),
+  '/ledgers': lazy(() => import('@/features/finance/LedgersPage')),
 };
 
 const NewShipmentPage = lazy(() => import('@/features/shipments/NewShipmentPage'));

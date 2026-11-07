@@ -28,7 +28,10 @@ import {
   type OtherMovement,
   type Transfer,
 } from './api';
+import { CustodyDrawer } from './CustodyDrawers';
+import type { FeeAdjustment, FeePayment } from './custody-api';
 import { ExpenseDrawer } from './ExpensesPage';
+import { FeeAdjustmentDrawer, FeePaymentDrawer } from './LedgerDrawers';
 import { OtherDrawer, TransferDrawer } from './MovementDrawers';
 import type { Advance, Expense, Salary } from './office-api';
 import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
@@ -51,6 +54,9 @@ const TYPE_OPTIONS = [
   { value: 'SALARY', label: 'المرتبات', restricted: true },
   { value: 'ADVANCE', label: 'السلف', restricted: true },
   { value: 'EXPENSE', label: 'المصاريف العمومية' },
+  { value: 'CUSTODY', label: 'العهد' },
+  { value: 'FEE_PAYMENT', label: 'صرف الأتعاب' },
+  { value: 'FEE_ADJUSTMENT', label: 'تسويات الأتعاب' },
 ];
 
 function RejectDrawer({ op, onClose, onDone }: { op: Operation | null; onClose: () => void; onDone: () => void }) {
@@ -115,7 +121,8 @@ export default function ApprovalsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<Operation | null>(null);
   const [open, setOpen] = useState<{ type: DocType; id: number } | null>(null);
-  const doc = useDocument<unknown>(open?.type ?? 'TRANSFER', open?.id ?? null).data;
+  // a custody drawer loads its own custody (with its items)
+  const doc = useDocument<unknown>(open?.type ?? 'TRANSFER', open?.type === 'CUSTODY' ? null : (open?.id ?? null)).data;
   const shown = (type: DocType) => (open?.type === type && doc ? doc : null);
   const set = (patch: Partial<ApprovalsQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
   const refresh = () => queryClient.invalidateQueries({ queryKey: financeKeys.all });
@@ -232,6 +239,9 @@ export default function ApprovalsPage() {
       <SalaryDrawer salary={shown('SALARY') as Salary | null} open={!!shown('SALARY')} onClose={() => setOpen(null)} />
       <AdvanceDrawer advance={shown('ADVANCE') as Advance | null} open={!!shown('ADVANCE')} onClose={() => setOpen(null)} />
       <ExpenseDrawer expense={shown('EXPENSE') as Expense | null} open={!!shown('EXPENSE')} onClose={() => setOpen(null)} />
+      <CustodyDrawer custodyId={open?.type === 'CUSTODY' ? open.id : null} onClose={() => setOpen(null)} />
+      <FeePaymentDrawer fee={null} payment={shown('FEE_PAYMENT') as FeePayment | null} open={!!shown('FEE_PAYMENT')} onClose={() => setOpen(null)} />
+      <FeeAdjustmentDrawer adjustment={shown('FEE_ADJUSTMENT') as FeeAdjustment | null} open={!!shown('FEE_ADJUSTMENT')} onClose={() => setOpen(null)} />
     </>
   );
 }

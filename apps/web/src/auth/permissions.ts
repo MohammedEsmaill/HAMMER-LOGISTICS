@@ -33,7 +33,11 @@ export type Permission =
   | 'finance.approved.edit'
   | 'finance.payroll.manage'
   | 'finance.expenses.manage'
-  | 'finance.expenses.report';
+  | 'finance.expenses.report'
+  | 'finance.custody.manage'
+  | 'finance.fees.adjust'
+  | 'finance.ledgers.view'
+  | 'finance.ledger.own';
 
 export interface Profile {
   id: number;

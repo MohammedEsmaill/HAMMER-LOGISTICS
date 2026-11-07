@@ -36,6 +36,7 @@ export class EmployeesController {
     'clients.manage',
     'shipments.reassign',
     'finance.payroll.manage',
+    'finance.custody.manage',
   )
   options(@Query() query: EmployeeOptionsQueryDto) {
     return this.employees.options(query.department);
