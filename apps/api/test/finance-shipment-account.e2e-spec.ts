@@ -23,7 +23,7 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
 
   beforeAll(async () => {
     ctx = await createTestContext();
-    fx = await shipmentFixtures(ctx, '4');
+    fx = await shipmentFixtures(ctx, '0');
     treasury = (await ctx.userWithRole('931', 'TREASURY_MANAGER', 'ACCOUNTS'))
       .token;
     accountant = (await ctx.userWithRole('932', 'ACCOUNTANT', 'ACCOUNTS'))
