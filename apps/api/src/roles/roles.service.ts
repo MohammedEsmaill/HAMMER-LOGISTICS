@@ -31,6 +31,13 @@ export class RolesService {
     }));
   }
 
+  options() {
+    return this.prisma.role.findMany({
+      select: { id: true, name: true, description: true, isSystem: true },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   list() {
     return this.prisma.role.findMany({
       orderBy: { id: 'asc' },

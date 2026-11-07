@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { createBrowserRouter } from 'react-router';
 import { GuestOnly, RequireAuth, RequirePermission } from '@/auth/guards';
 import { LoginPage } from '@/features/auth/LoginPage';
@@ -10,15 +10,28 @@ const HomePage = lazy(() => import('@/pages/HomePage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 const ComingSoonPage = lazy(() => import('@/pages/ComingSoonPage'));
 
-/** Sections whose screens come in the next steps; guarded already by their permissions. */
-const sections = NAV.filter((n) => n.to !== '/').map((item) => ({
-  path: item.to.slice(1),
-  element: (
-    <RequirePermission any={item.any}>
-      <ComingSoonPage title={item.label} />
-    </RequirePermission>
-  ),
-}));
+/** Screens built so far; the rest show "coming next" until their step. */
+const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
+  '/users': lazy(() => import('@/features/users/UsersPage')),
+  '/roles': lazy(() => import('@/features/roles/RolesPage')),
+  '/employees': lazy(() => import('@/features/employees/EmployeesPage')),
+  '/clearers': lazy(() => import('@/features/clearers/ClearersPage')),
+  '/clients': lazy(() => import('@/features/clients/ClientsPage')),
+  '/lookups': lazy(() => import('@/features/lookups/LookupsPage')),
+};
+
+/** Every section is guarded by the same permissions that show it in the sidebar. */
+const sections = NAV.filter((n) => n.to !== '/').map((item) => {
+  const Page = PAGES[item.to];
+  return {
+    path: item.to.slice(1),
+    element: (
+      <RequirePermission any={item.any}>
+        {Page ? <Page /> : <ComingSoonPage title={item.label} />}
+      </RequirePermission>
+    ),
+  };
+});
 
 export const router = createBrowserRouter([
   {
