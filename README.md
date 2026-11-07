@@ -24,7 +24,7 @@ cp .env.example .env
 #    DATABASE_URL="postgresql://hammer:hammer@localhost:5432/hammer_logistics?schema=public"
 #    JWT_ACCESS_SECRET / JWT_REFRESH_SECRET: two different values of `openssl rand -hex 32`
 #    SEED_CEO_EMAIL / SEED_CEO_PASSWORD: the first CEO account (…@hammerline.com)
-npm install
+npm install                   # also runs prisma generate
 npx prisma migrate deploy
 npx prisma db seed            # roles, cash boxes, lookups, the CEO account
 npm run start:dev             # http://localhost:3000/api

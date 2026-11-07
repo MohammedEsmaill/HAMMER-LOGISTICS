@@ -23,7 +23,7 @@ docker compose up -d                 # PostgreSQL على جهازك
 
 cd apps/api
 cp .env.example .env                 # افتحه واكتب القيم (تحت)
-npm install
+npm install                          # بيعمل prisma generate تلقائي
 npx prisma migrate deploy
 npx prisma db seed                   # الأدوار والقوائم وحساب الـ CEO
 npm run build
