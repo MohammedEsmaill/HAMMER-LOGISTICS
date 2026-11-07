@@ -3,6 +3,7 @@ import {
   CustodyHolder,
   CustodyPurpose,
   CustodyStatus,
+  ReceiptKind,
 } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
@@ -114,11 +115,19 @@ export class CustodyItemDto {
   @PositiveMoney()
   amount!: number;
 
-  /** Digits only; printed as PAYMENT RECEIPT NO- + the number. */
+  /** Digits and dashes, e.g. 861-26 (number - year). */
   @IsOptional()
   @Trim()
-  @Matches(/^[0-9]{1,20}$/, { message: 'رقم الإيصال أرقام بس' })
+  @Matches(/^[0-9]+(-[0-9]+)*$/, {
+    message: 'رقم الإيصال أرقام وشرطة بس (زي 861-26)',
+  })
+  @MaxLength(30)
   receiptNo?: string;
+
+  /** What the receipt is: it sets the statement line (default PAYMENT RECEIPT NO). */
+  @IsOptional()
+  @IsEnum(ReceiptKind)
+  receiptKind?: ReceiptKind;
 
   @IsOptional()
   @Trim()

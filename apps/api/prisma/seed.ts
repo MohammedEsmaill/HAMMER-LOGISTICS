@@ -103,12 +103,19 @@ const ROLES: {
       'finance.expenses.report',
       'finance.custody.manage',
       'finance.ledgers.view',
+      'finance.client-ledger.view',
     ],
   },
   {
     name: 'ACCOUNTANT',
     description: 'المحاسب',
-    permissions: ['clients.view', 'shipments.view.all', 'finance.review'],
+    permissions: [
+      'clients.view',
+      'shipments.view.all',
+      'finance.review',
+      'finance.shipment-account.view',
+      'finance.statement.manage',
+    ],
   },
   {
     name: 'ACCOUNTS_MANAGER',
@@ -118,6 +125,8 @@ const ROLES: {
       'shipments.view.all',
       'finance.manager_approve',
       'finance.ledgers.view',
+      'finance.shipment-account.view',
+      'finance.client-ledger.view',
     ],
   },
   {
@@ -129,6 +138,9 @@ const ROLES: {
       'shipments.view.all',
       'finance.balances.view',
       'finance.ledgers.view',
+      'finance.shipment-account.view',
+      'finance.collections.manage',
+      'finance.client-ledger.view',
     ],
   },
   {
@@ -175,6 +187,22 @@ const GRANTS: { id: string; roles: Record<string, Permission[]> }[] = [
       ACCOUNTS_MANAGER: ['finance.ledgers.view'],
       FINANCIAL_RELATIONS: ['finance.ledgers.view'],
       CLEARER: ['finance.ledger.own'],
+    },
+  },
+  {
+    id: 'finance-phase-4',
+    roles: {
+      ACCOUNTANT: ['finance.shipment-account.view', 'finance.statement.manage'],
+      ACCOUNTS_MANAGER: [
+        'finance.shipment-account.view',
+        'finance.client-ledger.view',
+      ],
+      FINANCIAL_RELATIONS: [
+        'finance.shipment-account.view',
+        'finance.collections.manage',
+        'finance.client-ledger.view',
+      ],
+      TREASURY_MANAGER: ['finance.client-ledger.view'],
     },
   },
 ];

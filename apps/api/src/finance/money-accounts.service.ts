@@ -23,6 +23,7 @@ const SOURCE_LABELS = {
   EXPENSE: 'مصروف عمومي',
   CUSTODY: 'عهدة',
   FEE_PAYMENT: 'صرف أتعاب',
+  COLLECTION: 'تحصيل من عميل',
 } as const;
 
 @Injectable()
@@ -161,6 +162,13 @@ export class MoneyAccountsService {
               id: true,
               custodyNo: true,
               holderType: true,
+              shipment: { select: { fileNo: true } },
+            },
+          },
+          collection: {
+            select: {
+              id: true,
+              client: { select: { name: true } },
               shipment: { select: { fileNo: true } },
             },
           },

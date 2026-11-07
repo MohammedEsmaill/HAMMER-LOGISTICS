@@ -3,6 +3,15 @@ import { ApprovalService } from './approvals/approval.service';
 import { ApprovalsController } from './approvals/approvals.controller';
 import { BeneficiariesService } from './beneficiaries.service';
 import { ClearerFeesService } from './clearer-fees.service';
+import { ClientLedgerService } from './client-ledger.service';
+import { CollectionsService } from './collections.service';
+import {
+  ClientLedgerController,
+  CollectionsController,
+  InvoicesController,
+  ShipmentAccountsController,
+} from './shipment-account.controller';
+import { ShipmentAccountService } from './shipment-account.service';
 import {
   BeneficiariesController,
   ClearerFeesController,
@@ -37,6 +46,10 @@ import { TransfersService } from './transfers.service';
     ClearerFeesController,
     LedgersController,
     BeneficiariesController,
+    ShipmentAccountsController,
+    InvoicesController,
+    CollectionsController,
+    ClientLedgerController,
   ],
   providers: [
     LedgerService,
@@ -50,6 +63,9 @@ import { TransfersService } from './transfers.service';
     ClearerFeesService,
     HolderLedgerService,
     BeneficiariesService,
+    ShipmentAccountService,
+    CollectionsService,
+    ClientLedgerService,
   ],
   exports: [LedgerService, ApprovalService, ClearerFeesService],
 })

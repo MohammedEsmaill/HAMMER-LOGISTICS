@@ -26,6 +26,17 @@ import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const ZERO = new Prisma.Decimal(0);
 
+async function assertAccountOpen(tx: Tx, shipmentId: number) {
+  const account = await tx.shipmentAccount.findUnique({
+    where: { shipmentId },
+  });
+  if (account?.status === 'FINISHED') {
+    throw new BadRequestException(
+      'حساب الشحنة منتهي، لازم يتفتح الأول علشان تصرف أو تصفّي عهدة عليها',
+    );
+  }
+}
+
 /** What each holder type may be used for, paid from, and whether it may overspend (spec section 11). */
 const HOLDERS: Record<
   CustodyHolder,
@@ -161,6 +172,7 @@ export class CustodiesService {
         where: { id: dto.shipmentId },
       });
       if (!shipment) throw new NotFoundException('الشحنة غير موجودة');
+      await assertAccountOpen(tx, shipment.id);
       if (
         rule.purposes &&
         (!dto.purpose || !rule.purposes.includes(dto.purpose))
@@ -287,6 +299,8 @@ export class CustodiesService {
       await claimDocument(tx, 'CUSTODY', id, dto.version);
       const before = await tx.custody.findUniqueOrThrow({ where: { id } });
       const resettle = before.status === 'SETTLED';
+      // the client statement is frozen once the shipment account is finished
+      await assertAccountOpen(tx, before.shipmentId);
       const { resetApproval } = resettle
         ? assertCanEdit(actor, {
             createdById: before.settledById!,
@@ -481,6 +495,9 @@ export class CustodiesService {
           expenseTypeId: type.id,
           amount: decimal(item.amount),
           receiptNo: item.receiptNo ?? null,
+          receiptKind: item.receiptNo
+            ? (item.receiptKind ?? 'PAYMENT_RECEIPT')
+            : null,
           description: item.description ?? null,
         },
       });

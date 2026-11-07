@@ -39,6 +39,11 @@ export const PERMISSIONS = {
   'finance.fees.adjust': 'تعديل أتعاب مستخلص على شحنة (تسوية)',
   'finance.ledgers.view': 'كشوف حساب المستخلصين والمندوبين',
   'finance.ledger.own': 'كشف حسابي (للمستخلص)',
+  'finance.shipment-account.view': 'عرض حساب الشحنة والـ STATEMENT والفواتير',
+  'finance.statement.manage': 'تجهيز كشف حساب الشحنة وإنهاؤه وإصدار الفواتير',
+  'finance.collections.manage': 'تسجيل التحصيل من العملاء',
+  'finance.client-ledger.view': 'كشوف حساب العملاء',
+  'settings.manage': 'إعدادات الشركة (بيانات الفواتير)',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -53,6 +58,7 @@ export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'finance.accounts.manage',
   'finance.approved.edit',
   'finance.fees.adjust',
+  'settings.manage',
 ]);
 
 export function isPermission(value: string): value is Permission {

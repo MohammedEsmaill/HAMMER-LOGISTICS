@@ -60,6 +60,18 @@ export const APPROVABLE = {
     flow: 'THREE_LEVELS',
     restricted: false,
   },
+  INVOICE: {
+    table: 'invoices',
+    label: 'فاتورة',
+    flow: 'THREE_LEVELS',
+    restricted: false,
+  },
+  COLLECTION: {
+    table: 'collections',
+    label: 'تحصيل',
+    flow: 'THREE_LEVELS',
+    restricted: false,
+  },
 } as const satisfies Record<
   string,
   { table: string; label: string; flow: ApprovalFlow; restricted: boolean }

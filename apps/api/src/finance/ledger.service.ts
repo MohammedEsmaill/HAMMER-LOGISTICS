@@ -29,6 +29,7 @@ const SOURCE_COLUMN: Record<
   | 'expenseId'
   | 'custodyId'
   | 'feePaymentId'
+  | 'collectionId'
 > = {
   TRANSFER: 'transferId',
   OTHER: 'otherMovementId',
@@ -37,6 +38,7 @@ const SOURCE_COLUMN: Record<
   EXPENSE: 'expenseId',
   CUSTODY: 'custodyId',
   FEE_PAYMENT: 'feePaymentId',
+  COLLECTION: 'collectionId',
 };
 
 interface LockedAccount {
