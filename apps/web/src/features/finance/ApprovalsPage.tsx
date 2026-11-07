@@ -28,7 +28,10 @@ import {
   type OtherMovement,
   type Transfer,
 } from './api';
+import { ExpenseDrawer } from './ExpensesPage';
 import { OtherDrawer, TransferDrawer } from './MovementDrawers';
+import type { Advance, Expense, Salary } from './office-api';
+import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
 
 /** The step that moves a document on from each status, with its button. */
 const NEXT: Partial<Record<ApprovalStatus, { action: ApprovalAction; label: string }>> = {
@@ -40,6 +43,9 @@ const NEXT: Partial<Record<ApprovalStatus, { action: ApprovalAction; label: stri
 const TYPE_OPTIONS = [
   { value: 'TRANSFER', label: 'التحويلات' },
   { value: 'OTHER', label: 'الحركات التانية' },
+  { value: 'SALARY', label: 'المرتبات' },
+  { value: 'ADVANCE', label: 'السلف' },
+  { value: 'EXPENSE', label: 'المصاريف العمومية' },
 ];
 
 function RejectDrawer({ op, onClose, onDone }: { op: Operation | null; onClose: () => void; onDone: () => void }) {
@@ -103,7 +109,8 @@ export default function ApprovalsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<Operation | null>(null);
   const [open, setOpen] = useState<{ type: DocType; id: number } | null>(null);
-  const doc = useDocument(open?.type ?? 'TRANSFER', open?.id ?? null).data;
+  const doc = useDocument<unknown>(open?.type ?? 'TRANSFER', open?.id ?? null).data;
+  const shown = (type: DocType) => (open?.type === type && doc ? doc : null);
   const set = (patch: Partial<ApprovalsQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
   const refresh = () => queryClient.invalidateQueries({ queryKey: financeKeys.all });
 
@@ -214,8 +221,11 @@ export default function ApprovalsPage() {
         <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
       </div>
       <RejectDrawer op={rejecting} onClose={() => setRejecting(null)} onDone={refresh} />
-      <TransferDrawer transfer={open?.type === 'TRANSFER' ? ((doc as Transfer) ?? null) : null} open={open?.type === 'TRANSFER' && !!doc} onClose={() => setOpen(null)} />
-      <OtherDrawer movement={open?.type === 'OTHER' ? ((doc as OtherMovement) ?? null) : null} open={open?.type === 'OTHER' && !!doc} onClose={() => setOpen(null)} />
+      <TransferDrawer transfer={shown('TRANSFER') as Transfer | null} open={!!shown('TRANSFER')} onClose={() => setOpen(null)} />
+      <OtherDrawer movement={shown('OTHER') as OtherMovement | null} open={!!shown('OTHER')} onClose={() => setOpen(null)} />
+      <SalaryDrawer salary={shown('SALARY') as Salary | null} open={!!shown('SALARY')} onClose={() => setOpen(null)} />
+      <AdvanceDrawer advance={shown('ADVANCE') as Advance | null} open={!!shown('ADVANCE')} onClose={() => setOpen(null)} />
+      <ExpenseDrawer expense={shown('EXPENSE') as Expense | null} open={!!shown('EXPENSE')} onClose={() => setOpen(null)} />
     </>
   );
 }

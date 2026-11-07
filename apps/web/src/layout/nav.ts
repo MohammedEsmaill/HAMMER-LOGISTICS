@@ -1,5 +1,7 @@
 import {
   BadgeCheck,
+  HandCoins,
+  Receipt,
   Landmark,
   Building2,
   Container,
@@ -40,6 +42,18 @@ export const NAV: NavItem[] = [
     label: 'الخزن والبنوك',
     icon: Landmark,
     any: ['finance.balances.view', 'finance.movements.create', 'finance.accounts.manage'],
+  },
+  {
+    to: '/payroll',
+    label: 'المرتبات والسلف',
+    icon: HandCoins,
+    any: ['finance.payroll.manage', 'employees.salary.view'],
+  },
+  {
+    to: '/expenses',
+    label: 'المصاريف العمومية',
+    icon: Receipt,
+    any: ['finance.expenses.manage', 'finance.expenses.report'],
   },
   {
     to: '/approvals',

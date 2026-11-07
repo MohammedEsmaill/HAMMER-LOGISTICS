@@ -6,7 +6,7 @@ export type Currency = 'EGP' | 'USD';
 export type ApprovalStatus = 'PENDING' | 'REVIEWED' | 'MANAGER_APPROVED' | 'APPROVED' | 'REJECTED';
 export type OtherKind = 'FUNDING' | 'BANK_CHARGES' | 'ADJUSTMENT';
 export type Direction = 'IN' | 'OUT';
-export type DocType = 'TRANSFER' | 'OTHER';
+export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE';
 
 export const CURRENCIES: Record<Currency, { label: string; symbol: string }> = {
   EGP: { label: 'جنيه', symbol: 'ج' },
@@ -50,7 +50,7 @@ interface UserRef {
   email: string;
 }
 
-interface Approval {
+export interface Approval {
   approvalStatus: ApprovalStatus;
   version: number;
   createdAt: string;
@@ -100,6 +100,9 @@ export interface LedgerLine {
   createdBy: UserRef;
   transfer: { id: number; chequeNo: string | null; notes: string | null; fromAccount: { id: number; name: string }; toAccount: { id: number; name: string } } | null;
   otherMovement: { id: number; kind: OtherKind; reason: string } | null;
+  salary: { id: number; salaryMonth: string; employee: { id: number; fullName: string } } | null;
+  advance: { id: number; employee: { id: number; fullName: string } } | null;
+  expense: { id: number; payee: string; receiptNo: string; expenseType: { name: string } } | null;
 }
 
 export interface Ledger extends Page<LedgerLine> {
@@ -182,12 +185,19 @@ export const useApprovals = (q: ApprovalsQuery) =>
     placeholderData: keepPreviousData,
   });
 
-const DOC_PATH: Record<DocType, string> = { TRANSFER: '/finance/transfers', OTHER: '/finance/other-movements' };
+const DOC_PATH: Record<DocType, string> = {
+  TRANSFER: '/finance/transfers',
+  OTHER: '/finance/other-movements',
+  SALARY: '/finance/salaries',
+  ADVANCE: '/finance/advances',
+  EXPENSE: '/finance/expenses',
+};
 
-export const useDocument = (type: DocType, id: number | null) =>
+/** One financial document in full (with its approval trail), for its drawer. */
+export const useDocument = <T = Transfer | OtherMovement>(type: DocType, id: number | null) =>
   useQuery({
     queryKey: financeKeys.doc(type, id ?? 0),
-    queryFn: () => api.get<Transfer | OtherMovement>(`${DOC_PATH[type]}/${id}`),
+    queryFn: () => api.get<T>(`${DOC_PATH[type]}/${id}`),
     enabled: !!id,
   });
 

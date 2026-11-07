@@ -30,7 +30,10 @@ export type Permission =
   | 'finance.review'
   | 'finance.manager_approve'
   | 'finance.approve'
-  | 'finance.approved.edit';
+  | 'finance.approved.edit'
+  | 'finance.payroll.manage'
+  | 'finance.expenses.manage'
+  | 'finance.expenses.report';
 
 export interface Profile {
   id: number;

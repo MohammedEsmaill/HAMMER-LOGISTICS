@@ -3,7 +3,6 @@ import { Check, Circle, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -11,15 +10,15 @@ import { Badge } from '@/components/ui/misc';
 import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { useAction } from '@/lib/mutations';
+import { accountOptions, useEditable } from './finance-helpers';
 import {
   financeApi,
   financeKeys,
-  money,
   OTHER_KINDS,
   STATUS,
   today,
   useAccounts,
-  type MoneyAccount,
+  type Approval,
   type OtherMovement,
   type Transfer,
 } from './api';
@@ -29,7 +28,7 @@ const dateTime = (iso?: string | null) =>
 const who = (u?: { email: string } | null) => u?.email.split('@')[0] ?? '';
 
 /** The document's way through the three approval levels. */
-export function ApprovalTrail({ doc }: { doc: Transfer | OtherMovement }) {
+export function ApprovalTrail({ doc }: { doc: Approval }) {
   const steps = [
     { label: 'التسجيل', by: doc.createdBy, at: doc.createdAt, done: true },
     { label: 'مراجعة المحاسب', by: doc.reviewedBy, at: doc.reviewedAt, done: !!doc.reviewedAt },
@@ -71,19 +70,6 @@ export function ApprovalTrail({ doc }: { doc: Transfer | OtherMovement }) {
     </div>
   );
 }
-
-/** Who may change this document now (the API enforces the same rule). */
-function useEditable(doc: Transfer | OtherMovement | null) {
-  const { can, user } = useAuth();
-  if (!doc) return can('finance.movements.create');
-  if (doc.approvalStatus === 'APPROVED') return can('finance.approved.edit');
-  return doc.createdBy.id === user?.id || can('finance.approved.edit');
-}
-
-const accountOptions = (accounts: MoneyAccount[], keep?: number) =>
-  accounts
-    .filter((a) => a.isActive || a.id === keep)
-    .map((a) => ({ value: a.id, label: `${a.name} · ${money(a.balance, a.currency)}` }));
 
 const amount = z.preprocess(
   (v) => (v === '' ? undefined : v),
