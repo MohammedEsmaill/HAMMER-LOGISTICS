@@ -9,7 +9,10 @@
 
 1. ثبّت **Node 22** و**Docker Desktop**.
 2. ثبّت **cloudflared**:
-   - Windows: `winget install --id Cloudflare.cloudflared`
+   - Windows (PowerShell): نزّله مباشرة في فولدر المشروع:
+     `Invoke-WebRequest -Uri https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe`
+     وبعدين بتشغّله بـ `.\cloudflared.exe` بدل `cloudflared`.
+     (أو `winget install --id Cloudflare.cloudflared` لو winget موجود عندك.)
    - Mac: `brew install cloudflared`
 3. نزّل الكود وجهّز الداتابيز والـ API زي `README.md`:
 
