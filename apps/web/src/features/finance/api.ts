@@ -122,6 +122,8 @@ export interface Operation {
   createdAt: string;
   version: number;
   rejectionReason: string | null;
+  /** FINAL_ONLY: salaries and advances, approved by the general auditor alone. */
+  flow: 'THREE_LEVELS' | 'FINAL_ONLY';
   canAct: boolean;
 }
 

@@ -26,16 +26,11 @@ import {
 import { PayrollService } from './payroll.service';
 
 /**
- * Salaries are seen by who pays them, who may see salaries (HR, CEO) and the
- * approvers who review them.
+ * Salaries and advances are seen by who pays them (treasury manager), the general
+ * auditor who approves them, and the CEO. Not HR, the accountant or the accounts
+ * manager (HR sees the basic salary on the employee record only).
  */
-const READ = [
-  'finance.payroll.manage',
-  'employees.salary.view',
-  'finance.review',
-  'finance.manager_approve',
-  'finance.approve',
-] as const;
+const READ = ['finance.payroll.manage', 'finance.approve'] as const;
 const EDIT = ['finance.payroll.manage', 'finance.approved.edit'] as const;
 
 @Controller('finance')

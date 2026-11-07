@@ -47,7 +47,7 @@ export const NAV: NavItem[] = [
     to: '/payroll',
     label: 'المرتبات والسلف',
     icon: HandCoins,
-    any: ['finance.payroll.manage', 'employees.salary.view'],
+    any: ['finance.payroll.manage', 'finance.approve'],
   },
   {
     to: '/expenses',

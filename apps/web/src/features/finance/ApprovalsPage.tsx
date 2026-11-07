@@ -40,11 +40,16 @@ const NEXT: Partial<Record<ApprovalStatus, { action: ApprovalAction; label: stri
   MANAGER_APPROVED: { action: 'approve', label: 'اعتماد' },
 };
 
+/** Salaries and advances: the general auditor approves them in one step. */
+const FINAL_ONLY_NEXT: Partial<Record<ApprovalStatus, { action: ApprovalAction; label: string }>> = {
+  PENDING: { action: 'approve', label: 'اعتماد' },
+};
+
 const TYPE_OPTIONS = [
   { value: 'TRANSFER', label: 'التحويلات' },
   { value: 'OTHER', label: 'الحركات التانية' },
-  { value: 'SALARY', label: 'المرتبات' },
-  { value: 'ADVANCE', label: 'السلف' },
+  { value: 'SALARY', label: 'المرتبات', restricted: true },
+  { value: 'ADVANCE', label: 'السلف', restricted: true },
   { value: 'EXPENSE', label: 'المصاريف العمومية' },
 ];
 
@@ -103,6 +108,7 @@ function RejectDrawer({ op, onClose, onDone }: { op: Operation | null; onClose: 
 export default function ApprovalsPage() {
   const { canAny } = useAuth();
   const approver = canAny('finance.review', 'finance.manager_approve', 'finance.approve', 'finance.approved.edit');
+  const salaryData = canAny('finance.payroll.manage', 'finance.approve');
   const queryClient = useQueryClient();
   const [q, setQ] = useState<ApprovalsQuery>({ page: 1, status: approver ? 'PENDING' : '', type: '' });
   const { data, isLoading, error } = useApprovals(q);
@@ -155,7 +161,7 @@ export default function ApprovalsPage() {
       header: '',
       className: 'w-0 whitespace-nowrap',
       cell: (o) => {
-        const next = NEXT[o.approvalStatus];
+        const next = o.flow === 'FINAL_ONLY' ? FINAL_ONLY_NEXT[o.approvalStatus] : NEXT[o.approvalStatus];
         if (!o.canAct || !next) return null;
         return (
           <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
@@ -182,7 +188,7 @@ export default function ApprovalsPage() {
         title="الاعتمادات"
         description={
           approver
-            ? 'كل حركة مالية بتعدي على المحاسب ثم مدير الحسابات ثم المراجع العام. الحركة اللي انت سجلتها مبتعتمدهاش.'
+            ? 'كل حركة مالية بتعدي على المحاسب ثم مدير الحسابات ثم المراجع العام، والمرتبات والسلف بيعتمدها المراجع العام مباشرة. الحركة اللي انت سجلتها مبتعتمدهاش.'
             : 'الحركات اللي انت سجلتها وحالة اعتمادها. المرفوضة افتحها وعدّلها.'
         }
       />
@@ -197,7 +203,7 @@ export default function ApprovalsPage() {
           />
         </div>
         <div className="w-44">
-          <SelectField label="النوع" placeholder="الكل" options={TYPE_OPTIONS} value={q.type} onChange={(e) => set({ type: e.target.value as DocType | '' })} />
+          <SelectField label="النوع" placeholder="الكل" options={TYPE_OPTIONS.filter((t) => !t.restricted || salaryData)} value={q.type} onChange={(e) => set({ type: e.target.value as DocType | '' })} />
         </div>
         <TextField label="من" type="date" className="w-44" value={q.from ?? ''} onChange={(e) => set({ from: e.target.value || undefined })} />
         <TextField label="إلى" type="date" className="w-44" value={q.to ?? ''} onChange={(e) => set({ to: e.target.value || undefined })} />

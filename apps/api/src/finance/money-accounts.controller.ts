@@ -55,9 +55,10 @@ export class MoneyAccountsController {
   @Get(':id/movements')
   @RequirePermissions('finance.balances.view')
   ledger(
+    @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,
     @Query() query: LedgerQueryDto,
   ) {
-    return this.accounts.ledger(id, query);
+    return this.accounts.ledger(actor, id, query);
   }
 }

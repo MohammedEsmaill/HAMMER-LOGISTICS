@@ -11,7 +11,12 @@ import { AuthUser, can } from '../../auth/auth-user';
 import { Permission } from '../../auth/permissions';
 import { PrismaService, Tx } from '../../prisma/prisma.service';
 import { ApprovalQueryDto } from './approval.dto';
-import { APPROVABLE, ApprovableType } from './approvable';
+import {
+  APPROVABLE,
+  ApprovableType,
+  ApprovalFlow,
+  RESTRICTED_TYPES,
+} from './approvable';
 
 export { APPROVABLE, APPROVABLE_TYPES } from './approvable';
 export type { ApprovableType } from './approvable';
@@ -19,15 +24,16 @@ export type { ApprovableType } from './approvable';
 export type ApprovalAction =
   'review' | 'manager-approve' | 'approve' | 'reject';
 
+interface Step {
+  from: ApprovalStatus;
+  to: ApprovalStatus;
+  permission: Permission;
+  by: string;
+}
+
 /** Each step: the status it starts from, the one it leads to, who may take it. */
-const STEPS: Record<
-  Exclude<ApprovalAction, 'reject'>,
-  {
-    from: ApprovalStatus;
-    to: ApprovalStatus;
-    permission: Permission;
-    by: string;
-  }
+const THREE_LEVEL_STEPS: Partial<
+  Record<Exclude<ApprovalAction, 'reject'>, Step>
 > = {
   review: {
     from: 'PENDING',
@@ -49,12 +55,42 @@ const STEPS: Record<
   },
 };
 
-/** Whose turn it is at each status: that level may move it on or reject it. */
-const TURN: Partial<Record<ApprovalStatus, Permission>> = {
-  PENDING: 'finance.review',
-  REVIEWED: 'finance.manager_approve',
-  MANAGER_APPROVED: 'finance.approve',
+const FINAL_ONLY_STEPS: Partial<
+  Record<Exclude<ApprovalAction, 'reject'>, Step>
+> = {
+  approve: {
+    from: 'PENDING',
+    to: 'APPROVED',
+    permission: 'finance.approve',
+    by: 'approved',
+  },
 };
+
+const STEPS: Record<ApprovalFlow, typeof THREE_LEVEL_STEPS> = {
+  THREE_LEVELS: THREE_LEVEL_STEPS,
+  FINAL_ONLY: FINAL_ONLY_STEPS,
+};
+
+/** Whose turn it is at each status: that level may move it on or reject it. */
+const TURNS: Record<
+  ApprovalFlow,
+  Partial<Record<ApprovalStatus, Permission>>
+> = {
+  THREE_LEVELS: {
+    PENDING: 'finance.review',
+    REVIEWED: 'finance.manager_approve',
+    MANAGER_APPROVED: 'finance.approve',
+  },
+  FINAL_ONLY: { PENDING: 'finance.approve' },
+};
+
+const turnOf = (type: ApprovableType, status: ApprovalStatus) =>
+  TURNS[APPROVABLE[type].flow][status];
+
+/** Salary data (salaries, advances) is seen by payroll, the general auditor and the CEO. */
+export function canSeeRestricted(actor: AuthUser): boolean {
+  return can(actor, 'finance.payroll.manage') || can(actor, 'finance.approve');
+}
 
 export const APPROVAL_PERMISSIONS: Permission[] = [
   'finance.review',
@@ -115,7 +151,10 @@ export class ApprovalService {
     version: number,
     reason?: string,
   ) {
-    const { table } = APPROVABLE[type];
+    const { table, restricted } = APPROVABLE[type];
+    if (restricted && !canSeeRestricted(actor)) {
+      throw new NotFoundException('الحركة غير موجودة');
+    }
     return this.prisma.$transaction(async (tx) => {
       const doc = await this.find(tx, table, id);
       if (doc.version !== version) {
@@ -128,7 +167,7 @@ export class ApprovalService {
           'مينفعش تراجع أو تعتمد حركة انت اللي سجلتها',
         );
       }
-      const turn = TURN[doc.approval_status];
+      const turn = turnOf(type, doc.approval_status);
       let set: Prisma.Sql;
       let to: ApprovalStatus;
       if (action === 'reject') {
@@ -148,7 +187,12 @@ export class ApprovalService {
         to = 'REJECTED';
         set = Prisma.sql`"rejected_by" = ${actor.id}, "rejected_at" = now(), "rejection_reason" = ${reason.trim()}`;
       } else {
-        const step = STEPS[action];
+        const step = STEPS[APPROVABLE[type].flow][action];
+        if (!step) {
+          throw new BadRequestException(
+            `${APPROVABLE[type].label} بيتعتمد من المراجع العام مباشرة`,
+          );
+        }
         if (!can(actor, step.permission)) {
           throw new ForbiddenException('ليس لديك صلاحية لهذا الإجراء');
         }
@@ -193,6 +237,9 @@ export class ApprovalService {
     if (q.maxAmount !== undefined)
       where.push(Prisma.sql`"amount" <= ${q.maxAmount}`);
     if (q.mine) where.push(Prisma.sql`"created_by" = ${actor.id}`);
+    if (!canSeeRestricted(actor)) {
+      where.push(Prisma.sql`"type" NOT IN (${Prisma.join(RESTRICTED_TYPES)})`);
+    }
     // someone who only records documents sees their own
     if (
       !APPROVAL_PERMISSIONS.some((p) => can(actor, p)) &&
@@ -229,10 +276,11 @@ export class ApprovalService {
         version: r.version,
         rejectionReason: r.rejection_reason,
         // what this user may do with it now
+        flow: APPROVABLE[r.type].flow,
         canAct:
           r.created_by !== actor.id &&
-          !!TURN[r.approval_status] &&
-          can(actor, TURN[r.approval_status]!),
+          !!turnOf(r.type, r.approval_status) &&
+          can(actor, turnOf(r.type, r.approval_status)!),
       })),
       total: Number(total),
       page: q.page,

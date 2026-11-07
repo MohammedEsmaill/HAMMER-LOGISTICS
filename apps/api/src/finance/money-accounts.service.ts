@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
+import { canSeeRestricted } from './approvals/approval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateBankAccountDto,
@@ -112,7 +113,8 @@ export class MoneyAccountsService {
   }
 
   /** The account statement: its ledger lines with the document each came from. */
-  async ledger(id: number, q: LedgerQueryDto) {
+  async ledger(actor: AuthUser, id: number, q: LedgerQueryDto) {
+    const salaryData = canSeeRestricted(actor);
     const account = await this.prisma.moneyAccount.findUnique({
       where: { id },
     });
@@ -181,6 +183,8 @@ export class MoneyAccountsService {
         id: m.id.toString(),
         reversalOfId: m.reversalOfId?.toString() ?? null,
         sourceLabel: SOURCE_LABELS[m.source],
+        // the cash box shows the amount; whose salary it was stays with payroll
+        ...(salaryData ? {} : { salary: null, advance: null }),
       })),
       total,
       page: q.page,

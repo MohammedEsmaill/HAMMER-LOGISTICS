@@ -6,6 +6,7 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
   let accountant: string;
   let hr: string;
   let scan: string;
+  let auditor: string;
   let cashEgp: number;
   let cashUsd: number;
   let employeeId: number;
@@ -31,6 +32,8 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
       .token;
     hr = (await ctx.userWithRole('913', 'HR', 'MANAGEMENT')).token;
     scan = (await ctx.userWithRole('914', 'SCAN')).token;
+    auditor = (await ctx.userWithRole('916', 'GENERAL_AUDITOR', 'ACCOUNTS'))
+      .token;
     const boxes = await ctx.prisma.moneyAccount.findMany({
       where: { type: 'CASH' },
     });
@@ -221,17 +224,13 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
       expect(res.body.lines.at(-1).balance).toBe('2000');
     });
 
-    it('lets HR see salaries but not pay them; hides them from others', async () => {
-      await ctx.api(hr).get('/api/finance/salaries').expect(200);
-      await ctx
-        .api(hr)
-        .post('/api/finance/salaries', {
-          employeeId,
-          salaryMonth: thisMonth(),
-          accountId: cashEgp,
-        })
-        .expect(403);
-      await ctx.api(scan).get('/api/finance/salaries').expect(403);
+    it('shows salaries to payroll, the general auditor and the CEO only', async () => {
+      await ctx.api(auditor).get('/api/finance/salaries').expect(200);
+      await ctx.api(ctx.ceoToken).get('/api/finance/salaries').expect(200);
+      for (const token of [hr, accountant, scan]) {
+        await ctx.api(token).get('/api/finance/salaries').expect(403);
+        await ctx.api(token).get('/api/finance/advances').expect(403);
+      }
     });
 
     it('cannot reduce an advance below what salaries already deducted', async () => {
@@ -321,7 +320,7 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
       await ctx.api(accountant).get('/api/finance/expenses/report').expect(403);
     });
 
-    it('shows up in the approval queue with salaries and advances', async () => {
+    it('the accountant reviews expenses but never sees salaries or advances', async () => {
       const res = await ctx
         .api(accountant)
         .get('/api/finance/approvals?status=PENDING&pageSize=200')
@@ -329,9 +328,9 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
       const types = new Set(
         res.body.items.map((i: { type: string }) => i.type),
       );
-      expect([...types]).toEqual(
-        expect.arrayContaining(['SALARY', 'ADVANCE', 'EXPENSE']),
-      );
+      expect(types.has('EXPENSE')).toBe(true);
+      expect(types.has('SALARY')).toBe(false);
+      expect(types.has('ADVANCE')).toBe(false);
       const expense = res.body.items.find(
         (i: { type: string }) => i.type === 'EXPENSE',
       );
@@ -341,6 +340,59 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
           version: expense.version,
         })
         .expect(201);
+      const salary = await ctx.prisma.salaryPayment.findFirstOrThrow({
+        where: { employeeId },
+      });
+      await ctx
+        .api(accountant)
+        .post(`/api/finance/approvals/SALARY/${salary.id}/review`, {
+          version: salary.version,
+        })
+        .expect(404);
+    });
+
+    it('the general auditor approves salaries and advances directly', async () => {
+      const res = await ctx
+        .api(auditor)
+        .get('/api/finance/approvals?type=SALARY&status=PENDING')
+        .expect(200);
+      const salary = res.body.items[0];
+      expect(salary).toMatchObject({ flow: 'FINAL_ONLY', canAct: true });
+      await ctx
+        .api(auditor)
+        .post(`/api/finance/approvals/SALARY/${salary.id}/review`, {
+          version: salary.version,
+        })
+        .expect(400);
+      const approved = await ctx
+        .api(auditor)
+        .post(`/api/finance/approvals/SALARY/${salary.id}/approve`, {
+          version: salary.version,
+        })
+        .expect(201);
+      expect(approved.body.approvalStatus).toBe('APPROVED');
+    });
+
+    it('hides whose salary a cash box line was from other balance viewers', async () => {
+      const relations = (
+        await ctx.userWithRole('917', 'FINANCIAL_RELATIONS', 'ACCOUNTS')
+      ).token;
+      const res = await ctx
+        .api(relations)
+        .get(`/api/finance/accounts/${cashEgp}/movements?pageSize=200`)
+        .expect(200);
+      const line = res.body.items.find(
+        (l: { source: string }) => l.source === 'SALARY',
+      );
+      expect(line.salary).toBeNull();
+      const own = await ctx
+        .api(treasury)
+        .get(`/api/finance/accounts/${cashEgp}/movements?pageSize=200`)
+        .expect(200);
+      expect(
+        own.body.items.find((l: { source: string }) => l.source === 'SALARY')
+          .salary.employee.fullName,
+      ).toBe('كريم المرتبات');
     });
   });
 });

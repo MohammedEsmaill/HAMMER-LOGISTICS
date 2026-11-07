@@ -28,12 +28,16 @@ const dateTime = (iso?: string | null) =>
 const who = (u?: { email: string } | null) => u?.email.split('@')[0] ?? '';
 
 /** The document's way through the three approval levels. */
-export function ApprovalTrail({ doc }: { doc: Approval }) {
+export function ApprovalTrail({ doc, finalOnly = false }: { doc: Approval; finalOnly?: boolean }) {
   const steps = [
     { label: 'التسجيل', by: doc.createdBy, at: doc.createdAt, done: true },
-    { label: 'مراجعة المحاسب', by: doc.reviewedBy, at: doc.reviewedAt, done: !!doc.reviewedAt },
-    { label: 'مدير الحسابات', by: doc.managerBy, at: doc.managerAt, done: !!doc.managerAt },
-    { label: 'الاعتماد النهائي', by: doc.approvedBy, at: doc.approvedAt, done: !!doc.approvedAt },
+    ...(finalOnly
+      ? []
+      : [
+          { label: 'مراجعة المحاسب', by: doc.reviewedBy, at: doc.reviewedAt, done: !!doc.reviewedAt },
+          { label: 'مدير الحسابات', by: doc.managerBy, at: doc.managerAt, done: !!doc.managerAt },
+        ]),
+    { label: finalOnly ? 'اعتماد المراجع العام' : 'الاعتماد النهائي', by: doc.approvedBy, at: doc.approvedAt, done: !!doc.approvedAt },
   ];
   return (
     <div className="space-y-3 rounded-xl border border-line p-4">
