@@ -97,7 +97,16 @@ export class ClientsService {
     return client;
   }
 
-  /** Factories of one client, for the shipment form. */
+  async factoryOptions(clientId: number) {
+    await this.findClient(clientId);
+    return this.prisma.factory.findMany({
+      where: { clientId, deletedAt: null },
+      select: { id: true, name: true, taxNumber: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  /** Factories of one client, with every field. */
   async factories(clientId: number) {
     await this.findClient(clientId);
     return this.prisma.factory.findMany({

@@ -46,6 +46,13 @@ export class ClientsController {
     return this.clients.get(actor, id);
   }
 
+  /** A client's live factories for the shipment form: id, name and tax number only. */
+  @Get(':id/factories/options')
+  @RequirePermissions('clients.view')
+  factoryOptions(@Param('id', ParseIntPipe) id: number) {
+    return this.clients.factoryOptions(id);
+  }
+
   @Get(':id/factories')
   @RequirePermissions('clients.view')
   factories(@Param('id', ParseIntPipe) id: number) {

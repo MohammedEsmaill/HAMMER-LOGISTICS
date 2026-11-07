@@ -243,8 +243,25 @@ describe('Employees, clearers, clients (e2e)', () => {
     });
 
     it('lists client options (id and name only) for pickers', async () => {
-      const res = await ctx.api(relations).get('/api/clients/options').expect(200);
+      const res = await ctx
+        .api(relations)
+        .get('/api/clients/options')
+        .expect(200);
       expect(res.body).toContainEqual({ id: clientId, name: 'EBM TEXTILE' });
+    });
+
+    it("lists a client's factory options (id, name, tax number only)", async () => {
+      const res = await ctx
+        .api(relations)
+        .get(`/api/clients/${clientId}/factories/options`)
+        .expect(200);
+      expect(res.body).toEqual([
+        {
+          id: expect.any(Number),
+          name: 'EBM Factory 1',
+          taxNumber: '111222333',
+        },
+      ]);
     });
 
     it('refuses an operation employee from another department', async () => {

@@ -197,8 +197,8 @@ export const useClientOptions = () =>
 
 export const useFactories = (clientId: number | undefined) =>
   useQuery({
-    queryKey: ['clients', 'factories', clientId],
-    queryFn: () => api.get<(Named & { taxNumber: string })[]>(`/clients/${clientId}/factories`),
+    queryKey: ['clients', 'factory-options', clientId],
+    queryFn: () => api.get<(Named & { taxNumber: string })[]>(`/clients/${clientId}/factories/options`),
     enabled: !!clientId,
     staleTime: 5 * 60_000,
   });
