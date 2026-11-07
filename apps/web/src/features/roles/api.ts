@@ -66,4 +66,5 @@ export const PERMISSION_GROUPS: Record<string, string> = {
   shipments: 'الشحنات',
   audit: 'المراجعة',
   finance: 'الحسابات',
+  settings: 'الإعدادات',
 };

@@ -22,6 +22,8 @@ import {
   type Custody,
   type HolderType,
   type Purpose,
+  type ReceiptKind,
+  RECEIPT_KINDS,
 } from './custody-api';
 import { BeneficiaryPicker } from './BeneficiaryPicker';
 import { ApprovalTrail } from './MovementDrawers';
@@ -218,6 +220,7 @@ interface ItemRow {
   expenseType: string;
   amount: string;
   receiptNo: string;
+  receiptKind: ReceiptKind;
   description: string;
 }
 
@@ -248,6 +251,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
           expenseType: i.expenseType.trim(),
           amount: Number(i.amount),
           receiptNo: i.receiptNo.trim() || undefined,
+          receiptKind: i.receiptNo.trim() ? i.receiptKind : undefined,
           description: i.description.trim() || undefined,
         })),
       }),
@@ -262,9 +266,9 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     setSettlementDate(custody.settlementDate?.slice(0, 10) ?? today());
     setItems(
       custody.items?.length
-        ? custody.items.map((i) => ({ expenseType: i.expenseType.name, amount: i.amount, receiptNo: i.receiptNo ?? '', description: i.description ?? '' }))
+        ? custody.items.map((i) => ({ expenseType: i.expenseType.name, amount: i.amount, receiptNo: i.receiptNo ?? '', receiptKind: i.receiptKind ?? 'PAYMENT_RECEIPT', description: i.description ?? '' }))
         : // a bank transfer is spent exactly: one line for the whole amount to start from
-          [{ expenseType: '', amount: custody.holderType === 'BANK_TRANSFER' ? custody.amount : '', receiptNo: '', description: '' }],
+          [{ expenseType: '', amount: custody.holderType === 'BANK_TRANSFER' ? custody.amount : '', receiptNo: '', receiptKind: 'PAYMENT_RECEIPT', description: '' }],
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when another custody (or version) loads
   }, [custody?.id, custody?.version]);
@@ -293,7 +297,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     items.forEach((it, i) => {
       if (it.expenseType.trim().length < 2) p[`type${i}`] = 'اكتب النوع';
       if (!validAmount(it.amount)) p[`amount${i}`] = 'مبلغ غير صحيح';
-      if (it.receiptNo && !/^[0-9]{1,20}$/.test(it.receiptNo.trim())) p[`receipt${i}`] = 'أرقام بس';
+      if (it.receiptNo && !/^[0-9]+(-[0-9]+)*$/.test(it.receiptNo.trim())) p[`receipt${i}`] = 'أرقام وشرطة بس (861-26)';
       if (!it.receiptNo.trim() && !it.description.trim()) p[`receipt${i}`] = 'الإيصال أو الوصف';
     });
     if (custody.holderType === 'BANK_TRANSFER' && totals.diff !== 0) p.items = `في التحويل البنكي المصروف لازم يساوي ${money(custody.amount)} بالظبط`;
@@ -376,7 +380,24 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                 <span className="grid size-8 place-items-center rounded-lg bg-gold/10 text-sm font-bold text-gold sm:mt-8">{i + 1}</span>
                 <TextField label="النوع" list={listId} value={it.expenseType} onChange={(e) => setItem(i, { expenseType: e.target.value })} error={problems[`type${i}`]} />
                 <TextField label="المبلغ" type="number" step="0.01" min="0.01" dir="ltr" value={it.amount} onChange={(e) => setItem(i, { amount: e.target.value })} error={problems[`amount${i}`]} />
-                <TextField label="رقم الإيصال" dir="ltr" inputMode="numeric" value={it.receiptNo} onChange={(e) => setItem(i, { receiptNo: e.target.value })} error={problems[`receipt${i}`]} />
+<div className="space-y-1">
+                  <TextField label="رقم الإيصال" dir="ltr" placeholder="861-26" value={it.receiptNo} onChange={(e) => setItem(i, { receiptNo: e.target.value })} error={problems[`receipt${i}`]} />
+                  {it.receiptNo && (
+                    <select
+                      aria-label="نوع المستند"
+                      value={it.receiptKind}
+                      onChange={(e) => setItem(i, { receiptKind: e.target.value as ReceiptKind })}
+                      className="h-8 w-full rounded-lg border border-line bg-surface-2 px-2 text-xs"
+                      dir="ltr"
+                    >
+                      {(Object.keys(RECEIPT_KINDS) as ReceiptKind[]).map((k) => (
+                        <option key={k} value={k}>
+                          {RECEIPT_KINDS[k].label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
                 <TextField label="الوصف" value={it.description} maxLength={300} onChange={(e) => setItem(i, { description: e.target.value })} />
                 <div className="sm:mt-8">
                   <IconButton label={`شيل البند ${i + 1}`} tone="danger" onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>
@@ -385,7 +406,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                 </div>
               </div>
             ))}
-            <Button type="button" variant="ghost" icon={<Plus className="size-4" />} onClick={() => setItems((l) => [...l, { expenseType: '', amount: '', receiptNo: '', description: '' }])}>
+            <Button type="button" variant="ghost" icon={<Plus className="size-4" />} onClick={() => setItems((l) => [...l, { expenseType: '', amount: '', receiptNo: '', receiptKind: 'PAYMENT_RECEIPT', description: '' }])}>
               بند
             </Button>
             <TextField label="تاريخ التصفية" type="date" className="max-w-56" max={today()} value={settlementDate} onChange={(e) => setSettlementDate(e.target.value)} error={problems.date} />
@@ -427,7 +448,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                         <td className="px-3 py-2 text-muted">{i.lineNo}</td>
                         <td className="px-3 py-2">{i.expenseType.name}</td>
                         <td className="px-3 py-2" dir="ltr">
-                          {i.receiptNo ? `PAYMENT RECEIPT NO- ${i.receiptNo}` : i.description}
+                          {i.receiptNo ? RECEIPT_KINDS[i.receiptKind ?? 'PAYMENT_RECEIPT'].line(i.receiptNo) : i.description}
                         </td>
                         <td className="px-3 py-2 font-semibold" dir="ltr">
                           {money(i.amount)}

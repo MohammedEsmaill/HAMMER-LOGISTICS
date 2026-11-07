@@ -1,5 +1,8 @@
 import {
   BadgeCheck,
+  Calculator,
+  Contact,
+  Settings,
   BookOpenText,
   Briefcase,
   HandCoins,
@@ -70,6 +73,18 @@ export const NAV: NavItem[] = [
     any: ['finance.ledgers.view', 'finance.ledger.own'],
   },
   {
+    to: '/shipment-accounts',
+    label: 'حسابات الشحنات',
+    icon: Calculator,
+    any: ['finance.shipment-account.view', 'finance.statement.manage', 'finance.collections.manage'],
+  },
+  {
+    to: '/client-ledgers',
+    label: 'حسابات العملاء',
+    icon: Contact,
+    any: ['finance.client-ledger.view'],
+  },
+  {
     to: '/approvals',
     label: 'الاعتمادات',
     icon: BadgeCheck,
@@ -87,4 +102,5 @@ export const NAV: NavItem[] = [
     icon: ListTree,
     any: ['lookups.add', 'lookups.manage'],
   },
+  { to: '/settings', label: 'إعدادات الشركة', icon: Settings, any: ['settings.manage'] },
 ];

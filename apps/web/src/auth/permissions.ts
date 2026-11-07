@@ -37,7 +37,12 @@ export type Permission =
   | 'finance.custody.manage'
   | 'finance.fees.adjust'
   | 'finance.ledgers.view'
-  | 'finance.ledger.own';
+  | 'finance.ledger.own'
+  | 'finance.shipment-account.view'
+  | 'finance.statement.manage'
+  | 'finance.collections.manage'
+  | 'finance.client-ledger.view'
+  | 'settings.manage';
 
 export interface Profile {
   id: number;

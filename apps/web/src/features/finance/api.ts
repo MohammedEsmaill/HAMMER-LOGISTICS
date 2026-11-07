@@ -6,7 +6,7 @@ export type Currency = 'EGP' | 'USD';
 export type ApprovalStatus = 'PENDING' | 'REVIEWED' | 'MANAGER_APPROVED' | 'APPROVED' | 'REJECTED';
 export type OtherKind = 'FUNDING' | 'BANK_CHARGES' | 'ADJUSTMENT';
 export type Direction = 'IN' | 'OUT';
-export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_ADJUSTMENT' | 'FEE_PAYMENT';
+export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_ADJUSTMENT' | 'FEE_PAYMENT' | 'INVOICE' | 'COLLECTION';
 
 export const CURRENCIES: Record<Currency, { label: string; symbol: string }> = {
   EGP: { label: 'جنيه', symbol: 'ج' },
@@ -105,6 +105,7 @@ export interface LedgerLine {
   expense: { id: number; payee: string; receiptNo: string; expenseType: { name: string } } | null;
   custody: { id: number; custodyNo: string; holderType: string; shipment: { fileNo: string } } | null;
   feePayment: { id: number; fee: { clearer: { fullName: string }; shipment: { fileNo: string } } } | null;
+  collection: { id: number; client: { name: string }; shipment: { fileNo: string } } | null;
 }
 
 export interface Ledger extends Page<LedgerLine> {
@@ -198,6 +199,8 @@ const DOC_PATH: Record<DocType, string> = {
   CUSTODY: '/finance/custodies',
   FEE_ADJUSTMENT: '/finance/clearer-fees/adjustments',
   FEE_PAYMENT: '/finance/clearer-fees/payments',
+  INVOICE: '/finance/invoices',
+  COLLECTION: '/finance/collections',
 };
 
 /** One financial document in full (with its approval trail), for its drawer. */

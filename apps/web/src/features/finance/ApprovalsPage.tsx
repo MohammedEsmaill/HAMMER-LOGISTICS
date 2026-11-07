@@ -28,7 +28,10 @@ import {
   type OtherMovement,
   type Transfer,
 } from './api';
+import { CollectionDrawer } from './AccountActionDrawers';
+import type { Collection } from './account-api';
 import { CustodyDrawer } from './CustodyDrawers';
+import { InvoiceDrawer } from './InvoiceDrawer';
 import type { FeeAdjustment, FeePayment } from './custody-api';
 import { ExpenseDrawer } from './ExpensesPage';
 import { FeeAdjustmentDrawer, FeePaymentDrawer } from './LedgerDrawers';
@@ -57,6 +60,8 @@ const TYPE_OPTIONS = [
   { value: 'CUSTODY', label: 'العهد' },
   { value: 'FEE_PAYMENT', label: 'صرف الأتعاب' },
   { value: 'FEE_ADJUSTMENT', label: 'تسويات الأتعاب' },
+  { value: 'INVOICE', label: 'الفواتير' },
+  { value: 'COLLECTION', label: 'التحصيل' },
 ];
 
 function RejectDrawer({ op, onClose, onDone }: { op: Operation | null; onClose: () => void; onDone: () => void }) {
@@ -122,7 +127,7 @@ export default function ApprovalsPage() {
   const [rejecting, setRejecting] = useState<Operation | null>(null);
   const [open, setOpen] = useState<{ type: DocType; id: number } | null>(null);
   // a custody drawer loads its own custody (with its items)
-  const doc = useDocument<unknown>(open?.type ?? 'TRANSFER', open?.type === 'CUSTODY' ? null : (open?.id ?? null)).data;
+  const doc = useDocument<unknown>(open?.type ?? 'TRANSFER', open?.type === 'CUSTODY' || open?.type === 'INVOICE' ? null : (open?.id ?? null)).data;
   const shown = (type: DocType) => (open?.type === type && doc ? doc : null);
   const set = (patch: Partial<ApprovalsQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
   const refresh = () => queryClient.invalidateQueries({ queryKey: financeKeys.all });
@@ -241,6 +246,8 @@ export default function ApprovalsPage() {
       <ExpenseDrawer expense={shown('EXPENSE') as Expense | null} open={!!shown('EXPENSE')} onClose={() => setOpen(null)} />
       <CustodyDrawer custodyId={open?.type === 'CUSTODY' ? open.id : null} onClose={() => setOpen(null)} />
       <FeePaymentDrawer fee={null} payment={shown('FEE_PAYMENT') as FeePayment | null} open={!!shown('FEE_PAYMENT')} onClose={() => setOpen(null)} />
+      <CollectionDrawer collection={shown('COLLECTION') as Collection | null} open={!!shown('COLLECTION')} onClose={() => setOpen(null)} />
+      <InvoiceDrawer invoiceId={open?.type === 'INVOICE' ? open.id : null} onClose={() => setOpen(null)} />
       <FeeAdjustmentDrawer adjustment={shown('FEE_ADJUSTMENT') as FeeAdjustment | null} open={!!shown('FEE_ADJUSTMENT')} onClose={() => setOpen(null)} />
     </>
   );

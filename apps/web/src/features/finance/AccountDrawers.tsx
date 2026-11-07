@@ -134,6 +134,7 @@ function describe(l: LedgerLine): string {
   if (l.salary) return `${l.salary.employee.fullName} · ${l.salary.salaryMonth.slice(0, 7)}`;
   if (l.advance) return l.advance.employee.fullName;
   if (l.custody) return `${l.custody.custodyNo} · ملف ${l.custody.shipment.fileNo}`;
+  if (l.collection) return `${l.collection.client.name} · ملف ${l.collection.shipment.fileNo}`;
   if (l.feePayment) return `أتعاب ${l.feePayment.fee.clearer.fullName} · ملف ${l.feePayment.fee.shipment.fileNo}`;
   if (l.expense) return `${l.expense.expenseType.name} · ${l.expense.payee} · إيصال ${l.expense.receiptNo}`;
   return l.sourceLabel;
@@ -169,7 +170,7 @@ export function LedgerDrawer({ account, onClose }: { account: MoneyAccount | nul
           <div className="min-w-0">
             <div className="text-sm">
               {l.reversalOfId && <span className="text-warning">قيد عكسي · </span>}
-              {l.sourceLabel} #{l.transfer?.id ?? l.otherMovement?.id ?? l.salary?.id ?? l.advance?.id ?? l.expense?.id ?? l.custody?.id ?? l.feePayment?.id}
+              {l.sourceLabel} #{l.transfer?.id ?? l.otherMovement?.id ?? l.salary?.id ?? l.advance?.id ?? l.expense?.id ?? l.custody?.id ?? l.feePayment?.id ?? l.collection?.id}
             </div>
             <div className="truncate text-xs text-muted">{describe(l)}</div>
           </div>

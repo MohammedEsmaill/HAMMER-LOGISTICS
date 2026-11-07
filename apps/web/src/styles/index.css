@@ -135,3 +135,26 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* printed invoices: A4, white, nothing but the document */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body,
+  #root {
+    background: #fff !important;
+    color-scheme: light;
+  }
+  .invoice-page {
+    min-height: auto !important;
+    margin: 0 !important;
+  }
+  .print-sheet {
+    width: 210mm !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+}

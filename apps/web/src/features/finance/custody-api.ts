@@ -27,8 +27,17 @@ export interface CustodyItem {
   expenseType: { id: number; name: string };
   amount: string;
   receiptNo: string | null;
+  receiptKind: ReceiptKind | null;
   description: string | null;
 }
+
+export type ReceiptKind = 'PAYMENT_RECEIPT' | 'PAYMENT' | 'VAT';
+/** How each receipt kind prints on the statement (same as the API). */
+export const RECEIPT_KINDS: Record<ReceiptKind, { label: string; line: (no: string) => string }> = {
+  PAYMENT_RECEIPT: { label: 'PAYMENT RECEIPT', line: (no) => `PAYMENT RECEIPT NO-${no}` },
+  PAYMENT: { label: 'PAYMENT', line: (no) => `PAYMENT NO ${no}` },
+  VAT: { label: 'VAT', line: (no) => `VAT NO-${no}` },
+};
 
 export interface Custody extends Approval {
   id: number;
@@ -180,6 +189,7 @@ export interface ItemInput {
   expenseType: string;
   amount: number;
   receiptNo?: string;
+  receiptKind?: ReceiptKind;
   description?: string;
 }
 

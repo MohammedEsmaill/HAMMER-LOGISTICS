@@ -1,4 +1,5 @@
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { ArrowRight, Calculator, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/auth/auth-context';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -55,6 +56,7 @@ export default function ShipmentDetailPage() {
   const id = Number(useParams().id);
   const { data: shipment, isLoading, error, refetch, isFetching } = useShipment(id);
   const [tab, setTab] = useState<Tab>('overview');
+  const { canAny } = useAuth();
 
   if (!Number.isInteger(id) || id < 1 || (error instanceof ApiError && error.status === 404)) {
     return <NotFoundPage message="الشحنة دي مش موجودة أو مش من الشحنات اللي تقدر تشوفها." />;
@@ -95,6 +97,11 @@ export default function ShipmentDetailPage() {
             {rules.label} · {shipment.client.name} · {shipment.commodity}
           </div>
         </div>
+        {canAny('finance.shipment-account.view', 'finance.statement.manage', 'finance.collections.manage') && (
+          <Link to={`/shipment-accounts/${shipment.id}`} className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-2 text-sm hover:border-gold/60 hover:text-gold">
+            <Calculator className="size-4" /> حساب الشحنة
+          </Link>
+        )}
         <button
           type="button"
           onClick={() => refetch()}

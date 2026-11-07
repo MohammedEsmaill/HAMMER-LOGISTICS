@@ -16,6 +16,7 @@
     "@tanstack/query-sync-storage-persister": "^5.107.1",
     "@tanstack/react-query": "^5.107.1",
     "@tanstack/react-query-persist-client": "^5.107.1",
+    "exceljs": "^4.4.0",
     "lucide-react": "^0.577.0",
     "motion": "^12.43.0",
     "react": "^19.1.0",

@@ -1,4 +1,4 @@
-import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
+import { lazy, Suspense, type ComponentType, type LazyExoticComponent } from 'react';
 import { createBrowserRouter } from 'react-router';
 import { GuestOnly, RequireAuth, RequirePermission } from '@/auth/guards';
 import { LoginPage } from '@/features/auth/LoginPage';
@@ -25,11 +25,25 @@ const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/expenses': lazy(() => import('@/features/finance/ExpensesPage')),
   '/custodies': lazy(() => import('@/features/finance/CustodiesPage')),
   '/ledgers': lazy(() => import('@/features/finance/LedgersPage')),
+  '/shipment-accounts': lazy(() => import('@/features/finance/ShipmentAccountsPage')),
+  '/client-ledgers': lazy(() => import('@/features/finance/ClientLedgersPage')),
+  '/settings': lazy(() => import('@/features/settings/SettingsPage')),
 };
 
 const NewShipmentPage = lazy(() => import('@/features/shipments/NewShipmentPage'));
 const ShipmentDetailPage = lazy(() => import('@/features/shipments/ShipmentDetailPage'));
 const SHIPMENT_VIEW = ['shipments.view.all', 'shipments.view.own'] as const;
+const ShipmentAccountPage = lazy(() => import('@/features/finance/ShipmentAccountPage'));
+const InvoicePrintPage = lazy(() => import('@/features/finance/InvoicePrintPage'));
+const ACCOUNT_VIEW = [
+  'finance.shipment-account.view',
+  'finance.statement.manage',
+  'finance.collections.manage',
+  'finance.review',
+  'finance.manager_approve',
+  'finance.approve',
+  'finance.client-ledger.view',
+] as const;
 
 /** Every section is guarded by the same permissions that show it in the sidebar. */
 const sections = NAV.filter((n) => n.to !== '/').map((item) => {
@@ -54,6 +68,19 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    // the printable invoice, without the app around it
+    path: '/print/invoices/:id',
+    element: (
+      <RequireAuth>
+        <RequirePermission any={[...ACCOUNT_VIEW]}>
+          <Suspense fallback={null}>
+            <InvoicePrintPage />
+          </Suspense>
+        </RequirePermission>
+      </RequireAuth>
+    ),
+  },
+  {
     path: '/',
     element: (
       <RequireAuth>
@@ -68,6 +95,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission any={['shipments.create']}>
             <NewShipmentPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'shipment-accounts/:id',
+        element: (
+          <RequirePermission any={[...ACCOUNT_VIEW]}>
+            <ShipmentAccountPage />
           </RequirePermission>
         ),
       },
