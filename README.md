@@ -8,6 +8,7 @@ Customs clearance office management system.
 | `apps/web` | React + Vite + Tailwind (Arabic, RTL) |
 | `docs/erd.mmd` | Database ERD (Mermaid) |
 | `docs/DEPLOY.md` | Deployment: Neon (database), Render (API), Vercel (web) — in Arabic |
+| `docs/SHARE.md` | Run it on your machine and share it with a Cloudflare tunnel link — in Arabic |
 
 ## Run it locally
 
