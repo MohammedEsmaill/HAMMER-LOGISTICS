@@ -1,4 +1,6 @@
 import {
+  BadgeCheck,
+  Landmark,
   Building2,
   Container,
   HardHat,
@@ -33,6 +35,24 @@ export const NAV: NavItem[] = [
   { to: '/clearers', label: 'المستخلصين', icon: HardHat, any: ['clearers.manage'] },
   { to: '/users', label: 'المستخدمين', icon: UserCog, any: ['users.manage'] },
   { to: '/roles', label: 'الأدوار والصلاحيات', icon: ShieldCheck, any: ['roles.manage'] },
+  {
+    to: '/treasury',
+    label: 'الخزن والبنوك',
+    icon: Landmark,
+    any: ['finance.balances.view', 'finance.movements.create', 'finance.accounts.manage'],
+  },
+  {
+    to: '/approvals',
+    label: 'الاعتمادات',
+    icon: BadgeCheck,
+    any: [
+      'finance.review',
+      'finance.manager_approve',
+      'finance.approve',
+      'finance.approved.edit',
+      'finance.movements.create',
+    ],
+  },
   {
     to: '/lookups',
     label: 'القوائم الثابتة',

@@ -65,4 +65,5 @@ export const PERMISSION_GROUPS: Record<string, string> = {
   lookups: 'القوائم الثابتة',
   shipments: 'الشحنات',
   audit: 'المراجعة',
+  finance: 'الحسابات',
 };

@@ -23,7 +23,14 @@ export type Permission =
   | 'shipments.reassign'
   | 'shipments.documents.upload'
   | 'shipments.documents.delete'
-  | 'audit.view';
+  | 'audit.view'
+  | 'finance.accounts.manage'
+  | 'finance.balances.view'
+  | 'finance.movements.create'
+  | 'finance.review'
+  | 'finance.manager_approve'
+  | 'finance.approve'
+  | 'finance.approved.edit';
 
 export interface Profile {
   id: number;
