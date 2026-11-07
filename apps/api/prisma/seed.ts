@@ -456,25 +456,38 @@ async function seedCeo() {
     );
     return;
   }
-  const employee = await prisma.employee.create({
-    data: {
-      code: 'CEO',
-      fullName: process.env.SEED_CEO_NAME ?? 'CEO',
-      nationalId: process.env.SEED_CEO_NATIONAL_ID ?? '00000000000000',
-      phone: '',
-      department: 'MANAGEMENT',
-      jobTitle: 'CEO',
-      hireDate: new Date(),
-    },
-  });
-  await prisma.user.create({
-    data: {
-      email: email.toLowerCase(),
-      passwordHash: await argon2.hash(password, { type: argon2.argon2id }),
-      roleId: ceoRole.id,
-      accountType: 'EMPLOYEE',
-      employeeId: employee.id,
-    },
+  const ceoEmail = email.trim().toLowerCase();
+  if (!/^[a-z0-9._%+-]+@hammerline\.com$/.test(ceoEmail)) {
+    throw new Error(
+      `SEED_CEO_EMAIL "${email}" is not valid: it must be name@hammerline.com, with no spaces.`,
+    );
+  }
+  const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+  // the employee and the account together, or neither; an employee left by an
+  // earlier failed run is reused
+  await prisma.$transaction(async (tx) => {
+    const employee =
+      (await tx.employee.findFirst({ where: { code: 'CEO', deletedAt: null, users: { none: {} } } })) ??
+      (await tx.employee.create({
+        data: {
+          code: 'CEO',
+          fullName: process.env.SEED_CEO_NAME || 'CEO',
+          nationalId: process.env.SEED_CEO_NATIONAL_ID || '00000000000000',
+          phone: '',
+          department: 'MANAGEMENT',
+          jobTitle: 'CEO',
+          hireDate: new Date(),
+        },
+      }));
+    await tx.user.create({
+      data: {
+        email: ceoEmail,
+        passwordHash,
+        roleId: ceoRole.id,
+        accountType: 'EMPLOYEE',
+        employeeId: employee.id,
+      },
+    });
   });
   console.log(`Created CEO account ${email}`);
 }
