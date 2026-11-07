@@ -14,7 +14,13 @@ import {
 } from './dto/account.dto';
 import { decimal } from './money';
 
-const SOURCE_LABELS = { TRANSFER: 'تحويل', OTHER: 'حركة تانية' } as const;
+const SOURCE_LABELS = {
+  TRANSFER: 'تحويل',
+  OTHER: 'حركة تانية',
+  SALARY: 'مرتب',
+  ADVANCE: 'سلفة',
+  EXPENSE: 'مصروف عمومي',
+} as const;
 
 @Injectable()
 export class MoneyAccountsService {
@@ -133,6 +139,27 @@ export class MoneyAccountsService {
             },
           },
           otherMovement: { select: { id: true, kind: true, reason: true } },
+          salary: {
+            select: {
+              id: true,
+              salaryMonth: true,
+              employee: { select: { id: true, fullName: true } },
+            },
+          },
+          advance: {
+            select: {
+              id: true,
+              employee: { select: { id: true, fullName: true } },
+            },
+          },
+          expense: {
+            select: {
+              id: true,
+              payee: true,
+              receiptNo: true,
+              expenseType: { select: { name: true } },
+            },
+          },
         },
       }),
       this.prisma.moneyMovement.count({ where }),

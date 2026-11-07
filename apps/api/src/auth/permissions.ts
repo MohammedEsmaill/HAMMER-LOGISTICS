@@ -32,6 +32,9 @@ export const PERMISSIONS = {
   'finance.manager_approve': 'موافقة مدير الحسابات على الحركات المالية',
   'finance.approve': 'الاعتماد النهائي للحركات المالية',
   'finance.approved.edit': 'تعديل حركة مالية بعد اعتمادها',
+  'finance.payroll.manage': 'صرف المرتبات والسلف وكشوف السلف',
+  'finance.expenses.manage': 'صرف المصاريف العمومية',
+  'finance.expenses.report': 'تقرير المصاريف العمومية',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

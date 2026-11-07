@@ -98,6 +98,9 @@ const ROLES: {
       'shipments.view.all',
       'finance.balances.view',
       'finance.movements.create',
+      'finance.payroll.manage',
+      'finance.expenses.manage',
+      'finance.expenses.report',
     ],
   },
   {
@@ -149,6 +152,16 @@ const GRANTS: { id: string; roles: Record<string, Permission[]> }[] = [
       ACCOUNTS_MANAGER: ['finance.manager_approve'],
       FINANCIAL_RELATIONS: ['finance.balances.view'],
       GENERAL_AUDITOR: ['finance.approve'],
+    },
+  },
+  {
+    id: 'finance-phase-2',
+    roles: {
+      TREASURY_MANAGER: [
+        'finance.payroll.manage',
+        'finance.expenses.manage',
+        'finance.expenses.report',
+      ],
     },
   },
 ];

@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ApprovalService } from './approvals/approval.service';
 import { ApprovalsController } from './approvals/approvals.controller';
+import { ExpensesController } from './expenses.controller';
+import { ExpensesService } from './expenses.service';
 import { LedgerService } from './ledger.service';
+import { PayrollController } from './payroll.controller';
+import { PayrollService } from './payroll.service';
 import { MoneyAccountsController } from './money-accounts.controller';
 import { MoneyAccountsService } from './money-accounts.service';
 import {
@@ -17,6 +21,8 @@ import { TransfersService } from './transfers.service';
     TransfersController,
     OtherMovementsController,
     ApprovalsController,
+    PayrollController,
+    ExpensesController,
   ],
   providers: [
     LedgerService,
@@ -24,6 +30,8 @@ import { TransfersService } from './transfers.service';
     TransfersService,
     OtherMovementsService,
     ApprovalService,
+    PayrollService,
+    ExpensesService,
   ],
   exports: [LedgerService, ApprovalService],
 })

@@ -20,11 +20,16 @@ export interface PostLine {
   reversalOfId?: bigint;
 }
 
-const SOURCE_COLUMN: Record<MovementSource, 'transferId' | 'otherMovementId'> =
-  {
-    TRANSFER: 'transferId',
-    OTHER: 'otherMovementId',
-  };
+const SOURCE_COLUMN: Record<
+  MovementSource,
+  'transferId' | 'otherMovementId' | 'salaryId' | 'advanceId' | 'expenseId'
+> = {
+  TRANSFER: 'transferId',
+  OTHER: 'otherMovementId',
+  SALARY: 'salaryId',
+  ADVANCE: 'advanceId',
+  EXPENSE: 'expenseId',
+};
 
 interface LockedAccount {
   id: number;

@@ -83,6 +83,14 @@ enum MoneyDirection {
 enum MovementSource {
   TRANSFER
   OTHER
+  SALARY
+  ADVANCE
+  EXPENSE
+}
+
+enum ExpenseScope {
+  GENERAL
+  SHIPMENT
 }
 
 /// Funding from management (in), bank charges (out), corrections (either way).
@@ -164,12 +172,14 @@ model Employee {
   deletedAt   DateTime?      @map("deleted_at")
   deletedById Int?           @map("deleted_by")
 
-  deletedBy         User?           @relation("EmployeeDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
-  users             User[]          @relation("UserEmployee")
+  deletedBy         User?             @relation("EmployeeDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  users             User[]            @relation("UserEmployee")
   attendanceLogs    AttendanceLog[]
-  importClients     Client[]        @relation("ClientImportOperation")
-  exportClients     Client[]        @relation("ClientExportOperation")
-  operatedShipments Shipment[]      @relation("ShipmentOperation")
+  importClients     Client[]          @relation("ClientImportOperation")
+  exportClients     Client[]          @relation("ClientExportOperation")
+  operatedShipments Shipment[]        @relation("ShipmentOperation")
+  salaryPayments    SalaryPayment[]
+  advances          EmployeeAdvance[]
 
   @@index([department, status])
   @@map("employees")
@@ -234,17 +244,32 @@ model User {
   deletedDocuments  ShipmentDocument[] @relation("DocumentDeletedBy")
   auditLogs         AuditLog[]
 
-  moneyMovements         MoneyMovement[] @relation("MovementCreatedBy")
-  createdTransfers       Transfer[]      @relation("TransferCreatedBy")
-  reviewedTransfers      Transfer[]      @relation("TransferReviewedBy")
-  managedTransfers       Transfer[]      @relation("TransferManagerBy")
-  approvedTransfers      Transfer[]      @relation("TransferApprovedBy")
-  rejectedTransfers      Transfer[]      @relation("TransferRejectedBy")
-  createdOtherMovements  OtherMovement[] @relation("OtherCreatedBy")
-  reviewedOtherMovements OtherMovement[] @relation("OtherReviewedBy")
-  managedOtherMovements  OtherMovement[] @relation("OtherManagerBy")
-  approvedOtherMovements OtherMovement[] @relation("OtherApprovedBy")
-  rejectedOtherMovements OtherMovement[] @relation("OtherRejectedBy")
+  moneyMovements         MoneyMovement[]   @relation("MovementCreatedBy")
+  createdTransfers       Transfer[]        @relation("TransferCreatedBy")
+  reviewedTransfers      Transfer[]        @relation("TransferReviewedBy")
+  managedTransfers       Transfer[]        @relation("TransferManagerBy")
+  approvedTransfers      Transfer[]        @relation("TransferApprovedBy")
+  rejectedTransfers      Transfer[]        @relation("TransferRejectedBy")
+  createdOtherMovements  OtherMovement[]   @relation("OtherCreatedBy")
+  reviewedOtherMovements OtherMovement[]   @relation("OtherReviewedBy")
+  managedOtherMovements  OtherMovement[]   @relation("OtherManagerBy")
+  approvedOtherMovements OtherMovement[]   @relation("OtherApprovedBy")
+  rejectedOtherMovements OtherMovement[]   @relation("OtherRejectedBy")
+  createdSalaries        SalaryPayment[]   @relation("SalaryCreatedBy")
+  reviewedSalaries       SalaryPayment[]   @relation("SalaryReviewedBy")
+  managedSalaries        SalaryPayment[]   @relation("SalaryManagerBy")
+  approvedSalaries       SalaryPayment[]   @relation("SalaryApprovedBy")
+  rejectedSalaries       SalaryPayment[]   @relation("SalaryRejectedBy")
+  createdAdvances        EmployeeAdvance[] @relation("AdvanceCreatedBy")
+  reviewedAdvances       EmployeeAdvance[] @relation("AdvanceReviewedBy")
+  managedAdvances        EmployeeAdvance[] @relation("AdvanceManagerBy")
+  approvedAdvances       EmployeeAdvance[] @relation("AdvanceApprovedBy")
+  rejectedAdvances       EmployeeAdvance[] @relation("AdvanceRejectedBy")
+  createdExpenses        GeneralExpense[]  @relation("ExpenseCreatedBy")
+  reviewedExpenses       GeneralExpense[]  @relation("ExpenseReviewedBy")
+  managedExpenses        GeneralExpense[]  @relation("ExpenseManagerBy")
+  approvedExpenses       GeneralExpense[]  @relation("ExpenseApprovedBy")
+  rejectedExpenses       GeneralExpense[]  @relation("ExpenseRejectedBy")
 
   @@map("users")
 }
@@ -574,10 +599,13 @@ model MoneyAccount {
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  movements      MoneyMovement[]
-  transfersOut   Transfer[]      @relation("TransferFrom")
-  transfersIn    Transfer[]      @relation("TransferTo")
-  otherMovements OtherMovement[]
+  movements        MoneyMovement[]
+  transfersOut     Transfer[]        @relation("TransferFrom")
+  transfersIn      Transfer[]        @relation("TransferTo")
+  otherMovements   OtherMovement[]
+  salaryPayments   SalaryPayment[]
+  employeeAdvances EmployeeAdvance[]
+  generalExpenses  GeneralExpense[]
 
   @@unique([id, currency]) // target of the composite FKs that lock a document's currency
   @@map("money_accounts")
@@ -594,20 +622,29 @@ model MoneyMovement {
   source          MovementSource
   transferId      Int?           @map("transfer_id")
   otherMovementId Int?           @map("other_movement_id")
+  salaryId        Int?           @map("salary_id")
+  advanceId       Int?           @map("advance_id")
+  expenseId       Int?           @map("expense_id")
   reversalOfId    BigInt?        @unique @map("reversal_of_id")
   createdById     Int            @map("created_by")
   createdAt       DateTime       @default(now()) @map("created_at")
 
-  account       MoneyAccount   @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  transfer      Transfer?      @relation(fields: [transferId], references: [id], onDelete: Restrict)
-  otherMovement OtherMovement? @relation(fields: [otherMovementId], references: [id], onDelete: Restrict)
-  reversalOf    MoneyMovement? @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
-  reversedBy    MoneyMovement? @relation("MovementReversal")
-  createdBy     User           @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  account       MoneyAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  transfer      Transfer?        @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  otherMovement OtherMovement?   @relation(fields: [otherMovementId], references: [id], onDelete: Restrict)
+  salary        SalaryPayment?   @relation(fields: [salaryId], references: [id], onDelete: Restrict)
+  advance       EmployeeAdvance? @relation(fields: [advanceId], references: [id], onDelete: Restrict)
+  expense       GeneralExpense?  @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  reversalOf    MoneyMovement?   @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy    MoneyMovement?   @relation("MovementReversal")
+  createdBy     User             @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([accountId, id])
   @@index([transferId])
   @@index([otherMovementId])
+  @@index([salaryId])
+  @@index([advanceId])
+  @@index([expenseId])
   @@map("money_movements")
 }
 
@@ -685,4 +722,147 @@ model OtherMovement {
 
   @@index([approvalStatus])
   @@map("other_movements")
+}
+
+// ───────────────────────── Finance: office expenses ─────────────────────────
+// Salaries and advances are paid in EGP from a cash box or a bank account; general
+// expenses from the EGP cash box only. Each one posts its ledger line on save.
+
+/// One month's salary of one employee, paid once (UNIQUE employee + month).
+model SalaryPayment {
+  id               Int      @id @default(autoincrement())
+  employeeId       Int      @map("employee_id")
+  salaryMonth      DateTime @map("salary_month") @db.Date // the 1st of the month
+  basic            Decimal  @db.Decimal(14, 2) // the employee's basic salary when paid
+  /// [{ kind: BONUS | OVERTIME | PENALTY | ABSENCE, amount, reason }]
+  adjustments      Json     @default("[]")
+  additions        Decimal  @default(0) @db.Decimal(14, 2)
+  deductions       Decimal  @default(0) @db.Decimal(14, 2)
+  advanceDeduction Decimal  @default(0) @map("advance_deduction") @db.Decimal(14, 2)
+  net              Decimal  @db.Decimal(14, 2) // basic + additions − deductions − advance deduction
+  accountId        Int      @map("account_id")
+  currency         Currency @default(EGP)
+  paymentDate      DateTime @map("payment_date") @db.Date
+  notes            String?
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  employee   Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  account    MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  movements  MoneyMovement[]
+  createdBy  User            @relation("SalaryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy User?           @relation("SalaryReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy  User?           @relation("SalaryManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy User?           @relation("SalaryApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy User?           @relation("SalaryRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, salaryMonth])
+  @@index([approvalStatus])
+  @@map("salary_payments")
+}
+
+/// An advance paid to an employee; repaid only by deductions from salaries.
+model EmployeeAdvance {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int      @map("employee_id")
+  amount      Decimal  @db.Decimal(14, 2)
+  advanceDate DateTime @map("advance_date") @db.Date
+  accountId   Int      @map("account_id")
+  currency    Currency @default(EGP)
+  notes       String?
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  employee   Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  account    MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  movements  MoneyMovement[]
+  createdBy  User            @relation("AdvanceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy User?           @relation("AdvanceReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy  User?           @relation("AdvanceManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy User?           @relation("AdvanceApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy User?           @relation("AdvanceRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([approvalStatus])
+  @@map("employee_advances")
+}
+
+/// The expense type lists; a type typed for the first time is added automatically.
+model ExpenseType {
+  id        Int          @id @default(autoincrement())
+  name      String
+  scope     ExpenseScope
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  generalExpenses GeneralExpense[]
+
+  @@unique([scope, name])
+  @@map("expense_types")
+}
+
+/// Office expenses (petty cash included), paid from the EGP cash box.
+model GeneralExpense {
+  id            Int      @id @default(autoincrement())
+  expenseTypeId Int      @map("expense_type_id")
+  payee         String
+  amount        Decimal  @db.Decimal(14, 2)
+  receiptNo     String   @map("receipt_no")
+  expenseDate   DateTime @map("expense_date") @db.Date
+  accountId     Int      @map("account_id")
+  currency      Currency @default(EGP)
+  notes         String?
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  expenseType ExpenseType     @relation(fields: [expenseTypeId], references: [id], onDelete: Restrict)
+  account     MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  movements   MoneyMovement[]
+  createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy  User?           @relation("ExpenseReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy   User?           @relation("ExpenseManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy  User?           @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy  User?           @relation("ExpenseRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@index([expenseDate])
+  @@index([approvalStatus])
+  @@map("general_expenses")
 }
