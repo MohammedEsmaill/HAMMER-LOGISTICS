@@ -194,7 +194,7 @@ async function main() {
     create: {
       key: 'company',
       value: {
-        name: 'HORUS NEW LOGISTICS',
+        name: 'HAMMER LINE Shipping & Logistics',
         address:
           '27 Abdel Hamid Badawy St., Off Chamollion, Al-Azarita, Alexandria, Egypt',
         taxNumber: '655-517-626',

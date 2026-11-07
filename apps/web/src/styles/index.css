@@ -1,0 +1,137 @@
+@import 'tailwindcss';
+@import '@fontsource/ibm-plex-sans-arabic/400.css';
+@import '@fontsource/ibm-plex-sans-arabic/500.css';
+@import '@fontsource/ibm-plex-sans-arabic/600.css';
+@import '@fontsource/ibm-plex-sans-arabic/700.css';
+
+/*
+ * Brand: the logo's gold on near-black. Colours are CSS variables so the light
+ * theme only swaps values; components use the semantic names below.
+ */
+:root {
+  --bg: #0b0b0d;
+  --surface: #141417;
+  --surface-2: #1c1c21;
+  --line: #2a2a31;
+  --ink: #f2efe7;
+  --muted: #9b968a;
+  --gold-1: #f1d27a;
+  --gold-2: #d4a73c;
+  --gold-3: #a8791f;
+  --on-gold: #1a1408;
+  --danger: #f2706b;
+  --success: #5ccf8f;
+  --warning: #f0b450;
+  --shadow: 0 18px 40px -18px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #f6f3ec;
+  --surface: #ffffff;
+  --surface-2: #f1ede3;
+  --line: #e2dccd;
+  --ink: #1d1a14;
+  --muted: #6f685a;
+  --gold-1: #c99a2e;
+  --gold-2: #a8791f;
+  --gold-3: #845d13;
+  --on-gold: #ffffff;
+  --danger: #c43c37;
+  --success: #24894f;
+  --warning: #a86a06;
+  --shadow: 0 18px 40px -22px rgb(60 45 10 / 0.35);
+  color-scheme: light;
+}
+
+@theme {
+  --font-sans: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-gold: var(--gold-2);
+  --color-gold-light: var(--gold-1);
+  --color-gold-dark: var(--gold-3);
+  --color-on-gold: var(--on-gold);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--gold-2) 40%, transparent);
+}
+
+@utility gold-text {
+  background: linear-gradient(120deg, var(--gold-1), var(--gold-2) 45%, var(--gold-3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility gold-fill {
+  background: linear-gradient(120deg, var(--gold-1), var(--gold-2) 50%, var(--gold-3));
+  color: var(--on-gold);
+}
+
+@utility card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+}
+
+@utility focus-ring {
+  outline: none;
+  &:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--gold-2);
+  }
+}
+
+/* a sweep of light across gold surfaces while something loads */
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@utility shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--gold-1) 35%, transparent),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
