@@ -242,6 +242,11 @@ describe('Employees, clearers, clients (e2e)', () => {
       expect(res.body.quoteFinalBase).toBe('7000');
     });
 
+    it('lists client options (id and name only) for pickers', async () => {
+      const res = await ctx.api(relations).get('/api/clients/options').expect(200);
+      expect(res.body).toContainEqual({ id: clientId, name: 'EBM TEXTILE' });
+    });
+
     it('refuses an operation employee from another department', async () => {
       const notOps = await ctx.prisma.employee.findFirstOrThrow({
         where: { code: '202' },

@@ -27,6 +27,13 @@ import {
 export class ClientsController {
   constructor(private readonly clients: ClientsService) {}
 
+  /** Live clients for pickers (shipment registration), name order. */
+  @Get('options')
+  @RequirePermissions('clients.view')
+  options() {
+    return this.clients.options();
+  }
+
   @Get()
   @RequirePermissions('clients.view')
   list(@CurrentUser() actor: AuthUser, @Query() query: ClientsQueryDto) {

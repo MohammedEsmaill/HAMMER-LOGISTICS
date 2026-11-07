@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
 import { Link } from 'react-router';
 
-export default function NotFoundPage() {
+export default function NotFoundPage({ message }: { message?: string }) {
   return (
     <div className="grid min-h-[60vh] place-items-center text-center">
       <div>
@@ -14,8 +14,8 @@ export default function NotFoundPage() {
         >
           404
         </motion.div>
-        <p className="mt-3 text-lg font-semibold">الصفحة دي مش موجودة</p>
-        <p className="text-muted">ممكن الرابط اتغير أو اتكتب غلط.</p>
+        <p className="mt-3 text-lg font-semibold">{message ? 'مش موجودة' : 'الصفحة دي مش موجودة'}</p>
+        <p className="text-muted">{message ?? 'ممكن الرابط اتغير أو اتكتب غلط.'}</p>
         <Link to="/" className="mt-5 inline-block font-semibold text-gold hover:underline">
           الرجوع للرئيسية
         </Link>

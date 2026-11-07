@@ -45,6 +45,14 @@ export class ClientsService {
     private readonly audit: AuditService,
   ) {}
 
+  options() {
+    return this.prisma.client.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   async list(actor: AuthUser, query: ClientsQueryDto): Promise<Page<unknown>> {
     const where: Prisma.ClientWhereInput = {
       deletedAt: null,

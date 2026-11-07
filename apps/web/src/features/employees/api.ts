@@ -58,10 +58,11 @@ export const useEmployees = (q: EmployeesQuery) =>
     placeholderData: keepPreviousData, // the table stays while the next page loads
   });
 
-export const useEmployeeOptions = (department?: Department) =>
+export const useEmployeeOptions = (department?: Department, enabled = true) =>
   useQuery({
     queryKey: employeeKeys.options(department),
     queryFn: () => api.get<EmployeeOption[]>('/employees/options', { department }),
+    enabled,
   });
 
 export interface EmployeeInput {
