@@ -28,6 +28,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
   let bankEgp: number;
   let shipmentId: number;
   let shipmentVersion: number;
+  let agencyId: number;
 
   const balance = async (id: number) =>
     Number(
@@ -263,8 +264,40 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
       expect(await balance(cashUsd)).toBe(start - 700);
     });
 
-    it('a bank transfer is spent exactly', async () => {
+    it('keeps the external accounts paid into (beneficiaries)', async () => {
       const res = await ctx
+        .api(treasury)
+        .post('/api/finance/beneficiaries', {
+          name: 'توكيل ميرسك',
+          kind: 'SHIPPING_AGENCY',
+          bankName: 'CIB',
+          accountNumber: 'eg12 0001 0002 0003',
+        })
+        .expect(201);
+      agencyId = res.body.id;
+      expect(res.body.accountNumber).toBe('EG12000100020003');
+      await ctx
+        .api(treasury)
+        .post('/api/finance/beneficiaries', {
+          name: 'مكرر',
+          kind: 'OTHER',
+          bankName: 'CIB',
+          accountNumber: 'EG12000100020003',
+        })
+        .expect(409);
+      await ctx
+        .api(treasury)
+        .post('/api/finance/beneficiaries', {
+          name: 'مستخلص من غير ربط',
+          kind: 'CLEARER',
+          bankName: 'NBE',
+          accountNumber: '55667788',
+        })
+        .expect(400);
+    });
+
+    it('a bank transfer names the account that received it', async () => {
+      await ctx
         .api(treasury)
         .post('/api/finance/custodies', {
           shipmentId,
@@ -272,7 +305,23 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
           bankAccountId: bankEgp,
           amount: 2500,
         })
+        .expect(400);
+    });
+
+    it('a bank transfer is spent exactly', async () => {
+      const res = await ctx
+        .api(treasury)
+        .post('/api/finance/custodies', {
+          shipmentId,
+          holderType: 'BANK_TRANSFER',
+          bankAccountId: bankEgp,
+          beneficiaryId: agencyId,
+          transferRef: 'trf-9921',
+          amount: 2500,
+        })
         .expect(201);
+      expect(res.body.beneficiary.name).toBe('توكيل ميرسك');
+      expect(res.body.transferRef).toBe('TRF-9921');
       await ctx
         .api(treasury)
         .post(`/api/finance/custodies/${res.body.id}/settlement`, {
@@ -414,10 +463,53 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
       });
     });
 
+    it('pays a fee by bank transfer into the clearer own account only', async () => {
+      const own = await ctx
+        .api(treasury)
+        .post('/api/finance/beneficiaries', {
+          name: 'حساب المستخلص',
+          kind: 'CLEARER',
+          clearerId: fx.ids.clearer,
+          bankName: 'NBE',
+          accountNumber: '8800990011',
+        })
+        .expect(201);
+      await ctx
+        .api(treasury)
+        .post('/api/finance/clearer-fees/payments', {
+          feeId,
+          amount: 500,
+          accountId: bankEgp,
+        })
+        .expect(400);
+      await ctx
+        .api(treasury)
+        .post('/api/finance/clearer-fees/payments', {
+          feeId,
+          amount: 500,
+          accountId: bankEgp,
+          beneficiaryId: agencyId,
+        })
+        .expect(400);
+      const bankBefore = await balance(bankEgp);
+      const res = await ctx
+        .api(treasury)
+        .post('/api/finance/clearer-fees/payments', {
+          feeId,
+          amount: 500,
+          accountId: bankEgp,
+          beneficiaryId: own.body.id,
+          transferRef: 'TR-1',
+        })
+        .expect(201);
+      expect(res.body.beneficiary.name).toBe('حساب المستخلص');
+      expect(await balance(bankEgp)).toBe(bankBefore - 500);
+    });
+
     it('pays the fee in installments, never above what is left', async () => {
       await ctx
         .api(treasury)
-        .post('/api/finance/clearer-fees/payments', { feeId, amount: 2000 })
+        .post('/api/finance/clearer-fees/payments', { feeId, amount: 1500 })
         .expect(201);
       const res = await ctx
         .api(treasury)

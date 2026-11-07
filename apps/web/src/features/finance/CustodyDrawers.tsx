@@ -23,6 +23,7 @@ import {
   type HolderType,
   type Purpose,
 } from './custody-api';
+import { BeneficiaryPicker } from './BeneficiaryPicker';
 import { ApprovalTrail } from './MovementDrawers';
 
 const cents = (v: number | string) => Math.round(Number(v || 0) * 100);
@@ -40,6 +41,8 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
   const [agentId, setAgentId] = useState<number | ''>('');
   const [purpose, setPurpose] = useState<Purpose | ''>('');
   const [bankId, setBankId] = useState<number | ''>('');
+  const [beneficiaryId, setBeneficiaryId] = useState<number | ''>('');
+  const [transferRef, setTransferRef] = useState('');
   const [amount, setAmount] = useState('');
   const [issueDate, setIssueDate] = useState(today());
   const [notes, setNotes] = useState('');
@@ -58,6 +61,8 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
         agentEmployeeId: holderType === 'AGENT' ? Number(agentId) : undefined,
         purpose: rule.purposes ? (purpose as Purpose) : undefined,
         bankAccountId: holderType === 'BANK_TRANSFER' ? Number(bankId) : undefined,
+        beneficiaryId: holderType === 'BANK_TRANSFER' ? Number(beneficiaryId) : undefined,
+        transferRef: holderType === 'BANK_TRANSFER' ? transferRef.trim() || undefined : undefined,
         amount: Number(amount),
         issueDate,
         notes: notes.trim() || undefined,
@@ -75,6 +80,8 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
     setAgentId('');
     setPurpose('');
     setBankId('');
+    setBeneficiaryId('');
+    setTransferRef('');
     setAmount('');
     setIssueDate(today());
     setNotes('');
@@ -90,6 +97,8 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
     if (holderType === 'AGENT' && !agentId) p.agent = 'اختار المندوب';
     if (rule.purposes && !purpose) p.purpose = 'اختار الغرض';
     if (holderType === 'BANK_TRANSFER' && !bankId) p.bank = 'اختار الحساب البنكي';
+    if (holderType === 'BANK_TRANSFER' && !beneficiaryId) p.beneficiary = 'اختار الحساب المستلم';
+    if (transferRef && !/^[A-Za-z0-9/-]{1,40}$/.test(transferRef.trim())) p.ref = 'حروف وأرقام بس';
     if (!validAmount(amount)) p.amount = 'اكتب مبلغ صحيح (رقمين عشريين بالكتير)';
     else if (source && Number(amount) > Number(source.balance)) p.amount = `رصيد ${source.name} ${money(source.balance)} بس`;
     if (!issueDate || issueDate > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
@@ -171,6 +180,12 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
             error={problems.bank}
           />
         )}
+        {holderType === 'BANK_TRANSFER' && (
+          <>
+            <BeneficiaryPicker value={beneficiaryId} onChange={setBeneficiaryId} error={problems.beneficiary} />
+            <TextField label="رقم التحويل (اختياري)" dir="ltr" value={transferRef} onChange={(e) => setTransferRef(e.target.value)} error={problems.ref} />
+          </>
+        )}
         {rule.purposes && (
           <SelectField
             label="الغرض"
@@ -248,7 +263,8 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     setItems(
       custody.items?.length
         ? custody.items.map((i) => ({ expenseType: i.expenseType.name, amount: i.amount, receiptNo: i.receiptNo ?? '', description: i.description ?? '' }))
-        : [{ expenseType: '', amount: '', receiptNo: '', description: '' }],
+        : // a bank transfer is spent exactly: one line for the whole amount to start from
+          [{ expenseType: '', amount: custody.holderType === 'BANK_TRANSFER' ? custody.amount : '', receiptNo: '', description: '' }],
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when another custody (or version) loads
   }, [custody?.id, custody?.version]);
@@ -314,7 +330,15 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
       <div className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-3">
           <Info label="المستلم" value={holderName} hint={rule.label} />
-          <Info label="الغرض" value={custody.purpose ? PURPOSES[custody.purpose] : '—'} hint={`من ${custody.sourceAccount.name}`} />
+          {custody.beneficiary ? (
+            <Info
+              label="حوّلنا لـ"
+              value={custody.beneficiary.name}
+              hint={`من ${custody.sourceAccount.name} · ${custody.beneficiary.bankName} ${custody.beneficiary.accountNumber}${custody.transferRef ? ` · تحويل ${custody.transferRef}` : ''}`}
+            />
+          ) : (
+            <Info label="الغرض" value={custody.purpose ? PURPOSES[custody.purpose] : '—'} hint={`من ${custody.sourceAccount.name}`} />
+          )}
           <Info label="مبلغ العهدة" value={money(custody.amount, cur)} hint={formatDate(custody.issueDate)} ltr />
         </div>
         {settled && !editing && (
@@ -369,7 +393,13 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
               <Row label="العهدة" value={money(custody.amount, cur)} />
               <Row label="المصروف" value={money(totals.spent, cur)} />
               <div className="flex justify-between border-t border-gold/20 pt-2 font-bold">
-                <span>{totals.diff >= 0 ? 'يرجع للخزنة' : 'يتصرف زيادة'}</span>
+                <span>
+                  {custody.holderType === 'BANK_TRANSFER'
+                    ? 'الفرق (لازم يبقى صفر)'
+                    : totals.diff >= 0
+                      ? `يرجع لـ ${custody.sourceAccount.name}`
+                      : 'يتصرف زيادة'}
+                </span>
                 <span dir="ltr" className={totals.diff >= 0 ? 'text-success' : rule.overspend ? 'text-warning' : 'text-danger'}>
                   {money(Math.abs(totals.diff), cur)}
                 </span>

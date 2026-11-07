@@ -51,6 +51,17 @@ export class IssueCustodyDto {
   @Min(1)
   bankAccountId?: number;
 
+  /** BANK_TRANSFER only: the external account paid (shipping agency, clearer, other). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  beneficiaryId?: number;
+
+  @IsOptional()
+  @Trim()
+  @Matches(/^[A-Za-z0-9/-]{1,40}$/, { message: 'رقم التحويل حروف وأرقام بس' })
+  transferRef?: string;
+
   @PositiveMoney()
   amount!: number;
 
@@ -173,6 +184,22 @@ export class PayFeeDto {
 
   @PositiveMoney()
   amount!: number;
+
+  /** The EGP cash box (default) or an EGP bank account; a bank pays into the clearer's account. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  accountId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  beneficiaryId?: number;
+
+  @IsOptional()
+  @Trim()
+  @Matches(/^[A-Za-z0-9/-]{1,40}$/, { message: 'رقم التحويل حروف وأرقام بس' })
+  transferRef?: string;
 
   @IsOptional()
   @Type(() => Date)

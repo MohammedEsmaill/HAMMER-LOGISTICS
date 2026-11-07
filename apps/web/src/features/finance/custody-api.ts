@@ -39,6 +39,8 @@ export interface Custody extends Approval {
   clearer: { id: number; fullName: string } | null;
   purpose: Purpose | null;
   sourceAccount: { id: number; name: string; type: 'CASH' | 'BANK'; currency: Currency };
+  beneficiary: { id: number; name: string; kind: string; bankName: string; accountNumber: string } | null;
+  transferRef: string | null;
   currency: Currency;
   amount: string;
   extraAmount: string;
@@ -77,7 +79,9 @@ export interface FeePayment extends Approval {
   amount: string;
   paymentDate: string;
   notes: string | null;
-  account: { id: number; name: string; currency: Currency };
+  account: { id: number; name: string; type: 'CASH' | 'BANK'; currency: Currency };
+  beneficiary: { id: number; name: string; bankName: string; accountNumber: string } | null;
+  transferRef: string | null;
 }
 
 export interface FeeAdjustment extends Approval {
@@ -186,6 +190,8 @@ export const custodyApi = {
     agentEmployeeId?: number;
     purpose?: Purpose;
     bankAccountId?: number;
+    beneficiaryId?: number;
+    transferRef?: string;
     amount: number;
     issueDate?: string;
     notes?: string;
@@ -194,8 +200,38 @@ export const custodyApi = {
     api.patch<Custody>(`/finance/custodies/${id}`, input),
   settle: (id: number, input: { version: number; items: ItemInput[]; settlementDate?: string }) =>
     api.post<Custody>(`/finance/custodies/${id}/settlement`, input),
-  payFee: (input: { feeId: number; amount: number; paymentDate?: string; notes?: string }) => api.post<FeePayment>('/finance/clearer-fees/payments', input),
+  payFee: (input: { feeId: number; amount: number; accountId?: number; beneficiaryId?: number; transferRef?: string; paymentDate?: string; notes?: string }) => api.post<FeePayment>('/finance/clearer-fees/payments', input),
   updateFeePayment: (id: number, input: { version: number; amount?: number; paymentDate?: string; notes?: string | null }) =>
     api.patch<FeePayment>(`/finance/clearer-fees/payments/${id}`, input),
   adjustFee: (input: { feeId: number; amount: number; notes: string }) => api.post<Fee>('/finance/clearer-fees/adjustments', input),
+};
+
+export type BeneficiaryKind = 'SHIPPING_AGENCY' | 'CLEARER' | 'OTHER';
+export const BENEFICIARY_KINDS: Record<BeneficiaryKind, string> = {
+  SHIPPING_AGENCY: 'توكيل ملاحي',
+  CLEARER: 'مستخلص',
+  OTHER: 'جهة تانية',
+};
+
+export interface Beneficiary {
+  id: number;
+  name: string;
+  kind: BeneficiaryKind;
+  clearer: { id: number; fullName: string } | null;
+  bankName: string;
+  accountNumber: string;
+  isActive: boolean;
+  notes: string | null;
+}
+
+export const useBeneficiaries = (q: { clearerId?: number; kind?: BeneficiaryKind }, enabled = true) =>
+  useQuery({
+    queryKey: ['finance', 'beneficiaries', q],
+    queryFn: () => api.get<Beneficiary[]>('/finance/beneficiaries', { ...q, pageSize: 200 }),
+    enabled,
+  });
+
+export const beneficiariesApi = {
+  create: (input: { name: string; kind: BeneficiaryKind; clearerId?: number; bankName: string; accountNumber: string; notes?: string }) =>
+    api.post<Beneficiary>('/finance/beneficiaries', input),
 };

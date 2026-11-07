@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthUser, can } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { APPROVAL_RESET, assertCanEdit } from './approvals/approval.service';
+import { payableBeneficiary } from './beneficiaries.service';
 import { ClearerFeesService } from './clearer-fees.service';
 import { nextCustodyNo } from './custody-number';
 import { claimDocument } from './document-version';
@@ -61,6 +62,15 @@ const INCLUDE = {
   clearer: { select: { id: true, fullName: true } },
   sourceAccount: {
     select: { id: true, name: true, type: true, currency: true },
+  },
+  beneficiary: {
+    select: {
+      id: true,
+      name: true,
+      kind: true,
+      bankName: true,
+      accountNumber: true,
+    },
   },
   settledBy: { select: { id: true, email: true } },
   computedFee: { select: { id: true, amount: true } },
@@ -164,6 +174,16 @@ export class CustodiesService {
       }
       const holder = await this.holderFields(tx, dto, shipment.clearerId);
       const account = await this.sourceAccount(tx, dto);
+      // a bank transfer names the external account it paid; nothing else has one
+      if (dto.holderType === 'BANK_TRANSFER') {
+        if (!dto.beneficiaryId)
+          throw new BadRequestException('اختار الحساب المستلم (المستفيد)');
+        await payableBeneficiary(tx, dto.beneficiaryId);
+      } else if (dto.beneficiaryId || dto.transferRef) {
+        throw new BadRequestException(
+          'المستفيد ورقم التحويل للتحويل البنكي بس',
+        );
+      }
       const custody = await tx.custody.create({
         data: {
           custodyNo: await nextCustodyNo(tx),
@@ -172,6 +192,8 @@ export class CustodiesService {
           ...holder,
           purpose: dto.purpose ?? null,
           sourceAccountId: account.id,
+          beneficiaryId: dto.beneficiaryId ?? null,
+          transferRef: dto.transferRef?.toUpperCase() ?? null,
           currency: account.currency,
           amount: decimal(dto.amount),
           issueDate: businessDate(dto.issueDate, 'تاريخ الصرف'),

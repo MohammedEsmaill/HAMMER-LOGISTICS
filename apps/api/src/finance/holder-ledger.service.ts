@@ -93,7 +93,9 @@ export class HolderLedgerService {
         lines.push({
           date: p.paymentDate,
           kind: 'FEE_PAYMENT',
-          description: 'صرف أتعاب',
+          description: p.beneficiaryId
+            ? 'صرف أتعاب بتحويل بنكي'
+            : 'صرف أتعاب كاش',
           reference: `صرف #${p.id}`,
           fileNo: fee.shipment.fileNo,
           debit: p.amount,

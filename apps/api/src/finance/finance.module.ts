@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ApprovalService } from './approvals/approval.service';
 import { ApprovalsController } from './approvals/approvals.controller';
+import { BeneficiariesService } from './beneficiaries.service';
 import { ClearerFeesService } from './clearer-fees.service';
 import {
+  BeneficiariesController,
   ClearerFeesController,
   CustodiesController,
   LedgersController,
@@ -34,6 +36,7 @@ import { TransfersService } from './transfers.service';
     CustodiesController,
     ClearerFeesController,
     LedgersController,
+    BeneficiariesController,
   ],
   providers: [
     LedgerService,
@@ -46,6 +49,7 @@ import { TransfersService } from './transfers.service';
     CustodiesService,
     ClearerFeesService,
     HolderLedgerService,
+    BeneficiariesService,
   ],
   exports: [LedgerService, ApprovalService, ClearerFeesService],
 })

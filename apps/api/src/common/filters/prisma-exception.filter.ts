@@ -20,6 +20,8 @@ const CHECK_MESSAGES: Record<string, string> = {
   money_movements_balance_not_negative: 'الرصيد مش كفاية للعملية دي',
   money_accounts_bank_details: 'اسم البنك ورقم الحساب مطلوبين للحساب البنكي بس',
   transfers_different_accounts: 'التحويل لازم يكون بين حسابين مختلفين',
+  custodies_beneficiary: 'التحويل البنكي لازم يبقى لمستفيد',
+  beneficiaries_clearer: 'حساب المستخلص لازم يبقى مربوط بالمستخلص',
   other_movements_kind_direction:
     'التمويل دايمًا دخول، والمصاريف البنكية دايمًا خروج',
 };
@@ -40,6 +42,7 @@ const UNIQUE_MESSAGES: Record<string, string> = {
   'Role.name': 'اسم الدور متسجل قبل كده',
   'MoneyAccount.currency': 'فيه خزنة بالعملة دي بالفعل',
   'MoneyAccount.account_number': 'الحساب البنكي ده متسجل قبل كده',
+  'Beneficiary.account_number': 'الحساب ده متسجل لمستفيد قبل كده',
 };
 
 @Catch(

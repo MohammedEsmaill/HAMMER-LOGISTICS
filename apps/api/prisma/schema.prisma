@@ -111,6 +111,13 @@ enum CustodyStatus {
   SETTLED
 }
 
+/// Who an external bank account belongs to.
+enum BeneficiaryKind {
+  SHIPPING_AGENCY
+  CLEARER
+  OTHER
+}
+
 enum FeeAdjustmentReason {
   CONTAINERS_CHANGED
   CEO_OVERRIDE
@@ -233,11 +240,12 @@ model Clearer {
   deletedAt            DateTime? @map("deleted_at")
   deletedById          Int?      @map("deleted_by")
 
-  deletedBy User?        @relation("ClearerDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
-  users     User[]       @relation("UserClearer")
-  shipments Shipment[]
-  custodies Custody[]
-  fees      ClearerFee[]
+  deletedBy     User?         @relation("ClearerDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  users         User[]        @relation("UserClearer")
+  shipments     Shipment[]
+  custodies     Custody[]
+  fees          ClearerFee[]
+  beneficiaries Beneficiary[]
 
   @@map("clearers")
 }
@@ -318,6 +326,7 @@ model User {
   approvedFeePayments    ClearerFeePayment[]    @relation("FeePayApprovedBy")
   rejectedFeePayments    ClearerFeePayment[]    @relation("FeePayRejectedBy")
   computedFees           ClearerFee[]           @relation("FeeComputedBy")
+  createdBeneficiaries   Beneficiary[]          @relation("BeneficiaryCreatedBy")
 
   @@map("users")
 }
@@ -940,6 +949,8 @@ model Custody {
   clearerId       Int?            @map("clearer_id")
   purpose         CustodyPurpose?
   sourceAccountId Int             @map("source_account_id")
+  beneficiaryId   Int?            @map("beneficiary_id") // BANK_TRANSFER: the external account paid
+  transferRef     String?         @map("transfer_ref") // the bank transfer / cheque reference
   currency        Currency
   amount          Decimal         @db.Decimal(14, 2)
   extraAmount     Decimal         @default(0) @map("extra_amount") @db.Decimal(14, 2) // a clearer's overspend, paid at settlement
@@ -970,6 +981,7 @@ model Custody {
   agent         Employee?       @relation(fields: [agentEmployeeId], references: [id], onDelete: Restrict)
   clearer       Clearer?        @relation(fields: [clearerId], references: [id], onDelete: Restrict)
   sourceAccount MoneyAccount    @relation(fields: [sourceAccountId, currency], references: [id, currency], onDelete: Restrict)
+  beneficiary   Beneficiary?    @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
   settledBy     User?           @relation("CustodySettledBy", fields: [settledById], references: [id], onDelete: Restrict)
   items         CustodyItem[]
   movements     MoneyMovement[]
@@ -1068,13 +1080,16 @@ model ClearerFeeAdjustment {
 
 /// A fee payment to the clearer, from the EGP cash box; installments allowed.
 model ClearerFeePayment {
-  id          Int      @id @default(autoincrement())
-  feeId       Int      @map("fee_id")
-  amount      Decimal  @db.Decimal(14, 2)
-  accountId   Int      @map("account_id")
-  currency    Currency @default(EGP)
-  paymentDate DateTime @map("payment_date") @db.Date
-  notes       String?
+  id            Int      @id @default(autoincrement())
+  feeId         Int      @map("fee_id")
+  amount        Decimal  @db.Decimal(14, 2)
+  accountId     Int      @map("account_id")
+  currency      Currency @default(EGP)
+  paymentDate   DateTime @map("payment_date") @db.Date
+  /// paid by bank transfer: the clearer account and the transfer reference
+  beneficiaryId Int?     @map("beneficiary_id")
+  transferRef   String?  @map("transfer_ref")
+  notes         String?
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1091,15 +1106,40 @@ model ClearerFeePayment {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  fee        ClearerFee      @relation(fields: [feeId], references: [id], onDelete: Restrict)
-  account    MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
-  movements  MoneyMovement[]
-  createdBy  User            @relation("FeePayCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  reviewedBy User?           @relation("FeePayReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
-  managerBy  User?           @relation("FeePayManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
-  approvedBy User?           @relation("FeePayApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
-  rejectedBy User?           @relation("FeePayRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+  fee         ClearerFee      @relation(fields: [feeId], references: [id], onDelete: Restrict)
+  account     MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  beneficiary Beneficiary?    @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  movements   MoneyMovement[]
+  createdBy   User            @relation("FeePayCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy  User?           @relation("FeePayReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy   User?           @relation("FeePayManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy  User?           @relation("FeePayApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy  User?           @relation("FeePayRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
 
   @@index([feeId])
   @@map("clearer_fee_payments")
+}
+
+/// External bank accounts the office pays into: shipping agencies, clearers, others.
+/// Picked on bank-transfer custodies and fee payments; a new one is added from there.
+model Beneficiary {
+  id            Int             @id @default(autoincrement())
+  name          String
+  kind          BeneficiaryKind
+  clearerId     Int?            @map("clearer_id") // kind CLEARER: whose account it is
+  bankName      String          @map("bank_name")
+  accountNumber String          @map("account_number") // account number or IBAN
+  isActive      Boolean         @default(true) @map("is_active")
+  notes         String?
+  createdById   Int             @map("created_by")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  clearer     Clearer?            @relation(fields: [clearerId], references: [id], onDelete: Restrict)
+  createdBy   User                @relation("BeneficiaryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  custodies   Custody[]
+  feePayments ClearerFeePayment[]
+
+  @@unique([bankName, accountNumber])
+  @@map("beneficiaries")
 }

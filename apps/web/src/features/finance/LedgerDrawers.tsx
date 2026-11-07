@@ -10,7 +10,9 @@ import { formatDate } from '@/lib/format';
 import { useAction } from '@/lib/mutations';
 import { financeKeys, money, STATUS, today, useAccounts } from './api';
 import { custodyApi, useFees, type Fee, type FeeAdjustment, type FeePayment, type Statement } from './custody-api';
+import { BeneficiaryPicker } from './BeneficiaryPicker';
 import { useEditable } from './finance-helpers';
+import { SelectField } from '@/components/ui/SelectField';
 import { ApprovalTrail } from './MovementDrawers';
 
 /** The statement table: عليه / له / الرصيد after each line. */
@@ -140,6 +142,11 @@ export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | n
   const editable = useEditable(payment, 'finance.custody.manage');
   const { data: accounts = [] } = useAccounts();
   const box = accounts.find((a) => a.type === 'CASH' && a.currency === 'EGP');
+  const sources = accounts.filter((a) => a.currency === 'EGP' && (a.isActive || a.id === payment?.account.id));
+  const [accountId, setAccountId] = useState<number | ''>('');
+  const [beneficiaryId, setBeneficiaryId] = useState<number | ''>('');
+  const [transferRef, setTransferRef] = useState('');
+  const source = accounts.find((a) => a.id === accountId);
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(today());
   const [notes, setNotes] = useState('');
@@ -148,7 +155,15 @@ export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | n
     () =>
       payment
         ? custodyApi.updateFeePayment(payment.id, { version: payment.version, amount: Number(amount), paymentDate: date, notes: notes.trim() || null })
-        : custodyApi.payFee({ feeId: fee!.id, amount: Number(amount), paymentDate: date, notes: notes.trim() || undefined }),
+        : custodyApi.payFee({
+            feeId: fee!.id,
+            amount: Number(amount),
+            accountId: Number(accountId),
+            beneficiaryId: source?.type === 'BANK' ? Number(beneficiaryId) : undefined,
+            transferRef: source?.type === 'BANK' ? transferRef.trim() || undefined : undefined,
+            paymentDate: date,
+            notes: notes.trim() || undefined,
+          }),
     { success: payment ? 'اتحفظ صرف الأتعاب' : 'اتصرفت الأتعاب', invalidate: [financeKeys.all] },
   );
   useEffect(() => {
@@ -158,6 +173,9 @@ export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | n
     setAmount(payment?.amount ?? fee?.remaining ?? '');
     setDate(payment?.paymentDate.slice(0, 10) ?? today());
     setNotes(payment?.notes ?? '');
+    setAccountId(payment?.account.id ?? box?.id ?? '');
+    setBeneficiaryId(payment?.beneficiary?.id ?? '');
+    setTransferRef(payment?.transferRef ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when the drawer opens
   }, [open, payment, fee]);
 
@@ -166,7 +184,8 @@ export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | n
     const n = Number(amount);
     if (!(n > 0) || Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) return setProblem('اكتب مبلغ صحيح');
     if (fee && n > Number(fee.remaining)) return setProblem(`أكبر من الباقي (${money(fee.remaining)})`);
-    if (!payment && box && n > Number(box.balance)) return setProblem(`رصيد خزنة الجنيه ${money(box.balance)} بس`);
+    if (!payment && source && n > Number(source.balance)) return setProblem(`رصيد ${source.name} ${money(source.balance)} بس`);
+    if (!payment && source?.type === 'BANK' && !beneficiaryId) return setProblem('اختار حساب المستخلص اللي هتحوّل له');
     if (!date || date > today()) return setProblem('التاريخ مينفعش يبقى فاضي أو في المستقبل');
     setProblem('');
     save.mutateAsync(undefined).then(onClose, () => undefined);
@@ -177,7 +196,7 @@ export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | n
       open={open}
       onClose={onClose}
       title={payment ? `صرف أتعاب #${payment.id}` : 'صرف أتعاب'}
-      description={who ? `${who.clearer.fullName} · ملف ${who.shipment.fileNo} · من خزنة الجنيه` : undefined}
+      description={who ? `${who.clearer.fullName} · ملف ${who.shipment.fileNo}` : undefined}
       footer={
         editable && (
           <div className="flex justify-end gap-2">
@@ -194,6 +213,27 @@ export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | n
       <form id="fee-pay-form" noValidate onSubmit={submit} className="space-y-4">
         {fee && <p className="rounded-xl bg-surface-2 p-3 text-sm">الباقي من الأتعاب: <b dir="ltr">{money(fee.remaining, 'EGP')}</b></p>}
         <fieldset disabled={!editable} className="space-y-4">
+          <SelectField
+            label="الصرف من"
+            disabled={!!payment}
+            options={sources.map((a) => ({ value: a.id, label: `${a.name} · ${money(a.balance, a.currency)}` }))}
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
+          />
+          {source?.type === 'BANK' &&
+            (payment ? (
+              <p className="rounded-xl bg-surface-2 p-3 text-sm">
+                تحويل لـ {payment.beneficiary?.name} · {payment.beneficiary?.bankName} {payment.beneficiary?.accountNumber}
+                {payment.transferRef && ` · ${payment.transferRef}`}
+              </p>
+            ) : (
+              who && (
+                <>
+                  <BeneficiaryPicker value={beneficiaryId} onChange={setBeneficiaryId} clearer={who.clearer} />
+                  <TextField label="رقم التحويل (اختياري)" dir="ltr" value={transferRef} onChange={(e) => setTransferRef(e.target.value)} />
+                </>
+              )
+            ))}
           <TextField label="المبلغ (جنيه)" type="number" step="0.01" min="0.01" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <TextField label="التاريخ" type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
           <TextField label="ملاحظات (اختياري)" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />

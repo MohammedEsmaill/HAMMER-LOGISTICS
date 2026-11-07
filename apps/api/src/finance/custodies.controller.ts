@@ -15,7 +15,13 @@ import {
   RequireAnyPermission,
   RequirePermissions,
 } from '../auth/decorators/permissions.decorator';
+import { BeneficiariesService } from './beneficiaries.service';
 import { ClearerFeesService } from './clearer-fees.service';
+import {
+  BeneficiariesQueryDto,
+  CreateBeneficiaryDto,
+  UpdateBeneficiaryDto,
+} from './dto/beneficiary.dto';
 import { CustodiesService } from './custodies.service';
 import {
   AdjustFeeDto,
@@ -181,5 +187,32 @@ export class LedgersController {
   @RequirePermissions('finance.ledgers.view')
   wayOut() {
     return this.ledgers.wayOut();
+  }
+}
+
+@Controller('finance/beneficiaries')
+export class BeneficiariesController {
+  constructor(private readonly beneficiaries: BeneficiariesService) {}
+
+  @Get()
+  @RequireAnyPermission(...READ)
+  list(@Query() q: BeneficiariesQueryDto) {
+    return this.beneficiaries.list(q);
+  }
+
+  @Post()
+  @RequirePermissions('finance.custody.manage')
+  create(@CurrentUser() actor: AuthUser, @Body() dto: CreateBeneficiaryDto) {
+    return this.beneficiaries.create(actor, dto);
+  }
+
+  @Patch(':id')
+  @RequirePermissions('finance.custody.manage')
+  update(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBeneficiaryDto,
+  ) {
+    return this.beneficiaries.update(actor, id, dto);
   }
 }

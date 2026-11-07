@@ -17,7 +17,8 @@ import {
 } from './dto/custody.dto';
 import { LedgerService } from './ledger.service';
 import { businessDate, decimal, formatAmount, todayCairo } from './money';
-import { egpCashBox } from './paying-account';
+import { payableBeneficiary } from './beneficiaries.service';
+import { egpCashBox, egpPayingAccount } from './paying-account';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const ZERO = new Prisma.Decimal(0);
@@ -182,7 +183,18 @@ export class ClearerFeesService {
         },
         payments: {
           orderBy: { id: 'asc' },
-          include: { createdBy: { select: { id: true, email: true } } },
+          include: {
+            createdBy: { select: { id: true, email: true } },
+            account: { select: { id: true, name: true, type: true } },
+            beneficiary: {
+              select: {
+                id: true,
+                name: true,
+                bankName: true,
+                accountNumber: true,
+              },
+            },
+          },
         },
       },
     });
@@ -237,7 +249,12 @@ export class ClearerFeesService {
             shipment: { select: { id: true, fileNo: true } },
           },
         },
-        account: { select: { id: true, name: true, currency: true } },
+        account: {
+          select: { id: true, name: true, type: true, currency: true },
+        },
+        beneficiary: {
+          select: { id: true, name: true, bankName: true, accountNumber: true },
+        },
         ...DOCUMENT_INCLUDE,
       },
     });
@@ -255,12 +272,26 @@ export class ClearerFeesService {
           `المبلغ أكبر من الباقي من الأتعاب (${formatAmount(fee.remaining)} ج)`,
         );
       }
-      const box = await egpCashBox(tx);
+      // cash from the EGP box, or a transfer from an EGP bank into the clearer's own account
+      const box = dto.accountId
+        ? await egpPayingAccount(tx, dto.accountId)
+        : await egpCashBox(tx);
+      if (box.type === 'BANK') {
+        if (!dto.beneficiaryId)
+          throw new BadRequestException('اختار حساب المستخلص اللي هتحوّل له');
+        await payableBeneficiary(tx, dto.beneficiaryId, fee.clearerId);
+      } else if (dto.beneficiaryId || dto.transferRef) {
+        throw new BadRequestException(
+          'حساب المستخلص ورقم التحويل للتحويل البنكي بس',
+        );
+      }
       const payment = await tx.clearerFeePayment.create({
         data: {
           feeId: fee.id,
           amount,
           accountId: box.id,
+          beneficiaryId: dto.beneficiaryId ?? null,
+          transferRef: dto.transferRef?.toUpperCase() ?? null,
           paymentDate: businessDate(dto.paymentDate, 'تاريخ الصرف'),
           notes: dto.notes,
           createdById: actor.id,
