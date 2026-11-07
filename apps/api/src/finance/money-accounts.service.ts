@@ -21,6 +21,8 @@ const SOURCE_LABELS = {
   SALARY: 'مرتب',
   ADVANCE: 'سلفة',
   EXPENSE: 'مصروف عمومي',
+  CUSTODY: 'عهدة',
+  FEE_PAYMENT: 'صرف أتعاب',
 } as const;
 
 @Injectable()
@@ -152,6 +154,25 @@ export class MoneyAccountsService {
             select: {
               id: true,
               employee: { select: { id: true, fullName: true } },
+            },
+          },
+          custody: {
+            select: {
+              id: true,
+              custodyNo: true,
+              holderType: true,
+              shipment: { select: { fileNo: true } },
+            },
+          },
+          feePayment: {
+            select: {
+              id: true,
+              fee: {
+                select: {
+                  clearer: { select: { fullName: true } },
+                  shipment: { select: { fileNo: true } },
+                },
+              },
             },
           },
           expense: {

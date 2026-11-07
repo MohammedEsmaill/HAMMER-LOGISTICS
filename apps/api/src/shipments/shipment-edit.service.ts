@@ -6,6 +6,7 @@ import {
 import { Prisma, Shipment, ShipmentContainer } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
+import { ClearerFeesService } from '../finance/clearer-fees.service';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { shipmentScope } from './access-scope';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
@@ -27,6 +28,7 @@ export class ShipmentEditService {
     private readonly validator: ShipmentValidator,
     private readonly shipments: ShipmentsService,
     private readonly audit: AuditService,
+    private readonly fees: ClearerFeesService,
   ) {}
 
   /** SCAN: basic data, shipping data and containers, checked by the registration rules. */
@@ -62,6 +64,9 @@ export class ShipmentEditService {
         await this.replaceContainers(tx, id, merged);
       }
       await this.syncBillNumbers(tx, id, merged);
+      // the clearer's fee follows the containers count, and fixes the clearer
+      const after = await tx.shipment.findUniqueOrThrow({ where: { id } });
+      await this.fees.onShipmentEdited(tx, actor, before, after);
       await this.log(tx, actor, 'UPDATE_BASIC', before, id);
     });
     return this.shipments.get(actor, id);

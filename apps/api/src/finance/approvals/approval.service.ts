@@ -157,6 +157,14 @@ export class ApprovalService {
     }
     return this.prisma.$transaction(async (tx) => {
       const doc = await this.find(tx, table, id);
+      if (type === 'CUSTODY') {
+        // a custody is approved once, issue and settlement together
+        const [custody] = await tx.$queryRaw<{ status: string }[]>`
+          SELECT "status"::text FROM "custodies" WHERE "id" = ${id}`;
+        if (custody?.status !== 'SETTLED') {
+          throw new BadRequestException('العهدة بتتعتمد بعد التصفية');
+        }
+      }
       if (doc.version !== version) {
         throw new ConflictException(
           'الحركة اتعدلت بعد ما فتحتها، حدّث الصفحة وحاول تاني',

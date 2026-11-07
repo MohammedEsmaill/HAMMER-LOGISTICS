@@ -87,7 +87,7 @@ const ROLES: {
   {
     name: 'CLEARER',
     description: 'مستخلص',
-    permissions: ['shipments.view.own'],
+    permissions: ['shipments.view.own', 'finance.ledger.own'],
   },
   {
     name: 'TREASURY_MANAGER',
@@ -101,6 +101,8 @@ const ROLES: {
       'finance.payroll.manage',
       'finance.expenses.manage',
       'finance.expenses.report',
+      'finance.custody.manage',
+      'finance.ledgers.view',
     ],
   },
   {
@@ -115,6 +117,7 @@ const ROLES: {
       'clients.view',
       'shipments.view.all',
       'finance.manager_approve',
+      'finance.ledgers.view',
     ],
   },
   {
@@ -125,6 +128,7 @@ const ROLES: {
       'clients.manage',
       'shipments.view.all',
       'finance.balances.view',
+      'finance.ledgers.view',
     ],
   },
   {
@@ -162,6 +166,15 @@ const GRANTS: { id: string; roles: Record<string, Permission[]> }[] = [
         'finance.expenses.manage',
         'finance.expenses.report',
       ],
+    },
+  },
+  {
+    id: 'finance-phase-3',
+    roles: {
+      TREASURY_MANAGER: ['finance.custody.manage', 'finance.ledgers.view'],
+      ACCOUNTS_MANAGER: ['finance.ledgers.view'],
+      FINANCIAL_RELATIONS: ['finance.ledgers.view'],
+      CLEARER: ['finance.ledger.own'],
     },
   },
 ];

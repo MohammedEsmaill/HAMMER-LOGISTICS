@@ -42,6 +42,24 @@ export const APPROVABLE = {
     flow: 'THREE_LEVELS',
     restricted: false,
   },
+  CUSTODY: {
+    table: 'custodies',
+    label: 'عهدة',
+    flow: 'THREE_LEVELS',
+    restricted: false,
+  },
+  FEE_ADJUSTMENT: {
+    table: 'clearer_fee_adjustments',
+    label: 'تسوية أتعاب',
+    flow: 'THREE_LEVELS',
+    restricted: false,
+  },
+  FEE_PAYMENT: {
+    table: 'clearer_fee_payments',
+    label: 'صرف أتعاب',
+    flow: 'THREE_LEVELS',
+    restricted: false,
+  },
 } as const satisfies Record<
   string,
   { table: string; label: string; flow: ApprovalFlow; restricted: boolean }

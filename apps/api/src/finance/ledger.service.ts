@@ -22,13 +22,21 @@ export interface PostLine {
 
 const SOURCE_COLUMN: Record<
   MovementSource,
-  'transferId' | 'otherMovementId' | 'salaryId' | 'advanceId' | 'expenseId'
+  | 'transferId'
+  | 'otherMovementId'
+  | 'salaryId'
+  | 'advanceId'
+  | 'expenseId'
+  | 'custodyId'
+  | 'feePaymentId'
 > = {
   TRANSFER: 'transferId',
   OTHER: 'otherMovementId',
   SALARY: 'salaryId',
   ADVANCE: 'advanceId',
   EXPENSE: 'expenseId',
+  CUSTODY: 'custodyId',
+  FEE_PAYMENT: 'feePaymentId',
 };
 
 interface LockedAccount {

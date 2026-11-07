@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FinanceModule } from '../finance/finance.module';
 import { FileNumberService } from './file-number.service';
 import { ShipmentCustomsService } from './shipment-customs.service';
 import { ShipmentDocumentsController } from './shipment-documents.controller';
@@ -11,6 +12,7 @@ import { ShipmentsController } from './shipments.controller';
 import { ShipmentsService } from './shipments.service';
 
 @Module({
+  imports: [FinanceModule],
   controllers: [ShipmentsController, ShipmentDocumentsController],
   providers: [
     ShipmentsService,

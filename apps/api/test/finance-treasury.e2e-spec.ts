@@ -109,8 +109,11 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
 
   describe('transfers', () => {
     let withdrawalId: number;
+    // the cash boxes are shared with the other test files: work from their balance now
+    let cashStart: number;
 
     it('withdraws by cheque from the bank into the cash box', async () => {
+      cashStart = await balance(cashEgp);
       const res = await ctx
         .api(treasury)
         .post('/api/finance/transfers', {
@@ -124,7 +127,7 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
       expect(res.body.chequeNo).toBe('CHQ-1001');
       expect(res.body.approvalStatus).toBe('PENDING');
       expect(await balance(bankEgp)).toBe(80000);
-      expect(await balance(cashEgp)).toBe(20000);
+      expect(await balance(cashEgp)).toBe(cashStart + 20000);
     });
 
     it('needs a cheque number when money leaves a bank', async () => {
@@ -157,11 +160,14 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
         .post('/api/finance/transfers', {
           fromAccountId: cashEgp,
           toAccountId: bankEgp,
-          amount: 25000,
+          amount: cashStart + 25000,
         })
         .expect(400);
-      expect(res.body.message).toContain('المتاح 20,000.00');
-      expect(await balance(cashEgp)).toBe(20000);
+      const available = (cashStart + 20000).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+      });
+      expect(res.body.message).toContain(`المتاح ${available}`);
+      expect(await balance(cashEgp)).toBe(cashStart + 20000);
     });
 
     it('refuses a future date', async () => {
@@ -192,7 +198,7 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
         .expect(200);
       expect(res.body.amount).toBe('15000');
       expect(await balance(bankEgp)).toBe(85000);
-      expect(await balance(cashEgp)).toBe(15000);
+      expect(await balance(cashEgp)).toBe(cashStart + 15000);
       const lines = await ctx.prisma.moneyMovement.findMany({
         where: { transferId: withdrawalId },
       });
@@ -236,15 +242,17 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
     it('shows the account statement with running balances', async () => {
       const res = await ctx
         .api(treasury)
-        .get(`/api/finance/accounts/${cashEgp}/movements`)
+        .get(`/api/finance/accounts/${bankEgp}/movements`)
         .expect(200);
-      expect(res.body.items[0].balanceAfter).toBe('15000');
-      expect(res.body.totals).toEqual({ in: '35000', out: '20000' });
+      // opening 100000: out 20000, reversal in 20000, out 15000
+      expect(res.body.items[0].balanceAfter).toBe('85000');
+      expect(res.body.totals).toEqual({ in: '20000', out: '35000' });
     });
   });
 
   describe('other movements', () => {
     it('records funding from management into the cash box', async () => {
+      const start = await balance(cashUsd);
       await ctx
         .api(treasury)
         .post('/api/finance/other-movements', {
@@ -254,7 +262,7 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
           reason: 'تمويل من الإدارة',
         })
         .expect(201);
-      expect(await balance(cashUsd)).toBe(1200.5);
+      expect(await balance(cashUsd)).toBe(start + 1200.5);
     });
 
     it('bank charges go out of a bank account only', async () => {

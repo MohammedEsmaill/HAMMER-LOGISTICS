@@ -35,6 +35,10 @@ export const PERMISSIONS = {
   'finance.payroll.manage': 'صرف المرتبات والسلف وكشوف السلف',
   'finance.expenses.manage': 'صرف المصاريف العمومية',
   'finance.expenses.report': 'تقرير المصاريف العمومية',
+  'finance.custody.manage': 'صرف العهد وتصفيتها وصرف أتعاب المستخلصين',
+  'finance.fees.adjust': 'تعديل أتعاب مستخلص على شحنة (تسوية)',
+  'finance.ledgers.view': 'كشوف حساب المستخلصين والمندوبين',
+  'finance.ledger.own': 'كشف حسابي (للمستخلص)',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -48,6 +52,7 @@ export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'shipments.reassign',
   'finance.accounts.manage',
   'finance.approved.edit',
+  'finance.fees.adjust',
 ]);
 
 export function isPermission(value: string): value is Permission {

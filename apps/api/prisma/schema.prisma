@@ -86,6 +86,34 @@ enum MovementSource {
   SALARY
   ADVANCE
   EXPENSE
+  CUSTODY
+  FEE_PAYMENT
+}
+
+/// Who holds a custody: an agents-department employee, WAY OUT, the shipment's clearer, or no one (a direct bank payment).
+enum CustodyHolder {
+  AGENT
+  WAY_OUT
+  CLEARER
+  BANK_TRANSFER
+}
+
+/// تفريغ / صرف / أرضيات / تخليص
+enum CustodyPurpose {
+  UNLOADING
+  RELEASE
+  STORAGE
+  CLEARANCE
+}
+
+enum CustodyStatus {
+  OPEN
+  SETTLED
+}
+
+enum FeeAdjustmentReason {
+  CONTAINERS_CHANGED
+  CEO_OVERRIDE
 }
 
 enum ExpenseScope {
@@ -180,6 +208,7 @@ model Employee {
   operatedShipments Shipment[]        @relation("ShipmentOperation")
   salaryPayments    SalaryPayment[]
   advances          EmployeeAdvance[]
+  custodies         Custody[]
 
   @@index([department, status])
   @@map("employees")
@@ -204,9 +233,11 @@ model Clearer {
   deletedAt            DateTime? @map("deleted_at")
   deletedById          Int?      @map("deleted_by")
 
-  deletedBy User?      @relation("ClearerDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
-  users     User[]     @relation("UserClearer")
+  deletedBy User?        @relation("ClearerDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  users     User[]       @relation("UserClearer")
   shipments Shipment[]
+  custodies Custody[]
+  fees      ClearerFee[]
 
   @@map("clearers")
 }
@@ -244,32 +275,49 @@ model User {
   deletedDocuments  ShipmentDocument[] @relation("DocumentDeletedBy")
   auditLogs         AuditLog[]
 
-  moneyMovements         MoneyMovement[]   @relation("MovementCreatedBy")
-  createdTransfers       Transfer[]        @relation("TransferCreatedBy")
-  reviewedTransfers      Transfer[]        @relation("TransferReviewedBy")
-  managedTransfers       Transfer[]        @relation("TransferManagerBy")
-  approvedTransfers      Transfer[]        @relation("TransferApprovedBy")
-  rejectedTransfers      Transfer[]        @relation("TransferRejectedBy")
-  createdOtherMovements  OtherMovement[]   @relation("OtherCreatedBy")
-  reviewedOtherMovements OtherMovement[]   @relation("OtherReviewedBy")
-  managedOtherMovements  OtherMovement[]   @relation("OtherManagerBy")
-  approvedOtherMovements OtherMovement[]   @relation("OtherApprovedBy")
-  rejectedOtherMovements OtherMovement[]   @relation("OtherRejectedBy")
-  createdSalaries        SalaryPayment[]   @relation("SalaryCreatedBy")
-  reviewedSalaries       SalaryPayment[]   @relation("SalaryReviewedBy")
-  managedSalaries        SalaryPayment[]   @relation("SalaryManagerBy")
-  approvedSalaries       SalaryPayment[]   @relation("SalaryApprovedBy")
-  rejectedSalaries       SalaryPayment[]   @relation("SalaryRejectedBy")
-  createdAdvances        EmployeeAdvance[] @relation("AdvanceCreatedBy")
-  reviewedAdvances       EmployeeAdvance[] @relation("AdvanceReviewedBy")
-  managedAdvances        EmployeeAdvance[] @relation("AdvanceManagerBy")
-  approvedAdvances       EmployeeAdvance[] @relation("AdvanceApprovedBy")
-  rejectedAdvances       EmployeeAdvance[] @relation("AdvanceRejectedBy")
-  createdExpenses        GeneralExpense[]  @relation("ExpenseCreatedBy")
-  reviewedExpenses       GeneralExpense[]  @relation("ExpenseReviewedBy")
-  managedExpenses        GeneralExpense[]  @relation("ExpenseManagerBy")
-  approvedExpenses       GeneralExpense[]  @relation("ExpenseApprovedBy")
-  rejectedExpenses       GeneralExpense[]  @relation("ExpenseRejectedBy")
+  moneyMovements         MoneyMovement[]        @relation("MovementCreatedBy")
+  createdTransfers       Transfer[]             @relation("TransferCreatedBy")
+  reviewedTransfers      Transfer[]             @relation("TransferReviewedBy")
+  managedTransfers       Transfer[]             @relation("TransferManagerBy")
+  approvedTransfers      Transfer[]             @relation("TransferApprovedBy")
+  rejectedTransfers      Transfer[]             @relation("TransferRejectedBy")
+  createdOtherMovements  OtherMovement[]        @relation("OtherCreatedBy")
+  reviewedOtherMovements OtherMovement[]        @relation("OtherReviewedBy")
+  managedOtherMovements  OtherMovement[]        @relation("OtherManagerBy")
+  approvedOtherMovements OtherMovement[]        @relation("OtherApprovedBy")
+  rejectedOtherMovements OtherMovement[]        @relation("OtherRejectedBy")
+  createdSalaries        SalaryPayment[]        @relation("SalaryCreatedBy")
+  reviewedSalaries       SalaryPayment[]        @relation("SalaryReviewedBy")
+  managedSalaries        SalaryPayment[]        @relation("SalaryManagerBy")
+  approvedSalaries       SalaryPayment[]        @relation("SalaryApprovedBy")
+  rejectedSalaries       SalaryPayment[]        @relation("SalaryRejectedBy")
+  createdAdvances        EmployeeAdvance[]      @relation("AdvanceCreatedBy")
+  reviewedAdvances       EmployeeAdvance[]      @relation("AdvanceReviewedBy")
+  managedAdvances        EmployeeAdvance[]      @relation("AdvanceManagerBy")
+  approvedAdvances       EmployeeAdvance[]      @relation("AdvanceApprovedBy")
+  rejectedAdvances       EmployeeAdvance[]      @relation("AdvanceRejectedBy")
+  createdExpenses        GeneralExpense[]       @relation("ExpenseCreatedBy")
+  reviewedExpenses       GeneralExpense[]       @relation("ExpenseReviewedBy")
+  managedExpenses        GeneralExpense[]       @relation("ExpenseManagerBy")
+  approvedExpenses       GeneralExpense[]       @relation("ExpenseApprovedBy")
+  rejectedExpenses       GeneralExpense[]       @relation("ExpenseRejectedBy")
+  createdCustodies       Custody[]              @relation("CustodyCreatedBy")
+  reviewedCustodies      Custody[]              @relation("CustodyReviewedBy")
+  managedCustodies       Custody[]              @relation("CustodyManagerBy")
+  approvedCustodies      Custody[]              @relation("CustodyApprovedBy")
+  rejectedCustodies      Custody[]              @relation("CustodyRejectedBy")
+  settledCustodies       Custody[]              @relation("CustodySettledBy")
+  createdFeeAdjustments  ClearerFeeAdjustment[] @relation("FeeAdjCreatedBy")
+  reviewedFeeAdjustments ClearerFeeAdjustment[] @relation("FeeAdjReviewedBy")
+  managedFeeAdjustments  ClearerFeeAdjustment[] @relation("FeeAdjManagerBy")
+  approvedFeeAdjustments ClearerFeeAdjustment[] @relation("FeeAdjApprovedBy")
+  rejectedFeeAdjustments ClearerFeeAdjustment[] @relation("FeeAdjRejectedBy")
+  createdFeePayments     ClearerFeePayment[]    @relation("FeePayCreatedBy")
+  reviewedFeePayments    ClearerFeePayment[]    @relation("FeePayReviewedBy")
+  managedFeePayments     ClearerFeePayment[]    @relation("FeePayManagerBy")
+  approvedFeePayments    ClearerFeePayment[]    @relation("FeePayApprovedBy")
+  rejectedFeePayments    ClearerFeePayment[]    @relation("FeePayRejectedBy")
+  computedFees           ClearerFee[]           @relation("FeeComputedBy")
 
   @@map("users")
 }
@@ -488,6 +536,8 @@ model Shipment {
   containers  ShipmentContainer[]
   billNumbers BillNumber[]
   documents   ShipmentDocument[]
+  custodies   Custody[]
+  clearerFee  ClearerFee?
 
   @@index([clientId])
   @@index([operationEmployeeId])
@@ -600,12 +650,14 @@ model MoneyAccount {
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
   movements        MoneyMovement[]
-  transfersOut     Transfer[]        @relation("TransferFrom")
-  transfersIn      Transfer[]        @relation("TransferTo")
+  transfersOut     Transfer[]          @relation("TransferFrom")
+  transfersIn      Transfer[]          @relation("TransferTo")
   otherMovements   OtherMovement[]
   salaryPayments   SalaryPayment[]
   employeeAdvances EmployeeAdvance[]
   generalExpenses  GeneralExpense[]
+  custodies        Custody[]
+  feePayments      ClearerFeePayment[]
 
   @@unique([id, currency]) // target of the composite FKs that lock a document's currency
   @@map("money_accounts")
@@ -625,19 +677,23 @@ model MoneyMovement {
   salaryId        Int?           @map("salary_id")
   advanceId       Int?           @map("advance_id")
   expenseId       Int?           @map("expense_id")
+  custodyId       Int?           @map("custody_id")
+  feePaymentId    Int?           @map("fee_payment_id")
   reversalOfId    BigInt?        @unique @map("reversal_of_id")
   createdById     Int            @map("created_by")
   createdAt       DateTime       @default(now()) @map("created_at")
 
-  account       MoneyAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  transfer      Transfer?        @relation(fields: [transferId], references: [id], onDelete: Restrict)
-  otherMovement OtherMovement?   @relation(fields: [otherMovementId], references: [id], onDelete: Restrict)
-  salary        SalaryPayment?   @relation(fields: [salaryId], references: [id], onDelete: Restrict)
-  advance       EmployeeAdvance? @relation(fields: [advanceId], references: [id], onDelete: Restrict)
-  expense       GeneralExpense?  @relation(fields: [expenseId], references: [id], onDelete: Restrict)
-  reversalOf    MoneyMovement?   @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
-  reversedBy    MoneyMovement?   @relation("MovementReversal")
-  createdBy     User             @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  account       MoneyAccount       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  transfer      Transfer?          @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  otherMovement OtherMovement?     @relation(fields: [otherMovementId], references: [id], onDelete: Restrict)
+  salary        SalaryPayment?     @relation(fields: [salaryId], references: [id], onDelete: Restrict)
+  advance       EmployeeAdvance?   @relation(fields: [advanceId], references: [id], onDelete: Restrict)
+  expense       GeneralExpense?    @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  custody       Custody?           @relation(fields: [custodyId], references: [id], onDelete: Restrict)
+  feePayment    ClearerFeePayment? @relation(fields: [feePaymentId], references: [id], onDelete: Restrict)
+  reversalOf    MoneyMovement?     @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy    MoneyMovement?     @relation("MovementReversal")
+  createdBy     User               @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([accountId, id])
   @@index([transferId])
@@ -645,6 +701,8 @@ model MoneyMovement {
   @@index([salaryId])
   @@index([advanceId])
   @@index([expenseId])
+  @@index([custodyId])
+  @@index([feePaymentId])
   @@map("money_movements")
 }
 
@@ -821,6 +879,7 @@ model ExpenseType {
   createdAt DateTime     @default(now()) @map("created_at")
 
   generalExpenses GeneralExpense[]
+  custodyItems    CustodyItem[]
 
   @@unique([scope, name])
   @@map("expense_types")
@@ -865,4 +924,182 @@ model GeneralExpense {
   @@index([expenseDate])
   @@index([approvalStatus])
   @@map("general_expenses")
+}
+
+// ───────────────────────── Finance: custodies and clearers ─────────────────────────
+// A custody is the only way an expense reaches a shipment. It is issued (money out),
+// settled once with its items (the rest back, or a clearer's overspend paid out), and
+// approved once, after settlement.
+
+model Custody {
+  id              Int             @id @default(autoincrement())
+  custodyNo       String          @unique @map("custody_no") // CU26-0001
+  shipmentId      Int             @map("shipment_id")
+  holderType      CustodyHolder   @map("holder_type")
+  agentEmployeeId Int?            @map("agent_employee_id")
+  clearerId       Int?            @map("clearer_id")
+  purpose         CustodyPurpose?
+  sourceAccountId Int             @map("source_account_id")
+  currency        Currency
+  amount          Decimal         @db.Decimal(14, 2)
+  extraAmount     Decimal         @default(0) @map("extra_amount") @db.Decimal(14, 2) // a clearer's overspend, paid at settlement
+  spentAmount     Decimal         @default(0) @map("spent_amount") @db.Decimal(14, 2)
+  returnedAmount  Decimal         @default(0) @map("returned_amount") @db.Decimal(14, 2)
+  status          CustodyStatus   @default(OPEN)
+  issueDate       DateTime        @map("issue_date") @db.Date
+  settlementDate  DateTime?       @map("settlement_date") @db.Date
+  settledById     Int?            @map("settled_by")
+  notes           String?
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  shipment      Shipment        @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+  agent         Employee?       @relation(fields: [agentEmployeeId], references: [id], onDelete: Restrict)
+  clearer       Clearer?        @relation(fields: [clearerId], references: [id], onDelete: Restrict)
+  sourceAccount MoneyAccount    @relation(fields: [sourceAccountId, currency], references: [id, currency], onDelete: Restrict)
+  settledBy     User?           @relation("CustodySettledBy", fields: [settledById], references: [id], onDelete: Restrict)
+  items         CustodyItem[]
+  movements     MoneyMovement[]
+  computedFee   ClearerFee?
+  createdBy     User            @relation("CustodyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy    User?           @relation("CustodyReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy     User?           @relation("CustodyManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy    User?           @relation("CustodyApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy    User?           @relation("CustodyRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId])
+  @@index([clearerId])
+  @@index([agentEmployeeId])
+  @@index([status, approvalStatus])
+  @@map("custodies")
+}
+
+/// One settlement line: expense type, amount, receipt number and/or description.
+model CustodyItem {
+  id            Int     @id @default(autoincrement())
+  custodyId     Int     @map("custody_id")
+  lineNo        Int     @map("line_no")
+  expenseTypeId Int     @map("expense_type_id")
+  amount        Decimal @db.Decimal(14, 2)
+  receiptNo     String? @map("receipt_no") // digits; printed "PAYMENT RECEIPT NO- " + number
+  description   String?
+
+  custody     Custody     @relation(fields: [custodyId], references: [id], onDelete: Cascade)
+  expenseType ExpenseType @relation(fields: [expenseTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([custodyId, lineNo])
+  @@index([receiptNo])
+  @@map("custody_items")
+}
+
+/// The clearer's fee on a shipment: once (UNIQUE shipment), priced when computed.
+model ClearerFee {
+  id              Int      @id @default(autoincrement())
+  shipmentId      Int      @unique @map("shipment_id")
+  clearerId       Int      @map("clearer_id")
+  custodyId       Int      @unique @map("custody_id") // the settlement it was computed with
+  base            Decimal  @db.Decimal(14, 2)
+  extraRate       Decimal  @map("extra_rate") @db.Decimal(14, 2) // 0 when extra containers do not count
+  containersCount Int      @map("containers_count")
+  amount          Decimal  @db.Decimal(14, 2) // base + extra rate × (containers − 1)
+  computedById    Int      @map("computed_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  shipment    Shipment               @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+  clearer     Clearer                @relation(fields: [clearerId], references: [id], onDelete: Restrict)
+  custody     Custody                @relation(fields: [custodyId], references: [id], onDelete: Restrict)
+  computedBy  User                   @relation("FeeComputedBy", fields: [computedById], references: [id], onDelete: Restrict)
+  adjustments ClearerFeeAdjustment[]
+  payments    ClearerFeePayment[]
+
+  @@index([clearerId])
+  @@map("clearer_fees")
+}
+
+/// A change to a fee: containers count changed by SCAN, or a CEO override (with its reason).
+model ClearerFeeAdjustment {
+  id             Int                 @id @default(autoincrement())
+  feeId          Int                 @map("fee_id")
+  amount         Decimal             @db.Decimal(14, 2) // + or −, never 0
+  reason         FeeAdjustmentReason
+  containersFrom Int?                @map("containers_from")
+  containersTo   Int?                @map("containers_to")
+  notes          String?
+  adjustmentDate DateTime            @map("adjustment_date") @db.Date
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  fee        ClearerFee @relation(fields: [feeId], references: [id], onDelete: Restrict)
+  createdBy  User       @relation("FeeAdjCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy User?      @relation("FeeAdjReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy  User?      @relation("FeeAdjManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy User?      @relation("FeeAdjApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy User?      @relation("FeeAdjRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@index([feeId])
+  @@map("clearer_fee_adjustments")
+}
+
+/// A fee payment to the clearer, from the EGP cash box; installments allowed.
+model ClearerFeePayment {
+  id          Int      @id @default(autoincrement())
+  feeId       Int      @map("fee_id")
+  amount      Decimal  @db.Decimal(14, 2)
+  accountId   Int      @map("account_id")
+  currency    Currency @default(EGP)
+  paymentDate DateTime @map("payment_date") @db.Date
+  notes       String?
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  fee        ClearerFee      @relation(fields: [feeId], references: [id], onDelete: Restrict)
+  account    MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  movements  MoneyMovement[]
+  createdBy  User            @relation("FeePayCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy User?           @relation("FeePayReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy  User?           @relation("FeePayManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy User?           @relation("FeePayApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy User?           @relation("FeePayRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@index([feeId])
+  @@map("clearer_fee_payments")
 }
