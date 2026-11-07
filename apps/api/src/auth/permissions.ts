@@ -58,7 +58,6 @@ export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'finance.accounts.manage',
   'finance.approved.edit',
   'finance.fees.adjust',
-  'settings.manage',
 ]);
 
 export function isPermission(value: string): value is Permission {

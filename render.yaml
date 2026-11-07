@@ -1,0 +1,32 @@
+# Render Blueprint for the API (Dashboard → New → Blueprint → this repository).
+# The web app is deployed on Vercel and forwards /api/* here (apps/web/vercel.json).
+services:
+  - type: web
+    name: hammer-logistics-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: apps/api
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
+    # migrations run on every start, before the API takes requests
+    startCommand: npx prisma migrate deploy && node dist/main.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: DATABASE_URL # the Neon connection string (with sslmode=require)
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN # the Vercel URL, e.g. https://hammer-logistics.vercel.app
+        sync: false
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: TRUST_PROXY_HOPS # Vercel's rewrite + Render's load balancer
+        value: '2'
+      - key: LOGIN_RATE_LIMIT
+        value: '10'
+      - key: CLOUDINARY_URL # cloudinary://KEY:SECRET@CLOUD (document uploads)
+        sync: false

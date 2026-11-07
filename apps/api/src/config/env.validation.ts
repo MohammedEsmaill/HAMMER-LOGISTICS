@@ -43,6 +43,12 @@ class EnvironmentVariables {
   @IsInt()
   PORT: number = 3000;
 
+  /** Proxies in front of the API in production (Vercel rewrite + host load balancer). */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  TRUST_PROXY_HOPS: number = 0;
+
   /** cloudinary://API_KEY:API_SECRET@CLOUD_NAME — needed only for document uploads. */
   @IsOptional()
   @IsString()

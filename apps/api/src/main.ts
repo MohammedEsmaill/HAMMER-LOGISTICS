@@ -11,6 +11,15 @@ export function configureApp(
   webOrigin: string,
 ) {
   app.setGlobalPrefix('api');
+  // behind Vercel's rewrite and the host's load balancer: the client IP (rate limits,
+  // audit) is the one they forward, counted from the right
+  const hops = Number(process.env.TRUST_PROXY_HOPS ?? 0);
+  if (hops > 0) {
+    (app as unknown as { set: (k: string, v: number) => void }).set(
+      'trust proxy',
+      hops,
+    );
+  }
   app.use(cookieParser());
   app.enableCors({ origin: webOrigin, credentials: true });
   app.useGlobalPipes(

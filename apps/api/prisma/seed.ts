@@ -38,7 +38,12 @@ const ROLES: {
   {
     name: 'HR',
     description: 'الموظفين والمستخدمين والمستخلصين',
-    permissions: ['users.manage', 'employees.manage', 'employees.salary.view'],
+    permissions: [
+      'users.manage',
+      'employees.manage',
+      'employees.salary.view',
+      'settings.manage',
+    ],
   },
   {
     name: 'SCAN',
@@ -204,6 +209,11 @@ const GRANTS: { id: string; roles: Record<string, Permission[]> }[] = [
       ],
       TREASURY_MANAGER: ['finance.client-ledger.view'],
     },
+  },
+  {
+    // HR adds the company emails with the users and accounts
+    id: 'hr-company-settings',
+    roles: { HR: ['settings.manage'] },
   },
 ];
 
