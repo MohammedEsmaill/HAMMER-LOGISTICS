@@ -24,6 +24,14 @@ export const PERMISSIONS = {
   'shipments.documents.upload': 'رفع مستندات الشحنة',
   'shipments.documents.delete': 'حذف مستندات الشحنة',
   'audit.view': 'عرض سجل العمليات',
+  'finance.accounts.manage': 'إضافة وتعديل وإيقاف الحسابات البنكية',
+  'finance.balances.view': 'عرض أرصدة الخزن والبنوك وحركتها',
+  'finance.movements.create':
+    'تسجيل التحويلات والحركات التانية على الخزن والبنوك',
+  'finance.review': 'مراجعة الحركات المالية (المستوى الأول)',
+  'finance.manager_approve': 'موافقة مدير الحسابات على الحركات المالية',
+  'finance.approve': 'الاعتماد النهائي للحركات المالية',
+  'finance.approved.edit': 'تعديل حركة مالية بعد اعتمادها',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -35,6 +43,8 @@ export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'roles.manage',
   'clearers.manage',
   'shipments.reassign',
+  'finance.accounts.manage',
+  'finance.approved.edit',
 ]);
 
 export function isPermission(value: string): value is Permission {

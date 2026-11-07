@@ -96,29 +96,67 @@ const ROLES: {
       'employees.salary.view',
       'clients.view',
       'shipments.view.all',
+      'finance.balances.view',
+      'finance.movements.create',
     ],
   },
   {
     name: 'ACCOUNTANT',
     description: 'المحاسب',
-    permissions: ['clients.view', 'shipments.view.all'],
+    permissions: ['clients.view', 'shipments.view.all', 'finance.review'],
   },
   {
     name: 'ACCOUNTS_MANAGER',
     description: 'مدير الحسابات',
-    permissions: ['clients.view', 'shipments.view.all'],
+    permissions: [
+      'clients.view',
+      'shipments.view.all',
+      'finance.manager_approve',
+    ],
   },
   {
     name: 'FINANCIAL_RELATIONS',
     description: 'مدير العلاقات المالية',
-    permissions: ['clients.view', 'clients.manage', 'shipments.view.all'],
+    permissions: [
+      'clients.view',
+      'clients.manage',
+      'shipments.view.all',
+      'finance.balances.view',
+    ],
   },
   {
     name: 'GENERAL_AUDITOR',
     description: 'المراجع العام',
-    permissions: ['clients.view', 'shipments.view.all', 'audit.view'],
+    permissions: [
+      'clients.view',
+      'shipments.view.all',
+      'audit.view',
+      'finance.approve',
+    ],
   },
 ];
+
+/**
+ * Permissions added to existing roles by a release. Each grant runs once per database
+ * (recorded in settings), so a permission the CEO later removes is not given back.
+ */
+const GRANTS: { id: string; roles: Record<string, Permission[]> }[] = [
+  {
+    id: 'finance-phase-1',
+    roles: {
+      TREASURY_MANAGER: ['finance.balances.view', 'finance.movements.create'],
+      ACCOUNTANT: ['finance.review'],
+      ACCOUNTS_MANAGER: ['finance.manager_approve'],
+      FINANCIAL_RELATIONS: ['finance.balances.view'],
+      GENERAL_AUDITOR: ['finance.approve'],
+    },
+  },
+];
+
+const CASH_BOXES = [
+  { name: 'خزنة الجنيه', currency: 'EGP' },
+  { name: 'خزنة الدولار', currency: 'USD' },
+] as const;
 
 const FREE_ZONES = [
   'منطقة حرة إسماعيلية',
@@ -171,6 +209,37 @@ async function main() {
         where: { id: role.id },
         data: { permissions: kept },
       });
+    }
+  }
+
+  const applied = await prisma.setting.findUnique({
+    where: { key: 'seed.grants' },
+  });
+  const done = new Set((applied?.value as string[] | undefined) ?? []);
+  for (const grant of GRANTS.filter((g) => !done.has(g.id))) {
+    for (const [name, permissions] of Object.entries(grant.roles)) {
+      const role = await prisma.role.findUnique({ where: { name } });
+      if (!role) continue;
+      const merged = [...new Set([...role.permissions, ...permissions])];
+      await prisma.role.update({
+        where: { id: role.id },
+        data: { permissions: merged },
+      });
+    }
+    done.add(grant.id);
+  }
+  await prisma.setting.upsert({
+    where: { key: 'seed.grants' },
+    update: { value: [...done] },
+    create: { key: 'seed.grants', value: [...done] },
+  });
+
+  for (const box of CASH_BOXES) {
+    const exists = await prisma.moneyAccount.findFirst({
+      where: { type: 'CASH', currency: box.currency },
+    });
+    if (!exists) {
+      await prisma.moneyAccount.create({ data: { ...box, type: 'CASH' } });
     }
   }
 

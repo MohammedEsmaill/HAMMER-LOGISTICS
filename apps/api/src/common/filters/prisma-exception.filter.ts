@@ -16,6 +16,12 @@ const CHECK_MESSAGES: Record<string, string> = {
   users_account_owner: 'الحساب لازم يكون لموظف أو لمستخلص واحد بس',
   clients_mobile_format: 'رقم الموبايل غير صحيح',
   factories_tax_number_format: 'الرقم الضريبي لازم يكون 9 أرقام',
+  money_accounts_balance_not_negative: 'الرصيد مش كفاية للعملية دي',
+  money_movements_balance_not_negative: 'الرصيد مش كفاية للعملية دي',
+  money_accounts_bank_details: 'اسم البنك ورقم الحساب مطلوبين للحساب البنكي بس',
+  transfers_different_accounts: 'التحويل لازم يكون بين حسابين مختلفين',
+  other_movements_kind_direction:
+    'التمويل دايمًا دخول، والمصاريف البنكية دايمًا خروج',
 };
 
 /**
@@ -32,6 +38,8 @@ const UNIQUE_MESSAGES: Record<string, string> = {
   'Client.name': 'اسم العميل متسجل قبل كده',
   'Factory.tax_number': 'الرقم الضريبي متسجل لمصنع تاني',
   'Role.name': 'اسم الدور متسجل قبل كده',
+  'MoneyAccount.currency': 'فيه خزنة بالعملة دي بالفعل',
+  'MoneyAccount.account_number': 'الحساب البنكي ده متسجل قبل كده',
 };
 
 @Catch(
