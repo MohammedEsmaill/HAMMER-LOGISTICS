@@ -4,7 +4,8 @@
  *   SEED_CEO_EMAIL, SEED_CEO_PASSWORD, SEED_CEO_NAME, SEED_CEO_NATIONAL_ID
  */
 import { PrismaClient } from '@prisma/client';
-import * as argon2 from 'argon2';
+import { hash } from '@node-rs/argon2';
+import { ARGON2_OPTIONS } from '../src/auth/password.service';
 import countries from 'i18n-iso-countries';
 import arabic from 'i18n-iso-countries/langs/ar.json';
 import english from 'i18n-iso-countries/langs/en.json';
@@ -462,7 +463,7 @@ async function seedCeo() {
       `SEED_CEO_EMAIL "${email}" is not valid: it must be name@hammerline.com, with no spaces.`,
     );
   }
-  const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+  const passwordHash = await hash(password, ARGON2_OPTIONS);
   // the employee and the account together, or neither; an employee left by an
   // earlier failed run is reused
   await prisma.$transaction(async (tx) => {

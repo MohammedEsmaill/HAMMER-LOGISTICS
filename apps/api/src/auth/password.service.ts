@@ -1,19 +1,26 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import * as argon2 from 'argon2';
+import { hash, verify } from '@node-rs/argon2';
+
+/**
+ * Argon2id (the library's default) with the same cost as the hashes already stored,
+ * which carry their own parameters, so old and new hashes both verify. @node-rs/argon2
+ * ships a ready binary per platform: no compiler or Python needed on Windows.
+ */
+export const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4 };
 
 @Injectable()
 export class PasswordService {
   /** Verified against when the email is unknown, so a wrong email and a wrong password take the same time. */
-  private readonly dummyHash = argon2.hash('timing-equaliser-not-a-password');
+  private readonly dummyHash = hash('timing-equaliser-not-a-password', ARGON2_OPTIONS);
 
   hash(password: string): Promise<string> {
     this.assertStrong(password);
-    return argon2.hash(password, { type: argon2.argon2id });
+    return hash(password, ARGON2_OPTIONS);
   }
 
-  async verify(hash: string | null, password: string): Promise<boolean> {
+  async verify(stored: string | null, password: string): Promise<boolean> {
     try {
-      return await argon2.verify(hash ?? (await this.dummyHash), password);
+      return await verify(stored ?? (await this.dummyHash), password);
     } catch {
       return false;
     }
