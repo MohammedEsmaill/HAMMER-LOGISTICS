@@ -4,6 +4,14 @@ rem Close the HAMMER windows first.
 setlocal
 cd /d "%~dp0"
 
+rem the running system locks its files, and npm cannot replace them
+netstat -ano | findstr /r /c:":3000 .*LISTENING" /c:":4173 .*LISTENING" >nul
+if not errorlevel 1 (
+  echo The system is still running. Close the HAMMER windows, then run update.bat again.
+  pause
+  exit /b 1
+)
+
 echo [1/5] Latest code...
 git pull || goto failed
 
