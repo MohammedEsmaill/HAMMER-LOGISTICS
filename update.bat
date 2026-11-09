@@ -2,7 +2,13 @@
 rem HAMMER LINE: get the latest code and rebuild. Run it after every update, then start.bat.
 rem Close the HAMMER windows first.
 setlocal
-cd /d "%~dp0"
+rem git pull can change this file while it runs, so run a copy of it
+if /i not "%~1"=="--copy" (
+  copy /y "%~f0" "%TEMP%\hammer-update.bat" >nul
+  call "%TEMP%\hammer-update.bat" --copy "%~dp0"
+  exit /b
+)
+cd /d "%~2"
 
 rem the running system locks its files, and npm cannot replace them
 netstat -ano | findstr /r /c:":3000 .*LISTENING" /c:":4173 .*LISTENING" >nul
