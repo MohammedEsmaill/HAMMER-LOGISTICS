@@ -26,7 +26,7 @@ docker compose up -d || goto failed
 
 echo [3/5] API: packages, database changes, build...
 pushd apps\api
-call npm ci || goto failed
+call npm install --no-audit --no-fund || goto failed
 call npx prisma migrate deploy || goto failed
 call npx prisma db seed || goto failed
 call npm run build || goto failed
@@ -34,7 +34,7 @@ popd
 
 echo [4/5] Web app: packages and build...
 pushd apps\web
-call npm ci || goto failed
+call npm install --no-audit --no-fund || goto failed
 call npm run build || goto failed
 popd
 
