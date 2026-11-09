@@ -35,6 +35,8 @@ npm install
 npm run dev                   # http://localhost:5173 (forwards /api to :3000)
 ```
 
+On Windows, `update.bat` (install, migrate, seed, build) and `start.bat` (database, API, web on :4173 and the share tunnel) do all of this with a double-click; see `docs/SHARE.md`.
+
 Sign in with the CEO account from the seed, then add employees, users and roles from the app.
 
 ## Tests

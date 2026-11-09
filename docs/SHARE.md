@@ -43,7 +43,21 @@ SEED_CEO_PASSWORD="..."      # كلمة سر قوية
 TRUST_PROXY_HOPS=1           # علشان حماية الدخول تشوف جهاز كل مستخدم مش جهازك
 ```
 
-## كل مرة: التشغيل والمشاركة
+## كل مرة: التشغيل والمشاركة (Windows)
+
+في فولدر المشروع فيه ملفين، بتشغّلهم بدبل كليك:
+
+| الملف | امتى | بيعمل إيه |
+| --- | --- | --- |
+| `start.bat` | كل مرة عايز تشغّل السيستم | بيشغّل الداتابيز، وبيفتح شباك للـ API وشباك للواجهة وشباك للرابط، وبيفتح المتصفح على `http://localhost:4173` |
+| `update.bat` | أول مرة، وبعد أي تحديث في الكود | بيجيب آخر كود، ويثبّت المكتبات، ويطبّق تعديلات الداتابيز، ويعمل build |
+
+- لازم Docker Desktop يكون مفتوح قبل ما تشغّل أي واحد فيهم.
+- قبل `update.bat` اقفل شبابيك HAMMER المفتوحة.
+- الرابط اللي تبعته بيظهر في شباك **HAMMER - LINK** (`https://....trycloudflare.com`). `start.bat` بيدوّر على `cloudflared.exe` في فولدر المشروع، أو في الفولدر اللي فوقه، أو في الـ PATH.
+- عشان توقف السيستم: اقفل شبابيك HAMMER.
+
+### يدوي (Mac أو من غير الملفات)
 
 افتح 3 terminals:
 
@@ -52,7 +66,7 @@ TRUST_PROXY_HOPS=1           # علشان حماية الدخول تشوف جه�
 cd hammer-logistics/apps/api
 node dist/main.js
 
-# 2) الواجهة (نسخة الإنتاج، أسرع من وضع التطوير)
+# 2) الواجهة
 cd hammer-logistics/apps/web
 npm run share                       # http://localhost:4173
 
@@ -60,9 +74,7 @@ npm run share                       # http://localhost:4173
 cloudflared tunnel --url http://localhost:4173
 ```
 
-الـ terminal التالت هيطبع رابط زي `https://blue-river-1234.trycloudflare.com`. ابعته، وادخل بحساب الـ CEO.
-
-بعد أي تحديث في الكود: اعمل `git pull`، و`npx prisma migrate deploy` و`npm run build` في `apps/api`، وبعدين شغّل تاني.
+متشغّلش `npm audit fix` ولا `npm update`: بيحدّثوا المكتبات لنسخ مش متوافقة مع المشروع.
 
 ## ngrok بدل Cloudflare (اختياري)
 
