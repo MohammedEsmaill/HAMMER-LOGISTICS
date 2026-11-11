@@ -44,13 +44,14 @@ const ROLES: {
       'employees.manage',
       'employees.salary.view',
       'settings.manage',
+      'clients.view',
+      'clients.manage',
     ],
   },
   {
     name: 'SCAN',
     description: 'تسجيل الشحنات وتحديثها طول التشغيل',
     permissions: [
-      'clients.view',
       'shipments.view.all',
       'shipments.create',
       'shipments.basic.update',
@@ -65,7 +66,6 @@ const ROLES: {
     name: 'OPERATION',
     description: 'متابعة شحنات عملائه من التبليغ للصرف',
     permissions: [
-      'clients.view',
       'shipments.view.own',
       'shipments.operation.update',
       'shipments.customs.update',
@@ -78,7 +78,6 @@ const ROLES: {
     description: 'الإجراءات على النافذة الموحدة',
     permissions: [
       'lookups.add',
-      'clients.view',
       'shipments.view.all',
       'shipments.customs.update',
       'shipments.stage.customs',
@@ -100,7 +99,6 @@ const ROLES: {
     description: 'مدير الخزنة',
     permissions: [
       'employees.salary.view',
-      'clients.view',
       'shipments.view.all',
       'finance.balances.view',
       'finance.movements.create',
@@ -110,13 +108,13 @@ const ROLES: {
       'finance.custody.manage',
       'finance.ledgers.view',
       'finance.client-ledger.view',
+      'finance.journal.view',
     ],
   },
   {
     name: 'ACCOUNTANT',
     description: 'المحاسب',
     permissions: [
-      'clients.view',
       'shipments.view.all',
       'finance.review',
       'finance.shipment-account.view',
@@ -127,12 +125,12 @@ const ROLES: {
     name: 'ACCOUNTS_MANAGER',
     description: 'مدير الحسابات',
     permissions: [
-      'clients.view',
       'shipments.view.all',
       'finance.manager_approve',
       'finance.ledgers.view',
       'finance.shipment-account.view',
       'finance.client-ledger.view',
+      'finance.journal.view',
     ],
   },
   {
@@ -147,16 +145,17 @@ const ROLES: {
       'finance.shipment-account.view',
       'finance.collections.manage',
       'finance.client-ledger.view',
+      'finance.journal.view',
     ],
   },
   {
     name: 'GENERAL_AUDITOR',
     description: 'المراجع العام',
     permissions: [
-      'clients.view',
       'shipments.view.all',
       'audit.view',
       'finance.approve',
+      'finance.journal.view',
     ],
   },
 ];
@@ -165,7 +164,12 @@ const ROLES: {
  * Permissions added to existing roles by a release. Each grant runs once per database
  * (recorded in settings), so a permission the CEO later removes is not given back.
  */
-const GRANTS: { id: string; roles: Record<string, Permission[]> }[] = [
+const GRANTS: {
+  id: string;
+  roles: Record<string, Permission[]>;
+  /** Permissions the release takes away, once, from roles that still have them. */
+  revoke?: Record<string, Permission[]>;
+}[] = [
   {
     id: 'finance-phase-1',
     roles: {
@@ -215,6 +219,29 @@ const GRANTS: { id: string; roles: Record<string, Permission[]> }[] = [
     // HR adds the company emails with the users and accounts
     id: 'hr-company-settings',
     roles: { HR: ['settings.manage'] },
+  },
+  {
+    // the clients screen is for the CEO, HR and the financial relations manager;
+    // the others pick clients from the short lists of the shipment screens
+    id: 'clients-screen-and-journal',
+    roles: {
+      HR: ['clients.view', 'clients.manage'],
+      TREASURY_MANAGER: ['finance.journal.view'],
+      ACCOUNTS_MANAGER: ['finance.journal.view'],
+      FINANCIAL_RELATIONS: ['finance.journal.view'],
+      GENERAL_AUDITOR: ['finance.journal.view'],
+    },
+    revoke: Object.fromEntries(
+      [
+        'SCAN',
+        'OPERATION',
+        'NAFEZA',
+        'TREASURY_MANAGER',
+        'ACCOUNTANT',
+        'ACCOUNTS_MANAGER',
+        'GENERAL_AUDITOR',
+      ].map((role) => [role, ['clients.view']]),
+    ),
   },
 ];
 
@@ -289,6 +316,18 @@ async function main() {
       await prisma.role.update({
         where: { id: role.id },
         data: { permissions: merged },
+      });
+    }
+    for (const [name, permissions] of Object.entries(grant.revoke ?? {})) {
+      const role = await prisma.role.findUnique({ where: { name } });
+      if (!role) continue;
+      await prisma.role.update({
+        where: { id: role.id },
+        data: {
+          permissions: role.permissions.filter(
+            (p) => !permissions.includes(p as Permission),
+          ),
+        },
       });
     }
     done.add(grant.id);
@@ -468,7 +507,9 @@ async function seedCeo() {
   // earlier failed run is reused
   await prisma.$transaction(async (tx) => {
     const employee =
-      (await tx.employee.findFirst({ where: { code: 'CEO', deletedAt: null, users: { none: {} } } })) ??
+      (await tx.employee.findFirst({
+        where: { code: 'CEO', deletedAt: null, users: { none: {} } },
+      })) ??
       (await tx.employee.create({
         data: {
           code: 'CEO',

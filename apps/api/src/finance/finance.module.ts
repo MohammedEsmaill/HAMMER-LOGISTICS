@@ -33,6 +33,9 @@ import {
 } from './movements.controller';
 import { OtherMovementsService } from './other-movements.service';
 import { TransfersService } from './transfers.service';
+import { JournalController } from './journal.controller';
+import { JournalService } from './journal.service';
+import { ReportsService } from './reports.service';
 
 @Module({
   controllers: [
@@ -50,6 +53,7 @@ import { TransfersService } from './transfers.service';
     InvoicesController,
     CollectionsController,
     ClientLedgerController,
+    JournalController,
   ],
   providers: [
     LedgerService,
@@ -66,7 +70,9 @@ import { TransfersService } from './transfers.service';
     ShipmentAccountService,
     CollectionsService,
     ClientLedgerService,
+    JournalService,
+    ReportsService,
   ],
-  exports: [LedgerService, ApprovalService, ClearerFeesService],
+  exports: [LedgerService, ApprovalService, ClearerFeesService, JournalService],
 })
 export class FinanceModule {}

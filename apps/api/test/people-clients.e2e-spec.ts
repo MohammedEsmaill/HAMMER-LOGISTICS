@@ -281,16 +281,9 @@ describe('Employees, clearers, clients (e2e)', () => {
     });
 
     it('only financial relations and the CEO see the quote', async () => {
-      const forScan = await ctx
-        .api(scan)
-        .get(`/api/clients/${clientId}`)
-        .expect(200);
-      expect(forScan.body).not.toHaveProperty('quoteFinalBase');
-      const forAccountant = await ctx
-        .api(accountant)
-        .get(`/api/clients/${clientId}`)
-        .expect(200);
-      expect(forAccountant.body).not.toHaveProperty('quoteFinalBase');
+      // the clients screen is not theirs: they pick clients from the short list
+      await ctx.api(scan).get(`/api/clients/${clientId}`).expect(403);
+      await ctx.api(accountant).get(`/api/clients/${clientId}`).expect(403);
       const forRelations = await ctx
         .api(relations)
         .get(`/api/clients/${clientId}`)
@@ -306,7 +299,7 @@ describe('Employees, clearers, clients (e2e)', () => {
 
     it('lists a client’s factories and rejects a duplicate tax number', async () => {
       const factories = await ctx
-        .api(scan)
+        .api(relations)
         .get(`/api/clients/${clientId}/factories`)
         .expect(200);
       expect(factories.body).toHaveLength(1);
@@ -333,7 +326,7 @@ describe('Employees, clearers, clients (e2e)', () => {
         where: { clientId },
       });
       expect(factories.every((f) => f.deletedAt !== null)).toBe(true);
-      await ctx.api(scan).get(`/api/clients/${clientId}`).expect(404);
+      await ctx.api(relations).get(`/api/clients/${clientId}`).expect(404);
 
       await ctx
         .api(relations)

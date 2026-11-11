@@ -43,6 +43,7 @@ export const PERMISSIONS = {
   'finance.statement.manage': 'تجهيز كشف حساب الشحنة وإنهاؤه وإصدار الفواتير',
   'finance.collections.manage': 'تسجيل التحصيل من العملاء',
   'finance.client-ledger.view': 'كشوف حساب العملاء',
+  'finance.journal.view': 'عرض اليوميات والتقارير المالية',
   'settings.manage': 'إعدادات الشركة (بيانات الفواتير)',
 } as const;
 

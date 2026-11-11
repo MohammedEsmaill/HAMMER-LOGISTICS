@@ -13,7 +13,22 @@ import {
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermissions,
+} from '../auth/decorators/permissions.decorator';
+
+/**
+ * Who works on shipments or their accounts picks clients from short lists (id and
+ * name), without seeing the clients screen, which is clients.view.
+ */
+const CLIENT_PICKERS = [
+  'clients.view',
+  'shipments.view.all',
+  'shipments.view.own',
+  'finance.shipment-account.view',
+  'finance.client-ledger.view',
+] as const;
 import { ClientsService } from './clients.service';
 import {
   ClientsQueryDto,
@@ -29,7 +44,7 @@ export class ClientsController {
 
   /** Live clients for pickers (shipment registration), name order. */
   @Get('options')
-  @RequirePermissions('clients.view')
+  @RequireAnyPermission(...CLIENT_PICKERS)
   options() {
     return this.clients.options();
   }
@@ -48,7 +63,7 @@ export class ClientsController {
 
   /** A client's live factories for the shipment form: id, name and tax number only. */
   @Get(':id/factories/options')
-  @RequirePermissions('clients.view')
+  @RequireAnyPermission(...CLIENT_PICKERS)
   factoryOptions(@Param('id', ParseIntPipe) id: number) {
     return this.clients.factoryOptions(id);
   }
