@@ -306,8 +306,8 @@ export class ApprovalService {
 }
 
 export const STATUS_LABELS: Record<ApprovalStatus, string> = {
-  PENDING: 'مستنية المراجعة',
-  REVIEWED: 'اتراجعت',
+  PENDING: 'قيد المراجعة',
+  REVIEWED: 'تمت المراجعة',
   MANAGER_APPROVED: 'وافق مدير الحسابات',
   APPROVED: 'معتمدة',
   REJECTED: 'مرفوضة',

@@ -17,7 +17,7 @@ import { decimal } from './money';
 
 const SOURCE_LABELS = {
   TRANSFER: 'تحويل',
-  OTHER: 'حركة تانية',
+  OTHER: 'معاملة أخرى',
   SALARY: 'مرتب',
   ADVANCE: 'سلفة',
   EXPENSE: 'مصروف عمومي',

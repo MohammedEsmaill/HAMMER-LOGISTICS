@@ -14,8 +14,8 @@ export const CURRENCIES: Record<Currency, { label: string; symbol: string }> = {
 };
 
 export const STATUS: Record<ApprovalStatus, { label: string; tone: 'muted' | 'gold' | 'success' | 'danger' }> = {
-  PENDING: { label: 'مستنية المراجعة', tone: 'muted' },
-  REVIEWED: { label: 'اتراجعت', tone: 'gold' },
+  PENDING: { label: 'قيد المراجعة', tone: 'muted' },
+  REVIEWED: { label: 'تمت المراجعة', tone: 'gold' },
   MANAGER_APPROVED: { label: 'وافق مدير الحسابات', tone: 'gold' },
   APPROVED: { label: 'معتمدة', tone: 'success' },
   REJECTED: { label: 'مرفوضة', tone: 'danger' },

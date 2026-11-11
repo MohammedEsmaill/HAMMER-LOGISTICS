@@ -35,7 +35,7 @@ type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANC
 /** What can be recorded from the journal, each by who may record it. */
 const NEW_KINDS: { kind: NewKind; label: string; hint: string; icon: LucideIcon; permission: Permission }[] = [
   { kind: 'TRANSFER', label: 'تحويل', hint: 'بين خزنة وحساب بنكي أو بين حسابين', icon: ArrowLeftRight, permission: 'finance.movements.create' },
-  { kind: 'OTHER', label: 'حركة تانية', hint: 'تمويل، مصاريف بنكية، تسوية', icon: Banknote, permission: 'finance.movements.create' },
+  { kind: 'OTHER', label: 'معاملة أخرى', hint: 'تمويل، مصاريف بنكية، تسوية', icon: Banknote, permission: 'finance.movements.create' },
   { kind: 'EXPENSE', label: 'مصروف عمومي', hint: 'مصاريف المكتب بإيصال', icon: Receipt, permission: 'finance.expenses.manage' },
   { kind: 'CUSTODY', label: 'عهدة', hint: 'صرف عهدة على شحنة', icon: Briefcase, permission: 'finance.custody.manage' },
   { kind: 'SALARY', label: 'مرتب', hint: 'صرف مرتب شهر لموظف', icon: Wallet, permission: 'finance.payroll.manage' },

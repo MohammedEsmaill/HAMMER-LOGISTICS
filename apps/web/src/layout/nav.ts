@@ -67,7 +67,7 @@ export const NAV: NavItem[] = [
   },
   {
     to: '/approvals',
-    label: 'الاعتمادات',
+    label: 'اعتماد المعاملات المالية',
     icon: BadgeCheck,
     group: 'finance',
     any: [
@@ -80,7 +80,7 @@ export const NAV: NavItem[] = [
   },
   {
     to: '/payroll',
-    label: 'المرتبات والسلف',
+    label: 'الرواتب والسُّلف',
     icon: HandCoins,
     group: 'finance',
     any: ['finance.payroll.manage', 'finance.approve'],

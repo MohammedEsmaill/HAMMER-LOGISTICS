@@ -130,7 +130,7 @@ export default function PayrollPage() {
   return (
     <>
       <PageHeader
-        title="المرتبات والسلف"
+        title="الرواتب والسُّلف"
         description="مرتب كل شهر بيتصرف مرة واحدة للموظف. السلف بتتسدد بالخصم من المرتب بس."
         actions={
           pay && (

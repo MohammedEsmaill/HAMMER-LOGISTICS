@@ -41,7 +41,7 @@ const FINAL_ONLY_NEXT: Partial<Record<ApprovalStatus, { action: ApprovalAction; 
 
 const TYPE_OPTIONS = [
   { value: 'TRANSFER', label: 'التحويلات' },
-  { value: 'OTHER', label: 'الحركات التانية' },
+  { value: 'OTHER', label: 'المعاملات الأخرى' },
   { value: 'SALARY', label: 'المرتبات', restricted: true },
   { value: 'ADVANCE', label: 'السلف', restricted: true },
   { value: 'EXPENSE', label: 'المصاريف العمومية' },
@@ -182,7 +182,7 @@ export default function ApprovalsPage() {
   return (
     <>
       <PageHeader
-        title="الاعتمادات"
+        title="اعتماد المعاملات المالية"
         description={
           approver
             ? 'كل حركة مالية بتعدي على المحاسب ثم مدير الحسابات ثم المراجع العام، والمرتبات والسلف بيعتمدها المراجع العام مباشرة. الحركة اللي انت سجلتها مبتعتمدهاش.'

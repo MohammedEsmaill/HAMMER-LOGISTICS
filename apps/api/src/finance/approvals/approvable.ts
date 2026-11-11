@@ -20,7 +20,7 @@ export const APPROVABLE = {
   },
   OTHER: {
     table: 'other_movements',
-    label: 'حركة تانية',
+    label: 'معاملة أخرى',
     flow: 'THREE_LEVELS',
     restricted: false,
   },

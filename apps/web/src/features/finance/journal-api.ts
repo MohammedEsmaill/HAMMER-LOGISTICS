@@ -8,7 +8,7 @@ export type Flow = 'IN' | 'OUT' | 'MOVE';
 
 export const JOURNAL_TYPES: Record<JournalType, { label: string; restricted?: boolean }> = {
   TRANSFER: { label: 'تحويل' },
-  OTHER: { label: 'حركة تانية' },
+  OTHER: { label: 'معاملة أخرى' },
   EXPENSE: { label: 'مصروف عمومي' },
   CUSTODY: { label: 'عهدة' },
   FEE_PAYMENT: { label: 'أتعاب مستخلص' },
