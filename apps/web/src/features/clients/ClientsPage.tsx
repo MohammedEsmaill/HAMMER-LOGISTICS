@@ -433,7 +433,6 @@ export default function ClientsPage() {
     <>
       <PageHeader
         title="العملاء والمصانع"
-        description="اضغط على العميل علشان تشوف مصانعه وبياناته."
         actions={
           manage && (
             <Button icon={<Plus className="size-4" />} onClick={() => openForm(null)}>

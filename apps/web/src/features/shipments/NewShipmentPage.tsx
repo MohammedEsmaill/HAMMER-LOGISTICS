@@ -148,7 +148,7 @@ export default function NewShipmentPage() {
   const [kind, setKind] = useState<ShipmentKind | null>(null);
   return (
     <>
-      <PageHeader title="تسجيل شحنة جديدة" description={kind ? 'املا البيانات في التبويبات، والحفظ بيراجع كل حاجة قبل ما يبعت.' : 'اختار نوع الشحنة.'} />
+      <PageHeader title="تسجيل شحنة جديدة" />
       {kind ? <RegistrationForm key={kind} kind={kind} onBack={() => setKind(null)} /> : <TypePicker onPick={setKind} />}
     </>
   );

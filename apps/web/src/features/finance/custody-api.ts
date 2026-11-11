@@ -9,7 +9,7 @@ export type Purpose = 'UNLOADING' | 'RELEASE' | 'STORAGE' | 'CLEARANCE';
 /** Mirror of the API rules (custodies.service.ts HOLDERS). */
 export const HOLDERS: Record<HolderType, { label: string; purposes: Purpose[] | null; overspend: boolean; source: string }> = {
   AGENT: { label: 'مندوب توكيلات', purposes: ['UNLOADING', 'RELEASE', 'STORAGE'], overspend: false, source: 'خزنة الجنيه' },
-  WAY_OUT: { label: 'WAY OUT', purposes: ['UNLOADING', 'RELEASE', 'STORAGE'], overspend: false, source: 'خزنة الدولار' },
+  WAY_OUT: { label: 'إيداع دولاري', purposes: ['UNLOADING', 'RELEASE', 'STORAGE'], overspend: false, source: 'خزنة الدولار' },
   CLEARER: { label: 'مستخلص الشحنة', purposes: ['CLEARANCE', 'RELEASE'], overspend: true, source: 'خزنة الجنيه' },
   BANK_TRANSFER: { label: 'تحويل بنكي', purposes: null, overspend: false, source: 'حساب بنكي' },
 };

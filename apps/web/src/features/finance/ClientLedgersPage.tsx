@@ -74,7 +74,7 @@ export default function ClientLedgersPage() {
   const [open, setOpen] = useState<number | null>(null);
   return (
     <>
-      <PageHeader title="حسابات العملاء" description="كل عميل ليه رصيدين: جنيه ودولار. مدين = الفواتير، دائن = التحصيل." />
+      <PageHeader title="حسابات العملاء" />
       {error ? <ErrorBox error={error} /> : null}
       {!data && !error && <div className="h-40 rounded-2xl shimmer" />}
       {data?.length === 0 && <EmptyState compact text="مفيش فواتير لسه." />}

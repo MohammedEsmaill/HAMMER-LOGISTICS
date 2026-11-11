@@ -183,11 +183,6 @@ export default function ApprovalsPage() {
     <>
       <PageHeader
         title="اعتماد المعاملات المالية"
-        description={
-          approver
-            ? 'كل حركة مالية بتعدي على المحاسب ثم مدير الحسابات ثم المراجع العام، والمرتبات والسلف بيعتمدها المراجع العام مباشرة. الحركة اللي انت سجلتها مبتعتمدهاش.'
-            : 'الحركات اللي انت سجلتها وحالة اعتمادها. المرفوضة افتحها وعدّلها.'
-        }
       />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="w-52">

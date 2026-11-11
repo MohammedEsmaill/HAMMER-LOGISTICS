@@ -60,7 +60,7 @@ export default function ShipmentAccountsPage() {
 
   return (
     <>
-      <PageHeader title="حسابات الشحنات" description="مصروفات كل شحنة، وكشف العميل، والفواتير، والتحصيل." />
+      <PageHeader title="حسابات الشحنات" />
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="min-w-60 flex-1">
           <SearchInput value={q.search} onChange={(search) => set({ search })} placeholder="رقم الملف أو العميل أو رقم الشهادة" />

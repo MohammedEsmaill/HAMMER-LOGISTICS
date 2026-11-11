@@ -50,7 +50,7 @@ const HOLDERS: Record<
   WAY_OUT: {
     purposes: ['UNLOADING', 'RELEASE', 'STORAGE'],
     overspend: false,
-    label: 'WAY OUT',
+    label: 'إيداع دولاري',
   },
   CLEARER: {
     purposes: ['CLEARANCE', 'RELEASE'],
@@ -409,7 +409,7 @@ export class CustodiesService {
     return { agentEmployeeId: null, clearerId: null };
   }
 
-  /** Agent and clearer: the EGP cash box. WAY OUT: the USD cash box. Bank transfer: the chosen bank. */
+  /** Agent and clearer: the EGP cash box. USD deposit (WAY_OUT): the USD cash box. Bank transfer: the chosen bank. */
   private async sourceAccount(tx: Tx, dto: IssueCustodyDto) {
     if (dto.holderType === 'BANK_TRANSFER') {
       if (!dto.bankAccountId)

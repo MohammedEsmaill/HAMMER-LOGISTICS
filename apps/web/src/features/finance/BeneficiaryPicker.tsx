@@ -65,7 +65,7 @@ export function BeneficiaryPicker({
     <div className="space-y-2">
       <ComboField
         label={clearer ? `حساب ${clearer.fullName}` : 'الحساب المستلم (المستفيد)'}
-        placeholder={list.length ? 'اختار الحساب' : 'مفيش حسابات متسجلة، ضيف واحد'}
+        placeholder={list.length ? 'اختار الحساب' : 'لا توجد حسابات مسجلة'}
         options={list.map((b) => ({ value: b.id, label: `${b.name} · ${BENEFICIARY_KINDS[b.kind]} · ${b.bankName} ${b.accountNumber}` }))}
         value={value}
         onChange={(v) => onChange(v === '' ? '' : Number(v))}

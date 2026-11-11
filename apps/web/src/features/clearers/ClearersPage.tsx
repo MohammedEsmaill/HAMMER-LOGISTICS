@@ -284,7 +284,6 @@ export default function ClearersPage() {
     <>
       <PageHeader
         title="المستخلصين"
-        description="بيانات المستخلصين وأسعار أتعابهم."
         actions={
           <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
             مستخلص جديد

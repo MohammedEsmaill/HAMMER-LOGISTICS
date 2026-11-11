@@ -72,7 +72,6 @@ export default function ShipmentsPage() {
     <>
       <PageHeader
         title="الشحنات"
-        description="اضغط على الشحنة علشان تفتح ملفها."
         actions={
           can('shipments.create') && (
             <Button icon={<Plus className="size-4" />} onClick={() => navigate('/shipments/new')}>

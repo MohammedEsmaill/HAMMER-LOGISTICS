@@ -38,7 +38,7 @@ export default function SettingsPage() {
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
   return (
     <>
-      <PageHeader title="إعدادات الشركة" description="البيانات دي بتتطبع في رأس فواتير CLEARANCE والـ STATEMENT." />
+      <PageHeader title="إعدادات الشركة" />
       <form noValidate onSubmit={submit} className="card max-w-2xl space-y-4 p-5">
         <TextField label="اسم الشركة" value={f.name} onChange={set('name')} />
         <TextField label="العنوان (بالإنجليزي زي ما بيتطبع)" dir="ltr" value={f.address} onChange={set('address')} />

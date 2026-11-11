@@ -70,7 +70,6 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
       open={open}
       onClose={onClose}
       title="حساب دخول جديد"
-      description="الحساب لموظف أو مستخلص متسجل بالفعل ومعندوش حساب."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -209,7 +208,7 @@ function ResetPasswordDrawer({ user, onClose }: { user: User | null; onClose: ()
       open={!!user}
       onClose={onClose}
       title="كلمة سر جديدة"
-      description={user ? `لحساب ${user.email}` : undefined}
+      subtitle={user ? `لحساب ${user.email}` : undefined}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -320,7 +319,6 @@ export default function UsersPage() {
     <>
       <PageHeader
         title="المستخدمين"
-        description="حسابات الدخول للموظفين والمستخلصين."
         actions={
           <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
             حساب جديد

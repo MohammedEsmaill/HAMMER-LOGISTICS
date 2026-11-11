@@ -197,7 +197,7 @@ export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | n
       open={open}
       onClose={onClose}
       title={payment ? `صرف أتعاب #${payment.id}` : 'صرف أتعاب'}
-      description={who ? `${who.clearer.fullName} · ملف ${who.shipment.fileNo}` : undefined}
+      subtitle={who ? `${who.clearer.fullName} · ملف ${who.shipment.fileNo}` : undefined}
       footer={
         editable && (
           <div className="flex justify-end gap-2">
@@ -282,7 +282,7 @@ function AdjustFeeDrawer({ fee, onClose }: { fee: Fee | null; onClose: () => voi
       open={!!fee}
       onClose={onClose}
       title="تسوية أتعاب"
-      description={fee ? `${fee.clearer.fullName} · ملف ${fee.shipment.fileNo} · الأتعاب الحالية ${money(fee.total)}` : undefined}
+      subtitle={fee ? `${fee.clearer.fullName} · ملف ${fee.shipment.fileNo} · الأتعاب الحالية ${money(fee.total)}` : undefined}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>

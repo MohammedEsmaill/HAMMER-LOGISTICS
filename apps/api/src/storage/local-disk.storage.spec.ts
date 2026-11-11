@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,7 +7,7 @@ describe('LocalDiskStorage', () => {
   const dir = mkdtempSync(join(tmpdir(), 'hl-uploads-'));
   const storage = new LocalDiskStorage({
     get: () => dir,
-  } as unknown as ConfigService);
+  } as never);
 
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 

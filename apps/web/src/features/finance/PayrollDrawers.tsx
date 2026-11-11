@@ -315,7 +315,6 @@ export function AdvanceDrawer({
       open={open}
       onClose={onClose}
       title={advance ? `سلفة ${advance.employee.fullName} #${advance.id}` : 'سلفة جديدة'}
-      description="السلفة بتتسدد بالخصم من المرتب بس، وأكتر من سلفة بتتجمع في رصيد واحد."
       footer={editable && <Footer onClose={onClose} form="advance-form" busy={save.isPending} label={advance ? 'حفظ التعديل' : 'صرف'} />}
     >
       <form id="advance-form" noValidate onSubmit={submit} className="space-y-4">

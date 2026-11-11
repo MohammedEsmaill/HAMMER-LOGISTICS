@@ -149,7 +149,6 @@ export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer
       open={open}
       onClose={onClose}
       title={transfer ? `تحويل #${transfer.id}` : 'تحويل جديد'}
-      description="إيداع من الخزنة للبنك، أو سحب بشيك من البنك للخزنة، أو من بنك لبنك. بنفس العملة دايمًا."
       footer={
         editable && (
           <div className="flex justify-end gap-2">
@@ -247,7 +246,6 @@ export function OtherDrawer({ movement, open, onClose }: { movement: OtherMoveme
       open={open}
       onClose={onClose}
       title={movement ? `${OTHER_KINDS[movement.kind]} #${movement.id}` : 'حركة جديدة'}
-      description="تمويل من الإدارة، أو مصاريف بنكية، أو تسوية فرق. السبب إجباري."
       footer={
         editable && (
           <div className="flex justify-end gap-2">

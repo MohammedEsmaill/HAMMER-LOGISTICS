@@ -72,7 +72,7 @@ export default function ReportsPage() {
 
   return (
     <>
-      <PageHeader title="التقارير" description="كل تقرير فيه ملخص في الأول وبعده التفاصيل، وبيتطبع PDF أو يتنزل Excel ببيانات الشركة." />
+      <PageHeader title="التقارير" />
 
       <div className="grid gap-3 md:grid-cols-3">
         {(Object.keys(REPORT_KINDS) as ReportKind[]).map((k) => {

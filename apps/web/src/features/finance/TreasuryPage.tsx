@@ -70,7 +70,6 @@ export default function TreasuryPage() {
     <>
       <PageHeader
         title="الخزن والحسابات البنكية"
-        description="كل الخزن والحسابات البنكية برصيدها. افتح أي واحد علشان تشوف بياناته وكشف حركته."
         actions={
           manage && (
             <Button

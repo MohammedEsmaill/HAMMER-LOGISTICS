@@ -6,7 +6,8 @@ import { createPortal } from 'react-dom';
 interface DrawerProps {
   open: boolean;
   title: string;
-  description?: string;
+  /** Facts about the record (client · file no), not an explanation. */
+  subtitle?: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -20,7 +21,7 @@ interface DrawerProps {
 export function Drawer({
   open,
   title,
-  description,
+  subtitle,
   onClose,
   children,
   footer,
@@ -81,7 +82,7 @@ export function Drawer({
                 <h2 id={titleId} className="text-lg font-bold">
                   {title}
                 </h2>
-                {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+                {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
               </div>
               <button
                 data-close

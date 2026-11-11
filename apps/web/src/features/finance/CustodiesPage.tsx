@@ -74,7 +74,6 @@ export default function CustodiesPage() {
     <>
       <PageHeader
         title="العهد"
-        description="كل مصروف على شحنة بيعدي من عهدة: بتتصرف، وبعدين بتتصفى ببنودها والباقي بيرجع للخزنة."
         actions={
           can('finance.custody.manage') && (
             <Button icon={<Plus className="size-4" />} onClick={() => setIssuing(true)}>

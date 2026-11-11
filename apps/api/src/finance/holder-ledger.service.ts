@@ -134,7 +134,7 @@ export class HolderLedgerService {
       await this.custodies({ holderType: 'WAY_OUT' }),
     );
     return {
-      holder: { type: 'WAY_OUT', id: null, name: 'WAY OUT' },
+      holder: { type: 'WAY_OUT', id: null, name: 'إيداع دولاري' },
       ...this.withBalance(lines, 'USD'),
     };
   }

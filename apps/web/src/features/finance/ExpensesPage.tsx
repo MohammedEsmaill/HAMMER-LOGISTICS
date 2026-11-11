@@ -79,7 +79,7 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
       open={open}
       onClose={onClose}
       title={expense ? `مصروف #${expense.id}` : 'مصروف جديد'}
-      description={`بيتصرف من خزنة الجنيه${box ? ` (الرصيد ${money(box.balance)} ج)` : ''}.`}
+      subtitle={box ? `رصيد خزنة الجنيه: ${money(box.balance)} ج` : undefined}
       footer={
         editable && (
           <div className="flex justify-end gap-2">
@@ -210,7 +210,6 @@ export default function ExpensesPage() {
     <>
       <PageHeader
         title="المصاريف العمومية"
-        description="مصاريف المكتب والنثريات من خزنة الجنيه. أي نوع جديد بتكتبه بيتضاف للقائمة."
         actions={
           can('finance.expenses.manage') && (
             <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>

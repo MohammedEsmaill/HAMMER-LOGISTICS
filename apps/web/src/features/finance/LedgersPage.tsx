@@ -70,7 +70,7 @@ export default function LedgersPage() {
   if (!all) {
     return (
       <>
-        <PageHeader title="كشف حسابي" description="العهد اللي استلمتها، وتصفيتها، وأتعابك واللي اتصرف منها." />
+        <PageHeader title="كشف حسابي" />
         <MyStatement />
       </>
     );
@@ -78,13 +78,13 @@ export default function LedgersPage() {
 
   return (
     <>
-      <PageHeader title="كشوف الحساب" description="كشوف المستخلصين والمندوبين وWAY OUT، متبنية من العهد والتصفيات والأتعاب نفسها." />
+      <PageHeader title="كشوف الحساب" />
       <div className="mb-4">
         <FormTabs
           tabs={[
             { key: 'clearers', label: 'المستخلصين', count: data?.clearers.length },
             { key: 'agents', label: 'المندوبين', count: data?.agents.length },
-            { key: 'way-out', label: 'WAY OUT' },
+            { key: 'way-out', label: 'إيداع دولاري' },
           ]}
           active={tab}
           onChange={setTab}
@@ -97,9 +97,9 @@ export default function LedgersPage() {
       {data && tab === 'agents' && <HolderList rows={data.agents} currency="EGP" onOpen={(id) => setOpen({ kind: 'agents', id })} />}
       {data && tab === 'way-out' &&
         (data.wayOut ? (
-          <HolderList rows={[{ id: 0, name: 'WAY OUT', balance: data.wayOut.balance }]} currency="USD" onOpen={() => setOpen({ kind: 'way-out', id: null })} />
+          <HolderList rows={[{ id: 0, name: 'إيداع دولاري', balance: data.wayOut.balance }]} currency="USD" onOpen={() => setOpen({ kind: 'way-out', id: null })} />
         ) : (
-          <EmptyState compact text="مفيش عهد WAY OUT لسه" />
+          <EmptyState compact text="مفيش عهد إيداع دولاري لسه" />
         ))}
       <StatementDrawer kind={open?.kind ?? null} id={open?.id ?? null} onClose={() => setOpen(null)} />
     </>

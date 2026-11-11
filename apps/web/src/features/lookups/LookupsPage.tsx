@@ -308,11 +308,6 @@ export default function LookupsPage() {
     <>
       <PageHeader
         title="القوائم الثابتة"
-        description={
-          manage
-            ? 'القوائم اللي بتظهر في فورم الشحنة. الحذف مش مسموح لعنصر مستخدم في شحنة.'
-            : 'تقدر تضيف عناصر جديدة، والتعديل والحذف للإدارة.'
-        }
         actions={
           add &&
           tab !== 'countries' && (

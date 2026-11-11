@@ -118,7 +118,6 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
       onClose={onClose}
       width="max-w-xl"
       title="صرف عهدة"
-      description="العهدة على شحنة واحدة، وبتتصفّى مرة واحدة ببنودها."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -315,7 +314,6 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
       onClose={onClose}
       width="max-w-3xl"
       title={`عهدة ${custody.custodyNo}`}
-      description={`ملف ${custody.shipment.fileNo} · ${custody.shipment.client.name}`}
       footer={
         editing && (
           <div className="flex justify-end gap-2">

@@ -122,7 +122,6 @@ function RoleDrawer({ role, open, onClose }: { role: Role | null; open: boolean;
       open={open}
       onClose={onClose}
       title={role ? `تعديل دور ${role.name}` : 'دور جديد'}
-      description="التغيير بيوصل للمستخدمين اللي على الدور ده من أول طلب بعده، من غير ما يسجلوا دخول تاني."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -174,7 +173,6 @@ export default function RolesPage() {
     <>
       <PageHeader
         title="الأدوار والصلاحيات"
-        description="كل مستخدم ليه دور واحد، والدور بيحدد هو يقدر يعمل إيه."
         actions={
           <Button icon={<Plus className="size-4" />} onClick={() => open(null)}>
             دور جديد

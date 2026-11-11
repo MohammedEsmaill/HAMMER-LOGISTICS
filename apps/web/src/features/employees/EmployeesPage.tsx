@@ -237,7 +237,6 @@ export default function EmployeesPage() {
     <>
       <PageHeader
         title="الموظفين"
-        description="بيانات الموظفين، والكود هو رقمهم على جهاز البصمة."
         actions={
           <Button icon={<Plus className="size-4" />} onClick={() => open(null)}>
             موظف جديد

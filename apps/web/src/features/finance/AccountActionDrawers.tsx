@@ -76,7 +76,6 @@ export function FinishDrawer({ view, open, onClose }: { view: ShipmentAccountVie
       onClose={onClose}
       width="max-w-2xl"
       title={`إنهاء حساب ${view.shipment.fileNo}`}
-      description="الكشف بيتقفل ويطلع STATEMENT لكل عملة فيها بنود، وفاتورة CLEARANCE من كوتيشن العميل."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -178,7 +177,6 @@ export function ReopenDrawer({ view, open, onClose }: { view: ShipmentAccountVie
       open={open}
       onClose={onClose}
       title="إعادة فتح حساب الشحنة"
-      description="الفواتير الحالية بتتلغي وتفضل في السجل، وبعد التعديل الإنهاء بيطلعها تاني بنفس الأرقام."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -286,7 +284,7 @@ export function CollectionDrawer({
       open={open}
       onClose={onClose}
       title={collection ? `تحصيل #${collection.id}` : 'تحصيل من العميل'}
-      description={collection?.shipment ? `${collection.client?.name} · ملف ${collection.shipment.fileNo}` : view ? `${view.shipment.client.name} · ملف ${view.shipment.fileNo}` : undefined}
+      subtitle={collection?.shipment ? `${collection.client?.name} · ملف ${collection.shipment.fileNo}` : view ? `${view.shipment.client.name} · ملف ${view.shipment.fileNo}` : undefined}
       footer={
         editable && (
           <div className="flex justify-end gap-2">
