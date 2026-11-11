@@ -177,9 +177,6 @@ export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer
           <TextField label="التاريخ" type="date" max={today()} error={e.transferDate?.message} {...register('transferDate')} />
           <TextField label="ملاحظات (اختياري)" error={e.notes?.message} {...register('notes')} />
         </fieldset>
-        {transfer && editable && transfer.approvalStatus !== 'APPROVED' && (
-          <p className="text-xs text-muted">أي تعديل بيرجّع التحويل للمراجعة من الأول، والأرصدة بتتصحح بقيد عكسي.</p>
-        )}
         {save.error ? <ErrorBox error={save.error} /> : null}
         {transfer && <ApprovalTrail doc={transfer} />}
       </form>

@@ -151,7 +151,6 @@ export function ShippingFields({ form, rules, withOperation }: { form: ShipmentF
           dir="ltr"
           inputMode="numeric"
           maxLength={19}
-          hint="19 رقم"
           error={errorAt(form, 'referenceNumber')}
           {...register('referenceNumber')}
         />
@@ -167,7 +166,6 @@ export function ShippingFields({ form, rules, withOperation }: { form: ShipmentF
           <TextField
             label={`${air ? 'HAWB' : 'HB/L'} (اختياري)`}
             dir="ltr"
-            hint={`لو فاضي بيتعرض ويتطبع رقم الـ ${air ? 'MAWB' : 'MB/L'}`}
             error={errorAt(form, 'hblNumber')}
             {...register('hblNumber')}
           />
@@ -277,7 +275,6 @@ export function ContainerFields({ form }: { form: ShipmentForm }) {
           إضافة حاوية
         </Button>
       )}
-      {!loadType && <p className="text-sm text-muted">اختار FCL أو LCL الأول.</p>}
     </div>
   );
 }

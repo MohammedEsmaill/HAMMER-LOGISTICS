@@ -93,7 +93,6 @@ function AdvancesTab({ onStatement, onOpen }: { onStatement: (employeeId: number
     <div className="space-y-6">
       <section className="space-y-2">
         <h3 className="font-semibold text-gold">أرصدة السلف</h3>
-        <p className="text-sm text-muted">اضغط على الموظف علشان تشوف كشف سلفه.</p>
         <DataTable
           columns={balanceColumns}
           rows={balances}

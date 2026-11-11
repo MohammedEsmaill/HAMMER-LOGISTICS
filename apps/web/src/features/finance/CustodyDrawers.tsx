@@ -157,10 +157,6 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
               </button>
             ))}
           </div>
-          <p className="mt-1.5 text-xs text-muted">
-            من {HOLDERS[holderType].source}
-            {rule.overspend ? ' · مسموح يصرف أكتر من العهدة والفرق يتصرفله' : holderType === 'BANK_TRANSFER' ? ' · المصروف = المبلغ بالظبط' : ' · مينفعش يصرف أكتر من العهدة'}
-          </p>
         </div>
         {holderType === 'AGENT' && (
           <ComboField
@@ -348,7 +344,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
             <Info label="المصروف" value={money(custody.spentAmount, cur)} ltr />
             {Number(custody.returnedAmount) > 0 && <Info label="رجع للخزنة" value={money(custody.returnedAmount, cur)} ltr tone="text-success" />}
             {Number(custody.extraAmount) > 0 && <Info label="اتصرف زيادة" value={money(custody.extraAmount, cur)} ltr tone="text-warning" />}
-            {custody.computedFee && <Info label="أتعاب المستخلص" value={money(custody.computedFee.amount, 'EGP')} hint="اتحسبت مع التصفية دي" ltr />}
+            {custody.computedFee && <Info label="أتعاب المستخلص" value={money(custody.computedFee.amount, 'EGP')} ltr />}
           </div>
         )}
         {custody.duplicateReceipts && custody.duplicateReceipts.length > 0 && (

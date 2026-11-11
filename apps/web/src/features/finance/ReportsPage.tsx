@@ -169,7 +169,6 @@ export default function ReportsPage() {
                   </button>
                 );
               })}
-            <span className="self-center text-xs text-muted">من غير اختيار = كل الأنواع</span>
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">

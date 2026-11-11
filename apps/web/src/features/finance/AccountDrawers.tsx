@@ -106,7 +106,6 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
           step="0.01"
           min={0}
           dir="ltr"
-          hint={account ? 'بيتعدل قبل أول حركة بس. أي فرق بعد كده يتسجل تسوية.' : 'الرصيد الحالي وقت إضافة الحساب'}
           error={e.openingBalance?.message}
           {...register('openingBalance')}
         />
@@ -114,7 +113,6 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
           <div className="flex items-center justify-between rounded-xl border border-line p-3">
             <div>
               <div className="font-semibold">الحساب شغال</div>
-              <div className="text-xs text-muted">الحساب الموقوف مبتتسجلش عليه حركات جديدة، ومفيش حذف.</div>
             </div>
             <Switch checked={active} onChange={setActive} label="الحساب شغال" />
           </div>

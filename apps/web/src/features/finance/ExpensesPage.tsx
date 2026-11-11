@@ -72,7 +72,6 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
     setProblems(p);
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(onClose, () => undefined);
   };
-  const isNewType = f.expenseType.trim().length >= 2 && !types.some((t) => t.name === f.expenseType.trim());
 
   return (
     <Drawer
@@ -103,7 +102,6 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
               value={f.expenseType}
               onChange={set('expenseType')}
               error={problems.expenseType}
-              hint={isNewType ? 'نوع جديد: هيتضاف للقائمة تلقائي' : undefined}
             />
             <datalist id={listId}>
               {types.map((t) => (

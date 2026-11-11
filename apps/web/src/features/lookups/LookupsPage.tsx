@@ -166,7 +166,6 @@ function LookupFormDrawer({
           <>
             <TextField
               label="الكود (اختياري)"
-              hint="UN/LOCODE للموانئ زي EGALY، و IATA للمطارات زي CAI"
               dir="ltr"
               maxLength={5}
               error={errors.code?.message}
@@ -186,7 +185,6 @@ function LookupFormDrawer({
         {tab === 'carriers' && (
           <TextField
             label="الترتيب في القائمة (اختياري)"
-            hint="الأصغر بيظهر الأول"
             type="number"
             min={1}
             dir="ltr"

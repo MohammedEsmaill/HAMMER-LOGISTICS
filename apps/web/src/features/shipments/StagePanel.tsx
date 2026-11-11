@@ -78,7 +78,6 @@ function MoveDrawer({ shipment, target, onClose }: { shipment: Shipment; target:
         )}
         <TextField
           label="حصلت إمتى؟ (اختياري)"
-          hint="سيبها فاضية لو حصلت دلوقتي. ممكن تسجّلها بتاريخ قديم لو اتأخرت في التسجيل."
           type="datetime-local"
           max={nowLocal()}
           value={occurredAt}

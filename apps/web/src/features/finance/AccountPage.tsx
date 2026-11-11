@@ -82,7 +82,6 @@ export default function AccountPage() {
           <Info label="الرصيد الافتتاحي" value={money(account.openingBalance, account.currency)} ltr />
           <Info label="تاريخ الإضافة" value={formatDate(account.createdAt)} />
         </div>
-        {!manage && <p className="text-xs text-muted">بيانات الحساب بيعدّلها الـ CEO بس.</p>}
       </section>
 
       <section className="space-y-3">

@@ -295,7 +295,7 @@ function AdjustFeeDrawer({ fee, onClose }: { fee: Fee | null; onClose: () => voi
       }
     >
       <form id="fee-adjust-form" noValidate onSubmit={submit} className="space-y-4">
-        <TextField label="المبلغ" hint="موجب للزيادة، سالب للتخفيض" type="number" step="0.01" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <TextField label="المبلغ" type="number" step="0.01" dir="ltr" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <TextField label="السبب" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
         {problem && (
           <p role="alert" className="text-sm text-danger">

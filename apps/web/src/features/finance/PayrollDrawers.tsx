@@ -209,7 +209,6 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
               step="0.01"
               min="0"
               dir="ltr"
-              hint="يدوي، من صفر لحد رصيد السلف"
               value={advanceDeduction}
               onChange={(e) => setAdvanceDeduction(e.target.value)}
               error={problems.advance}

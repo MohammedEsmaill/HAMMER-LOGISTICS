@@ -157,7 +157,6 @@ function ClientFormDrawer({
                 مصنع
               </Button>
             </div>
-            {factories.fields.length === 0 && <p className="text-sm text-muted">ممكن تضيف المصانع دلوقتي أو بعدين من صفحة العميل.</p>}
             {factories.fields.map((field, i) => (
               <div key={field.id} className="grid gap-3 rounded-xl border border-line p-3 sm:grid-cols-2">
                 <TextField label="اسم المصنع" error={errors.factories?.[i]?.name?.message} {...register(`factories.${i}.name`)} />

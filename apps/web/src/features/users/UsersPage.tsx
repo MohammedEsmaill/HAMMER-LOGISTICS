@@ -129,7 +129,6 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
           dir="ltr"
           autoComplete="new-password"
           icon={<Lock className="size-4" />}
-          hint="8 حروف على الأقل، فيها حروف وأرقام"
           error={formState.errors.password?.message}
           {...register('password')}
         />
@@ -231,7 +230,6 @@ function ResetPasswordDrawer({ user, onClose }: { user: User | null; onClose: ()
           type="password"
           dir="ltr"
           autoComplete="new-password"
-          hint="8 حروف على الأقل، فيها حروف وأرقام"
           error={formState.errors.password?.message}
           {...register('password')}
         />

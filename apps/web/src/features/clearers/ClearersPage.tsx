@@ -114,7 +114,7 @@ function CreateClearerDrawer({ open, onClose }: { open: boolean; onClose: () => 
           <TextField label="الاسم بالكامل" className="sm:col-span-2" error={formState.errors.fullName?.message} {...register('fullName')} />
           <TextField label="التليفون" dir="ltr" inputMode="tel" error={formState.errors.phone?.message} {...register('phone')} />
           <TextField label="الرقم القومي" dir="ltr" inputMode="numeric" maxLength={14} error={formState.errors.nationalId?.message} {...register('nationalId')} />
-          <TextField label="الجمارك اللي بيشتغل فيها" className="sm:col-span-2" hint="افصل بينهم بفاصلة" error={formState.errors.offices?.message} {...register('offices')} />
+          <TextField label="الجمارك اللي بيشتغل فيها" className="sm:col-span-2" error={formState.errors.offices?.message} {...register('offices')} />
           <TextField label="ملاحظات" className="sm:col-span-2" {...register('notes')} />
         </section>
         <section>
@@ -195,7 +195,7 @@ function EditClearerDrawer({ clearer, onClose }: { clearer: Clearer | null; onCl
           <TextField label="الاسم بالكامل" className="sm:col-span-2" error={dataForm.formState.errors.fullName?.message} {...dataForm.register('fullName')} />
           <TextField label="التليفون" dir="ltr" error={dataForm.formState.errors.phone?.message} {...dataForm.register('phone')} />
           <TextField label="الرقم القومي" dir="ltr" maxLength={14} error={dataForm.formState.errors.nationalId?.message} {...dataForm.register('nationalId')} />
-          <TextField label="الجمارك اللي بيشتغل فيها" className="sm:col-span-2" hint="افصل بينهم بفاصلة" {...dataForm.register('offices')} />
+          <TextField label="الجمارك اللي بيشتغل فيها" className="sm:col-span-2" {...dataForm.register('offices')} />
           <TextField label="ملاحظات" className="sm:col-span-2" {...dataForm.register('notes')} />
           {saveData.error ? (
             <div className="sm:col-span-2">

@@ -97,7 +97,6 @@ function RejectDrawer({ op, onClose, onDone }: { op: Operation | null; onClose: 
           </p>
         )}
         <TextField label="سبب الرفض" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} error={problem || undefined} />
-        <p className="text-xs text-muted">الحركة هترجع لصاحبها يعدّلها، وبعد التعديل تبدأ المراجعة من الأول.</p>
         {error ? <ErrorBox error={error} /> : null}
       </div>
     </Drawer>

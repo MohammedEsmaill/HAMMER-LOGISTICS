@@ -138,7 +138,7 @@ function EmployeeDrawer({
         onSubmit={handleSubmit((form) => save.mutateAsync(form).then(onClose).catch(() => undefined))}
       >
         <TextField label="الاسم بالكامل" className="sm:col-span-2" error={formState.errors.fullName?.message} {...register('fullName')} />
-        <TextField label="رقم البصمة (الكود)" dir="ltr" hint="نفس الرقم المتسجل على جهاز ZKTeco" error={formState.errors.code?.message} {...register('code')} />
+        <TextField label="رقم البصمة (الكود)" dir="ltr" error={formState.errors.code?.message} {...register('code')} />
         <TextField label="الرقم القومي" dir="ltr" inputMode="numeric" maxLength={14} error={formState.errors.nationalId?.message} {...register('nationalId')} />
         <TextField label="التليفون" dir="ltr" inputMode="tel" error={formState.errors.phone?.message} {...register('phone')} />
         <SelectField label="القسم" options={departmentOptions} error={formState.errors.department?.message} {...register('department')} />

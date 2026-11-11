@@ -213,7 +213,6 @@ function StatementTab({ view, editable }: { view: ShipmentAccountView; editable:
 function ExpensesTab({ view, onOpen }: { view: ShipmentAccountView; onOpen: (id: number) => void }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted">المصروف الفعلي على الشحنة: كل العهد وبنود تصفيتها، زي ما اتصرفت. ده مش بيتغير بتعديل كشف العميل.</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {view.custodies.map((c) => (
           <button key={c.id} type="button" onClick={() => onOpen(c.id)} className="flex items-center gap-3 rounded-xl border border-line p-3 text-start hover:border-gold/50">
