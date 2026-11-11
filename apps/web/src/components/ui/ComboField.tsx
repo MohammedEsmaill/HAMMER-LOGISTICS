@@ -44,6 +44,15 @@ export function ComboField({
   const list = useRef<HTMLUListElement>(null);
   const selected = options.find((o) => String(o.value) === String(value ?? ''));
 
+  // a list searched on the server: ask once typing pauses, and from two letters on
+  useEffect(() => {
+    if (!onQueryChange) return;
+    const q = query.trim();
+    if (q.length === 1) return;
+    const t = setTimeout(() => onQueryChange(q), 500);
+    return () => clearTimeout(t);
+  }, [query, onQueryChange]);
+
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
     const found = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
@@ -128,7 +137,6 @@ export function ComboField({
                 className="h-11 w-full bg-transparent outline-none placeholder:text-muted/60"
                 onChange={(e) => {
                   setQuery(e.target.value);
-                  onQueryChange?.(e.target.value);
                   setActive(0);
                 }}
                 onKeyDown={(e) => {
