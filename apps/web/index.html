@@ -12,7 +12,9 @@
     <title>HAMMER LINE</title>
     <style>
       /* Instant splash before the app's JavaScript arrives; React replaces it. */
-      html, body { margin: 0; background: #0b0b0d; }
+      html, body { margin: 0; }
+      /* dark until the app sets the theme; the light theme brings its own background */
+      html:not([data-theme='light']) { background: #0b0b0d; }
       #splash { position: fixed; inset: 0; display: grid; place-items: center; }
       #splash img { width: 96px; animation: splash 1.4s ease-in-out infinite alternate; }
       @keyframes splash { from { opacity: .35; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }

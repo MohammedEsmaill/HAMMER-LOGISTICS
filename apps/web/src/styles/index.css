@@ -61,10 +61,15 @@
   --color-warning: var(--warning);
 }
 
+/* the page grows with its content, and the theme's background goes all the way down */
+html {
+  background: var(--bg);
+}
+
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {

@@ -40,7 +40,7 @@ export function LoginPage() {
   });
 
   return (
-    <div className="grid min-h-full lg:grid-cols-[1.1fr_1fr]">
+    <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       {/* brand stage: always dark */}
       <section className="relative hidden overflow-hidden bg-[#0b0b0d] lg:block">
         <Suspense fallback={null}>

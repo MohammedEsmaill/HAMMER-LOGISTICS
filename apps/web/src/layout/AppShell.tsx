@@ -137,7 +137,7 @@ export function AppShell() {
   );
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-screen">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-e border-line bg-surface lg:block">
         <Sidebar />
       </aside>
