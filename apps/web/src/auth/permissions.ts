@@ -42,6 +42,7 @@ export type Permission =
   | 'finance.statement.manage'
   | 'finance.collections.manage'
   | 'finance.client-ledger.view'
+  | 'finance.journal.view'
   | 'settings.manage';
 
 export interface Profile {

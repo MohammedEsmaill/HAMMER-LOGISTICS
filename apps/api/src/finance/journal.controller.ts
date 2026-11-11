@@ -26,6 +26,12 @@ export class JournalController {
     return this.journal.list(actor, query);
   }
 
+  @Get('authors')
+  @RequirePermissions('finance.journal.view')
+  authors(@CurrentUser() actor: AuthUser) {
+    return this.journal.authors(actor);
+  }
+
   /** A report for a period: summary, then detail. kind: journal, accounts, expenses. */
   @Get('reports/:kind')
   @RequirePermissions('finance.journal.view')

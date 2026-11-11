@@ -7,6 +7,8 @@ import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePageOf } from '@/lib/use-page-of';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton, PageHeader, Switch } from '@/components/ui/misc';
@@ -260,6 +262,7 @@ export default function UsersPage() {
   const rows = users?.filter(
     (u) => !q || u.email.includes(q) || ownerName(u).toLowerCase().includes(q) || u.role.name.toLowerCase().includes(q),
   );
+  const paged = usePageOf(rows, 25, q);
 
   const columns: Column<User>[] = [
     {
@@ -327,7 +330,10 @@ export default function UsersPage() {
       <div className="mb-4">
         <SearchInput value={search} onChange={setSearch} placeholder="بحث بالاسم أو الإيميل أو الدور" />
       </div>
-      <DataTable columns={columns} rows={rows} rowKey={(u) => u.id} loading={isLoading} error={error} empty="مفيش حسابات" />
+      <DataTable columns={columns} rows={paged.items} rowKey={(u) => u.id} loading={isLoading} error={error} empty="مفيش حسابات" />
+      <div className="mt-4">
+        <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} />
+      </div>
 
       <CreateUserDrawer open={creating} onClose={() => setCreating(false)} />
       <EditUserDrawer user={editing} onClose={() => setEditing(null)} />

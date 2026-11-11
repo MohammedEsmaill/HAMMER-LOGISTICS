@@ -125,7 +125,11 @@ export class CollectionsController {
   constructor(private readonly collections: CollectionsService) {}
 
   @Get(':id')
-  @RequireAnyPermission(...READ, 'finance.client-ledger.view')
+  @RequireAnyPermission(
+    ...READ,
+    'finance.client-ledger.view',
+    'finance.journal.view',
+  )
   get(@Param('id', ParseIntPipe) id: number) {
     return this.collections.get(id);
   }

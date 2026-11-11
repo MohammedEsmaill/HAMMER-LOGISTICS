@@ -27,6 +27,7 @@ const READ = [
   'finance.review',
   'finance.manager_approve',
   'finance.approve',
+  'finance.journal.view',
 ] as const;
 
 @Controller('finance/expenses')

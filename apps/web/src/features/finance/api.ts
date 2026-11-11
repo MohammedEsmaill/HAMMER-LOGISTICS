@@ -37,6 +37,7 @@ export interface MoneyAccount {
   openingBalance: string;
   balance: string;
   isActive: boolean;
+  createdAt: string;
 }
 
 interface AccountRef {

@@ -20,6 +20,8 @@ const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/clients': lazy(() => import('@/features/clients/ClientsPage')),
   '/lookups': lazy(() => import('@/features/lookups/LookupsPage')),
   '/treasury': lazy(() => import('@/features/finance/TreasuryPage')),
+  '/journal': lazy(() => import('@/features/finance/JournalPage')),
+  '/reports': lazy(() => import('@/features/finance/ReportsPage')),
   '/approvals': lazy(() => import('@/features/finance/ApprovalsPage')),
   '/payroll': lazy(() => import('@/features/finance/PayrollPage')),
   '/expenses': lazy(() => import('@/features/finance/ExpensesPage')),
@@ -34,6 +36,8 @@ const NewShipmentPage = lazy(() => import('@/features/shipments/NewShipmentPage'
 const ShipmentDetailPage = lazy(() => import('@/features/shipments/ShipmentDetailPage'));
 const SHIPMENT_VIEW = ['shipments.view.all', 'shipments.view.own'] as const;
 const ShipmentAccountPage = lazy(() => import('@/features/finance/ShipmentAccountPage'));
+const ReportPrintPage = lazy(() => import('@/features/finance/ReportPrintPage'));
+const AccountPage = lazy(() => import('@/features/finance/AccountPage'));
 const InvoicePrintPage = lazy(() => import('@/features/finance/InvoicePrintPage'));
 const ACCOUNT_VIEW = [
   'finance.shipment-account.view',
@@ -81,6 +85,19 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    // a printable report, without the app around it
+    path: '/print/reports/:kind',
+    element: (
+      <RequireAuth>
+        <RequirePermission any={['finance.journal.view']}>
+          <Suspense fallback={null}>
+            <ReportPrintPage />
+          </Suspense>
+        </RequirePermission>
+      </RequireAuth>
+    ),
+  },
+  {
     path: '/',
     element: (
       <RequireAuth>
@@ -103,6 +120,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission any={[...ACCOUNT_VIEW]}>
             <ShipmentAccountPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'treasury/:id',
+        element: (
+          <RequirePermission any={['finance.balances.view', 'finance.accounts.manage']}>
+            <AccountPage />
           </RequirePermission>
         ),
       },

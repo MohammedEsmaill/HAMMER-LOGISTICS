@@ -1,18 +1,66 @@
-import { LogOut, Menu, Moon, Sun, X } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Moon, Sun, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Suspense, useState } from 'react';
 import { NavLink, useLocation, useOutlet } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import { Spinner } from '@/components/ui/Spinner';
 import { useTheme } from '@/lib/use-theme';
-import { NAV } from './nav';
+import { NAV, NAV_GROUPS, type NavGroup, type NavItem } from './nav';
 
+const COLLAPSED_KEY = 'hl.sidebar.collapsed';
+
+function readCollapsed(): NavGroup[] {
+  try {
+    return JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]') as NavGroup[];
+  } catch {
+    return [];
+  }
+}
+
+function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+  const { to, label, icon: Icon } = item;
+  return (
+    <NavLink
+      to={to}
+      end={to === '/'}
+      onClick={onNavigate}
+      className="focus-ring relative flex h-10 items-center gap-3 rounded-xl px-3 text-muted transition-colors hover:text-ink"
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <motion.span
+              layoutId="nav-active"
+              className="absolute inset-0 rounded-xl border border-gold/30 bg-gold/10"
+              transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+            />
+          )}
+          <Icon className={`relative size-[18px] shrink-0 ${isActive ? 'text-gold' : ''}`} />
+          <span className={`relative truncate text-[15px] ${isActive ? 'font-semibold text-ink' : ''}`}>{label}</span>
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+/** Home on top, then the sections; a section with nothing for this user does not show. */
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { canAny } = useAuth();
+  const location = useLocation();
   const items = NAV.filter((item) => item.any.length === 0 || canAny(...item.any));
+  const [collapsed, setCollapsed] = useState<NavGroup[]>(readCollapsed);
+  const toggle = (group: NavGroup) => {
+    const next = collapsed.includes(group) ? collapsed.filter((g) => g !== group) : [...collapsed, group];
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+    } catch {
+      // a private window keeps it for this visit only
+    }
+  };
 
   return (
-    <nav className="flex h-full flex-col gap-1 p-4" aria-label="القائمة الرئيسية">
+    <nav className="flex h-full flex-col overflow-y-auto p-4" aria-label="القائمة الرئيسية">
       <div className="mb-6 flex items-center gap-3 px-2">
         <img src="/logo-mark.png" alt="" className="w-10" />
         <div dir="ltr" className="text-start leading-tight">
@@ -24,29 +72,48 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </div>
       </div>
-      {items.map(({ to, label, icon: Icon }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={to === '/'}
-          onClick={onNavigate}
-          className="focus-ring relative flex h-11 items-center gap-3 rounded-xl px-3 text-muted transition-colors hover:text-ink"
-        >
-          {({ isActive }) => (
-            <>
-              {isActive && (
-                <motion.span
-                  layoutId="nav-active"
-                  className="absolute inset-0 rounded-xl border border-gold/30 bg-gold/10"
-                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                />
+      <div className="space-y-1">
+        {items
+          .filter((i) => !i.group)
+          .map((item) => (
+            <SidebarLink key={item.to} item={item} onNavigate={onNavigate} />
+          ))}
+      </div>
+      {NAV_GROUPS.map((group) => {
+        const list = items.filter((i) => i.group === group.key);
+        if (list.length === 0) return null;
+        const holdsCurrent = list.some((i) => location.pathname.startsWith(i.to));
+        // the section of the open page stays open
+        const open = holdsCurrent || !collapsed.includes(group.key);
+        return (
+          <div key={group.key} className="mt-4">
+            <button
+              type="button"
+              onClick={() => toggle(group.key)}
+              aria-expanded={open}
+              className="focus-ring flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold tracking-wide text-muted/80 hover:text-ink"
+            >
+              <span className="flex-1 text-start">{group.label}</span>
+              <ChevronDown className={`size-4 transition-transform ${open ? '' : 'rotate-90'}`} />
+            </button>
+            <AnimatePresence initial={false}>
+              {open && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                  className="space-y-1 overflow-hidden pt-1"
+                >
+                  {list.map((item) => (
+                    <SidebarLink key={item.to} item={item} onNavigate={onNavigate} />
+                  ))}
+                </motion.div>
               )}
-              <Icon className={`relative size-5 ${isActive ? 'text-gold' : ''}`} />
-              <span className={`relative ${isActive ? 'font-semibold text-ink' : ''}`}>{label}</span>
-            </>
-          )}
-        </NavLink>
-      ))}
+            </AnimatePresence>
+          </div>
+        );
+      })}
     </nav>
   );
 }

@@ -85,6 +85,18 @@ export class JournalService {
     };
   }
 
+  /** Who recorded operations, for the journal's filter. */
+  authors(actor: AuthUser) {
+    const restricted = canSeeRestricted(actor)
+      ? Prisma.empty
+      : Prisma.sql`WHERE NOT j."restricted"`;
+    return this.prisma.$queryRaw<{ id: number; email: string }[]>`
+      SELECT DISTINCT u."id", u."email"
+        FROM "journal_v" j JOIN "users" u ON u."id" = j."created_by"
+        ${restricted}
+       ORDER BY u."email"`;
+  }
+
   /** Every matching row, oldest first, for a report (capped). */
   async all(actor: AuthUser, q: JournalQueryDto) {
     const where = this.where(actor, q);

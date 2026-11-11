@@ -8,6 +8,8 @@ import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePageOf } from '@/lib/use-page-of';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton, PageHeader } from '@/components/ui/misc';
@@ -246,6 +248,8 @@ export default function LookupsPage() {
     });
   }, [data, search, kind, egyptian, tab, meta.kinded]);
 
+  const paged = usePageOf(rows, 50, `${tab}|${search}|${kind}|${egyptian}`);
+
   const actions: Column<Row> = {
     header: '',
     className: 'w-0 whitespace-nowrap',
@@ -378,11 +382,17 @@ export default function LookupsPage() {
       </div>
 
       {tab === 'countries' ? (
-        <DataTable columns={countryColumns} rows={rows as Country[] | undefined} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش نتايج" />
+        <DataTable columns={countryColumns} rows={paged.items as Country[] | undefined} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش نتايج" />
       ) : (
-        <DataTable columns={columns[tab]} rows={rows as Row[] | undefined} rowKey={(r) => r.id} loading={isLoading} error={error} empty="مفيش نتايج" />
+        <DataTable columns={columns[tab]} rows={paged.items as Row[] | undefined} rowKey={(r) => r.id} loading={isLoading} error={error} empty="مفيش نتايج" />
       )}
-      {rows && <p className="mt-3 text-xs text-muted">{rows.length} عنصر</p>}
+      <div className="mt-4">
+        {paged.total > paged.pageSize ? (
+          <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} />
+        ) : (
+          rows && <p className="text-xs text-muted">{rows.length} عنصر</p>
+        )}
+      </div>
 
       {tab !== 'countries' && <LookupFormDrawer tab={tab} row={editing} open={formOpen} onClose={() => setFormOpen(false)} />}
       <ConfirmDialog

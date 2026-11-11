@@ -158,3 +158,30 @@ body {
     box-shadow: none !important;
   }
 }
+
+/* printed reports: A4 with margins and page numbers on every page */
+@media print {
+  .report-print {
+    page: report;
+  }
+  @page report {
+    size: A4;
+    margin: 12mm 10mm 14mm;
+    @bottom-center {
+      content: 'صفحة ' counter(page) ' من ' counter(pages);
+      font-size: 9px;
+      color: #666;
+    }
+  }
+  .report-page {
+    width: auto !important;
+    min-height: auto !important;
+    padding: 0 !important;
+  }
+  .report-page thead {
+    display: table-header-group;
+  }
+  .report-page tr {
+    break-inside: avoid;
+  }
+}

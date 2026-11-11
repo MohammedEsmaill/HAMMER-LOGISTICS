@@ -140,19 +140,19 @@ function describe(l: LedgerLine): string {
   return l.sourceLabel;
 }
 
-/** The account statement: every line with its running balance. */
-export function LedgerDrawer({ account, onClose }: { account: MoneyAccount | null; onClose: () => void }) {
+/** The document a statement line came from. */
+export const lineDocument = (l: LedgerLine) => ({
+  type: l.source,
+  id: (l.transfer?.id ?? l.otherMovement?.id ?? l.salary?.id ?? l.advance?.id ?? l.expense?.id ?? l.custody?.id ?? l.feePayment?.id ?? l.collection?.id)!,
+});
+
+/** The account statement: every line with its running balance, by period, page by page. */
+export function AccountStatement({ account, onOpenLine }: { account: MoneyAccount; onOpenLine?: (l: LedgerLine) => void }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useLedger(account?.id ?? null, { from: from || undefined, to: to || undefined, page });
-  const cur = account?.currency;
-
-  useEffect(() => {
-    setFrom('');
-    setTo('');
-    setPage(1);
-  }, [account?.id]);
+  const { data, isLoading, error } = useLedger(account.id, { from: from || undefined, to: to || undefined, page });
+  const cur = account.currency;
 
   const columns: Column<LedgerLine>[] = [
     { header: 'التاريخ', cell: (l) => <span className="whitespace-nowrap">{formatDate(l.movementDate)}</span> },
@@ -170,7 +170,7 @@ export function LedgerDrawer({ account, onClose }: { account: MoneyAccount | nul
           <div className="min-w-0">
             <div className="text-sm">
               {l.reversalOfId && <span className="text-warning">قيد عكسي · </span>}
-              {l.sourceLabel} #{l.transfer?.id ?? l.otherMovement?.id ?? l.salary?.id ?? l.advance?.id ?? l.expense?.id ?? l.custody?.id ?? l.feePayment?.id ?? l.collection?.id}
+              {l.sourceLabel} #{lineDocument(l).id}
             </div>
             <div className="truncate text-xs text-muted">{describe(l)}</div>
           </div>
@@ -183,38 +183,29 @@ export function LedgerDrawer({ account, onClose }: { account: MoneyAccount | nul
   ];
 
   return (
-    <Drawer open={!!account} onClose={onClose} width="max-w-4xl" title={account ? `كشف ${account.name}` : 'كشف الحساب'}>
-      {account && (
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-surface-2 p-3">
-              <div className="text-xs text-muted">الرصيد الحالي</div>
-              <div className="text-xl font-bold text-gold" dir="ltr" style={{ textAlign: 'right' }}>
-                {money(data?.account.balance ?? account.balance, cur)}
-              </div>
-            </div>
-            <div className="rounded-xl bg-surface-2 p-3">
-              <div className="text-xs text-muted">وارد الفترة</div>
-              <div className="text-lg font-bold text-success" dir="ltr" style={{ textAlign: 'right' }}>
-                {money(data?.totals.in, cur)}
-              </div>
-            </div>
-            <div className="rounded-xl bg-surface-2 p-3">
-              <div className="text-xs text-muted">منصرف الفترة</div>
-              <div className="text-lg font-bold text-danger" dir="ltr" style={{ textAlign: 'right' }}>
-                {money(data?.totals.out, cur)}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <TextField label="من" type="date" className="w-44" value={from} onChange={(e) => (setFrom(e.target.value), setPage(1))} />
-            <TextField label="إلى" type="date" className="w-44" value={to} onChange={(e) => (setTo(e.target.value), setPage(1))} />
-          </div>
-          <p className="text-xs text-muted">الرصيد الافتتاحي: {money(account.openingBalance, cur)}</p>
-          <DataTable columns={columns} rows={data?.items} rowKey={(l) => l.id} loading={isLoading} error={error} empty="مفيش حركات في الفترة دي" />
-          <Pagination page={page} pageSize={30} total={data?.total ?? 0} onChange={setPage} />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <TextField label="من" type="date" className="w-44" value={from} onChange={(e) => (setFrom(e.target.value), setPage(1))} />
+        <TextField label="إلى" type="date" className="w-44" value={to} onChange={(e) => (setTo(e.target.value), setPage(1))} />
+        <div className="flex flex-1 flex-wrap justify-end gap-6 pb-2 text-sm">
+          <span>
+            وارد الفترة: <b className="text-success" dir="ltr">{money(data?.totals.in, cur)}</b>
+          </span>
+          <span>
+            منصرف الفترة: <b className="text-danger" dir="ltr">{money(data?.totals.out, cur)}</b>
+          </span>
         </div>
-      )}
-    </Drawer>
+      </div>
+      <DataTable
+        columns={columns}
+        rows={data?.items}
+        rowKey={(l) => l.id}
+        loading={isLoading}
+        error={error}
+        empty="مفيش حركات في الفترة دي"
+        onRowClick={onOpenLine}
+      />
+      <Pagination page={page} pageSize={30} total={data?.total ?? 0} onChange={setPage} />
+    </div>
   );
 }

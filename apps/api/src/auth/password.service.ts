@@ -6,12 +6,19 @@ import { hash, verify } from '@node-rs/argon2';
  * which carry their own parameters, so old and new hashes both verify. @node-rs/argon2
  * ships a ready binary per platform: no compiler or Python needed on Windows.
  */
-export const ARGON2_OPTIONS = { memoryCost: 65536, timeCost: 3, parallelism: 4 };
+export const ARGON2_OPTIONS = {
+  memoryCost: 65536,
+  timeCost: 3,
+  parallelism: 4,
+};
 
 @Injectable()
 export class PasswordService {
   /** Verified against when the email is unknown, so a wrong email and a wrong password take the same time. */
-  private readonly dummyHash = hash('timing-equaliser-not-a-password', ARGON2_OPTIONS);
+  private readonly dummyHash = hash(
+    'timing-equaliser-not-a-password',
+    ARGON2_OPTIONS,
+  );
 
   hash(password: string): Promise<string> {
     this.assertStrong(password);
