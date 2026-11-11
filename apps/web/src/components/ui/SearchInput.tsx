@@ -32,7 +32,7 @@ export function SearchInput({
     <form
       role="search"
       onSubmit={submit}
-      className="flex h-11 w-full max-w-sm items-center gap-1 rounded-xl border border-line bg-surface ps-3 pe-1 focus-within:border-gold"
+      className="flex h-12 w-full max-w-md items-center gap-1 rounded-xl border border-line bg-surface ps-3 pe-1.5 transition-colors focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/15"
     >
       <input
         type="text"
@@ -51,11 +51,13 @@ export function SearchInput({
       )}
       <button
         type="submit"
-        className={`focus-ring grid size-9 shrink-0 place-items-center rounded-lg transition-colors ${pending ? 'gold-fill' : 'text-muted hover:text-gold'}`}
-        aria-label="بحث"
+        className={`focus-ring group flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold transition-colors ${
+          pending ? 'gold-fill text-on-gold shadow-md shadow-gold/30 hover:brightness-110' : 'bg-gold/12 text-gold hover:bg-gold/20'
+        }`}
         title="بحث (Enter)"
       >
-        <Search className="size-4" />
+        <Search className="size-4 transition-transform group-hover:scale-110" />
+        بحث
       </button>
     </form>
   );
