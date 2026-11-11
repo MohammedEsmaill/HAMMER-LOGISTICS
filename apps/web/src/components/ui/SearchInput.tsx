@@ -45,13 +45,13 @@ export function SearchInput({
         className="h-full w-full bg-transparent outline-none placeholder:text-muted/70"
       />
       {text && (
-        <button type="button" onClick={clear} className="focus-ring grid size-8 shrink-0 place-items-center rounded-lg text-muted hover:text-ink" aria-label="مسح البحث" title="مسح البحث">
+        <button type="button" onClick={clear} className="focus-ring grid size-8 shrink-0 place-items-center rounded-full text-muted hover:text-ink" aria-label="مسح البحث" title="مسح البحث">
           <X className="size-4" />
         </button>
       )}
       <button
         type="submit"
-        className={`focus-ring group flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3.5 text-sm font-semibold transition-colors ${
+        className={`focus-ring group flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors ${
           pending ? 'gold-fill text-on-gold shadow-md shadow-gold/30 hover:brightness-110' : 'bg-gold/12 text-gold hover:bg-gold/20'
         }`}
         title="بحث (Enter)"
