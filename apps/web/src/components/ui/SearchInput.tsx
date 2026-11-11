@@ -32,7 +32,7 @@ export function SearchInput({
     <form
       role="search"
       onSubmit={submit}
-      className="flex h-12 w-full max-w-md items-center gap-1 rounded-xl border border-line bg-surface ps-3 pe-1.5 transition-colors focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/15"
+      className="flex h-12 w-full max-w-md items-center gap-1 rounded-full border border-line bg-surface ps-5 pe-1.5 transition-colors focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/15"
     >
       <input
         type="text"
