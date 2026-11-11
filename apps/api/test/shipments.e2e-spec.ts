@@ -306,7 +306,11 @@ describe('Shipment registration (e2e)', () => {
       const res = await ctx.api(scan).post('/api/shipments', base).expect(201);
       expect(res.body.freeZone.id).toBe(ids.freeZone);
       expect(res.body.containers).toHaveLength(0);
-      expect(res.body.stages.at(-1).label).toBe('تم تسليم الإفراج');
+      expect(res.body.stages.at(-1).label).toBe('تم الصرف');
+      // a free-zone shipment has no arrival and no delivery order
+      expect(
+        res.body.stages.map((s: { stage: string }) => s.stage),
+      ).not.toContain('ARRIVED');
     });
 
     it('air import: airports and airline, no containers', async () => {
@@ -337,9 +341,17 @@ describe('Shipment registration (e2e)', () => {
         .expect(400);
       const res = await ctx.api(scan).post('/api/shipments', air).expect(201);
       expect(res.body.mblNumber).toBe('MAWB-077-1');
-      expect(res.body.stages.map((s: { stage: string }) => s.stage)).toContain(
-        'RECEIVED_AT_WAREHOUSE',
-      );
+      expect(res.body.stages.map((s: { stage: string }) => s.stage)).toEqual([
+        'REGISTERED',
+        'ARRIVED',
+        'DO_COLLECTED',
+        'EXAMINATION',
+        'VALUATION',
+        'APPROVAL_PENDING',
+        'APPROVED',
+        'DUTIES_PAID',
+        'CLEARED',
+      ]);
     });
 
     it('sea export: no regime, bills optional, export goes to the import operation employee when none is set', async () => {

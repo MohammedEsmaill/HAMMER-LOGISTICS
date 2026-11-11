@@ -218,11 +218,11 @@ export function isValidContainerNumber(value: string): boolean {
   return (sum % 11) % 10 === Number(value[10]);
 }
 
-/** Stage labels for filters (the API sends labels with each shipment). */
+/** Stage labels, also of stages that left the flows (they stay in old histories). */
 export const STAGE_LABELS: Record<string, string> = {
   REGISTERED: 'تم التسجيل',
   IN_TRANSIT: 'في الطريق',
-  ARRIVED: 'وصلت',
+  ARRIVED: 'تم الوصول',
   UNLOADING: 'تحت التفريغ',
   UNLOADED: 'فرغت',
   RECEIVED_AT_WAREHOUSE: 'تم الاستلام بالمخازن',
@@ -232,13 +232,32 @@ export const STAGE_LABELS: Record<string, string> = {
   INSPECTION: 'جاري المعاينة',
   VALUATION: 'جاري إنهاء التثمين',
   APPROVAL_PENDING: 'جاري الاعتماد',
-  APPROVED: 'اعتمدت',
-  DUTIES_PAID: 'سداد الرسوم',
+  APPROVED: 'معتمد',
+  DUTIES_PAID: 'تم السداد',
   RELEASE_DELIVERED: 'تم تسليم الإفراج',
   CLEARED: 'تم الصرف',
-  DELIVERED_TO_PORT: 'تم التسليم للميناء',
+  DELIVERED_TO_PORT: 'تم تسليم الحاويات للميناء',
   RELEASE_RECEIVED: 'تم استلام الإفراج',
   SHIPPED: 'تم الشحن',
   ARRIVED_DESTINATION: 'تم الوصول',
   DELIVERED_TO_IMPORTER: 'تم التسليم للمستورد',
 };
+
+/** The stages a shipment can be in today: import first, then export. */
+export const STAGE_FILTER = [
+  'REGISTERED',
+  'ARRIVED',
+  'DO_COLLECTED',
+  'EXAMINATION',
+  'VALUATION',
+  'APPROVAL_PENDING',
+  'APPROVED',
+  'DUTIES_PAID',
+  'CLEARED',
+  'SUBMITTED',
+  'DELIVERED_TO_PORT',
+  'RELEASE_RECEIVED',
+  'SHIPPED',
+  'ARRIVED_DESTINATION',
+  'DELIVERED_TO_IMPORTER',
+] as const;

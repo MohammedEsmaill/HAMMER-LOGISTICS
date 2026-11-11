@@ -22,7 +22,8 @@ describe('Finance: journal and reports (e2e)', () => {
   let cashEgp: number;
   let advanceId: number;
   let fundingId: number;
-  const today = new Date().toISOString().slice(0, 10);
+  // a range around every date the operations may carry (they are dated in Cairo)
+  const period = 'from=2000-01-01&to=2099-12-31';
 
   beforeAll(async () => {
     ctx = await createTestContext();
@@ -141,14 +142,14 @@ describe('Finance: journal and reports (e2e)', () => {
       .expect(400);
     await ctx
       .api(auditor)
-      .get(`/api/finance/journal/reports/nothing?from=${today}&to=${today}`)
+      .get(`/api/finance/journal/reports/nothing?${period}`)
       .expect(404);
   });
 
   it('journal report: totals by type, then the operations', async () => {
     const res = await ctx
       .api(auditor)
-      .get(`/api/finance/journal/reports/journal?from=${today}&to=${today}`)
+      .get(`/api/finance/journal/reports/journal?${period}`)
       .expect(200);
     const other = res.body.summary.byType.find(
       (t: { type: string; currency: string }) =>
@@ -162,7 +163,7 @@ describe('Finance: journal and reports (e2e)', () => {
     const res = await ctx
       .api(relations)
       .get(
-        `/api/finance/journal/reports/accounts?from=${today}&to=${today}&accountId=${cashEgp}`,
+        `/api/finance/journal/reports/accounts?${period}&accountId=${cashEgp}`,
       )
       .expect(200);
     const [a] = res.body.accounts;

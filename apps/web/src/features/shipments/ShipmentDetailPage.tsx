@@ -17,9 +17,9 @@ import { InspectionsTab } from './InspectionsTab';
 import { MODE_ICONS } from './mode-icons';
 import { OverviewTab } from './OverviewTab';
 import { SHIPMENT_TYPES, STAGE_LABELS } from './rules';
-import { StagePanel } from './StagePanel';
+import { StageSelect } from './StagePanel';
 
-type Tab = 'overview' | 'customs' | 'inspections' | 'documents' | 'history';
+type Tab = 'overview' | 'customs' | 'documents' | 'history';
 
 const dateTime = (iso: string) => new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
@@ -73,10 +73,10 @@ export default function ShipmentDetailPage() {
 
   const rules = SHIPMENT_TYPES[shipment.kind];
   const Icon = MODE_ICONS[shipment.mode];
+  const finished = shipment.currentStage === shipment.stages.at(-1)?.stage;
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'overview', label: 'البيانات' },
-    { key: 'customs', label: 'النافذة' },
-    { key: 'inspections', label: 'العرض الرقابي', count: shipment.inspections.length },
+    { key: 'customs', label: 'النافذة', count: shipment.inspections.length || undefined },
     { key: 'documents', label: 'المستندات', count: shipment.documents.length },
     { key: 'history', label: 'سجل المراحل' },
   ];
@@ -98,6 +98,12 @@ export default function ShipmentDetailPage() {
             {rules.label} · {shipment.client.name} · {shipment.commodity}
           </div>
         </div>
+        <span
+          className={`rounded-full border px-3 py-1.5 text-sm font-semibold ${finished ? 'border-success/30 bg-success/12 text-success' : 'border-gold/30 bg-gold/10 text-gold'}`}
+          title="المرحلة الحالية"
+        >
+          {shipment.stageLabel}
+        </span>
         {canAny('finance.shipment-account.view', 'finance.statement.manage', 'finance.collections.manage') && (
           <Link to={`/shipment-accounts/${shipment.id}`} className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-2 text-sm hover:border-gold/60 hover:text-gold">
             <Calculator className="size-4" /> حساب الشحنة
@@ -114,14 +120,24 @@ export default function ShipmentDetailPage() {
         </button>
       </motion.header>
 
-      <StagePanel shipment={shipment} />
       <FormTabs tabs={tabs} active={tab} onChange={setTab} layoutId="shipment-tab" />
       <div className="card p-5">
         <AnimatePresence mode="wait">
           <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }}>
             {tab === 'overview' && <OverviewTab shipment={shipment} />}
-            {tab === 'customs' && <CustomsTab shipment={shipment} />}
-            {tab === 'inspections' && <InspectionsTab shipment={shipment} />}
+            {tab === 'customs' && (
+              <div className="space-y-6">
+                <StageSelect shipment={shipment} />
+                <section className="space-y-3">
+                  <h3 className="font-bold">بيانات النافذة</h3>
+                  <CustomsTab shipment={shipment} />
+                </section>
+                <section className="space-y-3 border-t border-line pt-5">
+                  <h3 className="font-bold">العروض الرقابية</h3>
+                  <InspectionsTab shipment={shipment} />
+                </section>
+              </div>
+            )}
             {tab === 'documents' && <DocumentsTab shipment={shipment} />}
             {tab === 'history' && <HistoryTab shipment={shipment} />}
           </motion.div>

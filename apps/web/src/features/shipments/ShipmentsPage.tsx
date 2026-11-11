@@ -11,10 +11,13 @@ import { SelectField } from '@/components/ui/SelectField';
 import { formatDate } from '@/lib/format';
 import { useShipments, type ShipmentListItem, type ShipmentsQuery } from './api';
 import { MODE_ICONS } from './mode-icons';
-import { KIND_LIST, kindOf, SHIPMENT_TYPES, STAGE_LABELS } from './rules';
+import { KIND_LIST, kindOf, SHIPMENT_TYPES, STAGE_FILTER, STAGE_LABELS } from './rules';
 
 const KIND_OPTIONS = KIND_LIST.map((t) => ({ value: t.kind, label: t.label }));
-const STAGE_OPTIONS = Object.entries(STAGE_LABELS).map(([value, label]) => ({ value, label }));
+const STAGE_OPTIONS = STAGE_FILTER.map((value) => ({
+  value,
+  label: value === 'ARRIVED_DESTINATION' ? 'تم الوصول (صادر)' : STAGE_LABELS[value],
+}));
 
 export default function ShipmentsPage() {
   const { can } = useAuth();

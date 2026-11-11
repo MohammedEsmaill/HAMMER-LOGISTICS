@@ -1,5 +1,4 @@
-import { Check, ChevronsLeft, Undo2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
@@ -22,21 +21,10 @@ const nowLocal = () => {
   return d.toISOString().slice(0, 16);
 };
 
-function MoveDrawer({
-  shipment,
-  target,
-  backward,
-  onClose,
-}: {
-  shipment: Shipment;
-  target: StageStep | null;
-  backward: boolean;
-  onClose: () => void;
-}) {
-  const { can } = useAuth();
+function MoveDrawer({ shipment, target, onClose }: { shipment: Shipment; target: StageStep | null; onClose: () => void }) {
   const current = shipment.stages.findIndex((s) => s.stage === shipment.currentStage);
-  const earlier = shipment.stages.slice(0, current).filter((s) => can(GROUP_PERMISSION[s.group]));
-  const [to, setTo] = useState('');
+  const backward = !!target && shipment.stages.findIndex((s) => s.stage === target.stage) < current;
+  const to = target?.stage ?? '';
   const [occurredAt, setOccurredAt] = useState('');
   const [reason, setReason] = useState('');
   const [problem, setProblem] = useState('');
@@ -52,17 +40,15 @@ function MoveDrawer({
   resetRef.current = move.reset;
 
   useEffect(() => {
-    if (!target && !backward) return;
-    setTo(target?.stage ?? '');
+    if (!target) return;
     setOccurredAt('');
     setReason('');
     setProblem('');
     resetRef.current();
-  }, [target, backward]);
+  }, [target]);
 
   const label = shipment.stages.find((s) => s.stage === to)?.label;
   const submit = () => {
-    if (!to) return setProblem('اختار المرحلة');
     if (occurredAt && new Date(occurredAt) > new Date()) return setProblem('التاريخ مينفعش يبقى في المستقبل');
     setProblem('');
     move.mutateAsync(undefined).then(onClose, () => undefined);
@@ -70,9 +56,9 @@ function MoveDrawer({
 
   return (
     <Drawer
-      open={!!target || backward}
+      open={!!target}
       onClose={onClose}
-      title={backward ? 'رجوع لمرحلة سابقة' : `نقل الشحنة لـ «${target?.label}»`}
+      title={backward ? `رجوع لـ «${target?.label}»` : `نقل الشحنة لـ «${target?.label}»`}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -85,14 +71,6 @@ function MoveDrawer({
       }
     >
       <div className="space-y-4">
-        {backward && (
-          <SelectField
-            label="المرحلة"
-            options={earlier.map((s) => ({ value: s.stage, label: s.label }))}
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        )}
         {label && (
           <p className="rounded-xl bg-surface-2 p-3 text-sm">
             من <b>{shipment.stageLabel}</b> إلى <b className="text-gold">{label}</b>
@@ -123,78 +101,51 @@ function MoveDrawer({
   );
 }
 
-/** The shipment's stage track, with the next move and a way back. */
-export function StagePanel({ shipment }: { shipment: Shipment }) {
+/**
+ * "The shipment's current stage" at the top of the Nafeza tab: one list of the stages
+ * of this shipment type. Forward one stage at a time, back to any earlier one; each
+ * user only gets the stages they may set.
+ */
+export function StageSelect({ shipment }: { shipment: Shipment }) {
   const { can } = useAuth();
   const [target, setTarget] = useState<StageStep | null>(null);
-  const [backward, setBackward] = useState(false);
   const current = shipment.stages.findIndex((s) => s.stage === shipment.currentStage);
   const next = shipment.stages[current + 1];
-  const canNext = next && can(GROUP_PERMISSION[next.group]);
-  const canBack = current > 0 && shipment.stages.slice(0, current).some((s) => can(GROUP_PERMISSION[s.group]));
-  const progress = shipment.stages.length > 1 ? current / (shipment.stages.length - 1) : 1;
-  const track = useRef<HTMLOListElement>(null);
-
-  useEffect(() => {
-    track.current?.querySelector('[aria-current="step"]')?.scrollIntoView({ inline: 'center', block: 'nearest' });
-  }, [current]);
+  const finished = !next;
+  const allowed = (s: StageStep, i: number) => i !== current && i <= current + 1 && can(GROUP_PERMISSION[s.group]);
+  const movable = shipment.stages.some(allowed);
 
   return (
-    <section className="card space-y-4 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-sm text-muted">المرحلة الحالية</div>
-          <div className="text-xl font-bold text-gold">{shipment.stageLabel}</div>
+    <section className="space-y-3 rounded-2xl border border-gold/30 bg-gold/5 p-4">
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="min-w-48 flex-1">
+          <div className="text-sm text-muted">المرحلة الحالية للشحنة</div>
+          <div className="mt-1 flex items-center gap-2 text-xl font-bold text-gold">
+            {finished && <Check className="size-5 text-success" />}
+            {shipment.stageLabel}
+          </div>
+          <div className="mt-1 text-xs text-muted">
+            المرحلة {current + 1} من {shipment.stages.length}
+            {next && ` · الجاية: ${next.label}`}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {canBack && (
-            <Button variant="ghost" icon={<Undo2 className="size-4" />} onClick={() => setBackward(true)}>
-              رجوع
-            </Button>
-          )}
-          {canNext && (
-            <Button icon={<ChevronsLeft className="size-4" />} onClick={() => setTarget(next)}>
-              {next.label}
-            </Button>
-          )}
-          {!next && <span className="rounded-xl bg-success/12 px-3 py-2 text-sm font-semibold text-success">الشحنة خلصت</span>}
-        </div>
+        {movable && (
+          <div className="w-full sm:w-72">
+            <SelectField
+              label="تغيير المرحلة"
+              placeholder="اختار المرحلة"
+              value=""
+              options={shipment.stages.map((s, i) => ({
+                value: s.stage,
+                label: i < current ? `${s.label} (رجوع)` : i === current ? `${s.label} (الحالية)` : s.label,
+                disabled: !allowed(s, i),
+              }))}
+              onChange={(e) => setTarget(shipment.stages.find((s) => s.stage === e.target.value) ?? null)}
+            />
+          </div>
+        )}
       </div>
-
-      <div className="h-1.5 overflow-hidden rounded-full bg-line">
-        <motion.div className="h-full gold-fill" initial={{ width: 0 }} animate={{ width: `${progress * 100}%` }} transition={{ duration: 0.8, ease: 'easeOut' }} />
-      </div>
-
-      <ol ref={track} className="flex gap-2 overflow-x-auto pb-1">
-        {shipment.stages.map((s, i) => {
-          const isCurrent = i === current;
-          return (
-            <li
-              key={s.stage}
-              aria-current={isCurrent ? 'step' : undefined}
-              className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
-                isCurrent ? 'border-gold bg-gold/12 text-gold' : s.done ? 'border-gold/30 text-ink' : 'border-line text-muted'
-              }`}
-            >
-              <span
-                className={`grid size-5 place-items-center rounded-full text-[10px] ${s.done ? 'gold-fill' : 'bg-surface-2 text-muted'}`}
-              >
-                {s.done && !isCurrent ? <Check className="size-3" /> : i + 1}
-              </span>
-              {s.label}
-            </li>
-          );
-        })}
-      </ol>
-      <MoveDrawer
-        shipment={shipment}
-        target={target}
-        backward={backward}
-        onClose={() => {
-          setTarget(null);
-          setBackward(false);
-        }}
-      />
+      <MoveDrawer shipment={shipment} target={target} onClose={() => setTarget(null)} />
     </section>
   );
 }

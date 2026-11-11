@@ -15,13 +15,24 @@ export interface StageStep {
   group: StageGroup;
 }
 
-const CUSTOMS_STEPS: StageStep[] = [
-  { stage: 'SUBMITTED', group: 'CUSTOMS' },
+/**
+ * The import stages, one list chosen from the Nafeza tab: every stage after
+ * registration is moved by Nafeza, operations and SCAN alike.
+ */
+const CLEARANCE_STEPS: StageStep[] = [
   { stage: 'EXAMINATION', group: 'CUSTOMS' },
-  { stage: 'INSPECTION', group: 'CUSTOMS' },
   { stage: 'VALUATION', group: 'CUSTOMS' },
   { stage: 'APPROVAL_PENDING', group: 'CUSTOMS' },
   { stage: 'APPROVED', group: 'CUSTOMS' },
+  { stage: 'DUTIES_PAID', group: 'CUSTOMS' },
+  { stage: 'CLEARED', group: 'CUSTOMS' },
+];
+
+const IMPORT_STEPS: StageStep[] = [
+  { stage: 'REGISTERED', group: 'AUTO' },
+  { stage: 'ARRIVED', group: 'CUSTOMS' },
+  { stage: 'DO_COLLECTED', group: 'CUSTOMS' },
+  ...CLEARANCE_STEPS,
 ];
 
 const EXPORT_STEPS: StageStep[] = [
@@ -36,33 +47,12 @@ const EXPORT_STEPS: StageStep[] = [
 
 /** The ordered stages of every shipment type, as agreed in the spec (section 6). */
 export const STAGE_FLOWS: Record<ShipmentKind, readonly StageStep[]> = {
-  IMPORT_SEA: [
-    { stage: 'REGISTERED', group: 'AUTO' },
-    { stage: 'IN_TRANSIT', group: 'OPERATION' },
-    { stage: 'ARRIVED', group: 'OPERATION' },
-    { stage: 'UNLOADING', group: 'OPERATION' },
-    { stage: 'UNLOADED', group: 'OPERATION' },
-    { stage: 'DO_COLLECTED', group: 'CUSTOMS' },
-    ...CUSTOMS_STEPS,
-    { stage: 'DUTIES_PAID', group: 'CUSTOMS' },
-    { stage: 'RELEASE_DELIVERED', group: 'OPERATION' },
-    { stage: 'CLEARED', group: 'OPERATION' },
-  ],
-  IMPORT_AIR: [
-    { stage: 'REGISTERED', group: 'AUTO' },
-    { stage: 'IN_TRANSIT', group: 'OPERATION' },
-    { stage: 'ARRIVED', group: 'OPERATION' },
-    { stage: 'RECEIVED_AT_WAREHOUSE', group: 'OPERATION' },
-    { stage: 'DO_COLLECTED', group: 'CUSTOMS' },
-    ...CUSTOMS_STEPS,
-    { stage: 'DUTIES_PAID', group: 'CUSTOMS' },
-    { stage: 'RELEASE_DELIVERED', group: 'OPERATION' },
-    { stage: 'CLEARED', group: 'OPERATION' },
-  ],
+  IMPORT_SEA: IMPORT_STEPS,
+  IMPORT_AIR: IMPORT_STEPS,
+  // a free-zone shipment is neither shipped in nor collected with a delivery order
   IMPORT_FREE_ZONE: [
     { stage: 'REGISTERED', group: 'AUTO' },
-    ...CUSTOMS_STEPS,
-    { stage: 'RELEASE_DELIVERED', group: 'OPERATION' },
+    ...CLEARANCE_STEPS,
   ],
   EXPORT_SEA: EXPORT_STEPS,
   EXPORT_AIR: EXPORT_STEPS,
@@ -71,7 +61,7 @@ export const STAGE_FLOWS: Record<ShipmentKind, readonly StageStep[]> = {
 export const STAGE_LABELS: Record<ShipmentStage, string> = {
   REGISTERED: 'تم التسجيل',
   IN_TRANSIT: 'في الطريق',
-  ARRIVED: 'وصلت',
+  ARRIVED: 'تم الوصول',
   UNLOADING: 'تحت التفريغ',
   UNLOADED: 'فرغت',
   RECEIVED_AT_WAREHOUSE: 'تم الاستلام بالمخازن',
@@ -81,8 +71,8 @@ export const STAGE_LABELS: Record<ShipmentStage, string> = {
   INSPECTION: 'جاري المعاينة',
   VALUATION: 'جاري إنهاء التثمين',
   APPROVAL_PENDING: 'جاري الاعتماد',
-  APPROVED: 'اعتمدت',
-  DUTIES_PAID: 'سداد الرسوم',
+  APPROVED: 'معتمد',
+  DUTIES_PAID: 'تم السداد',
   RELEASE_DELIVERED: 'تم تسليم الإفراج',
   CLEARED: 'تم الصرف',
   DELIVERED_TO_PORT: 'تم تسليم الحاويات للميناء',

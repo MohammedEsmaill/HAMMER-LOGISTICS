@@ -287,18 +287,17 @@ describe('Shipment lifecycle (e2e)', () => {
     };
 
     it('moves forward one stage at a time', async () => {
-      await step(fx.tokens.opsA, 'IN_TRANSIT');
-      const skip = await move(fx.tokens.opsA, 'UNLOADING').expect(400);
-      expect(skip.body.message).toContain('وصلت');
+      await step(fx.tokens.opsA, 'ARRIVED');
+      const skip = await move(fx.tokens.opsA, 'EXAMINATION').expect(400);
+      expect(skip.body.message).toContain('تم سحب الإذن');
     });
 
-    it('NAFEZA cannot move operation stages but moves customs stages', async () => {
-      await move(fx.tokens.nafeza, 'ARRIVED').expect(403);
-      await step(fx.tokens.opsA, 'ARRIVED');
-      await step(fx.tokens.opsA, 'UNLOADING');
-      await step(fx.tokens.opsA, 'UNLOADED');
+    it('NAFEZA moves the import stages, but not back to registration', async () => {
       await step(fx.tokens.nafeza, 'DO_COLLECTED');
-      expect(s.currentStage).toBe('DO_COLLECTED');
+      await step(fx.tokens.nafeza, 'EXAMINATION');
+      expect(s.currentStage).toBe('EXAMINATION');
+      expect(s.stageLabel).toBe('جاري الكشف');
+      await move(fx.tokens.nafeza, 'REGISTERED').expect(403);
     });
 
     it('goes back to any earlier stage with an optional reason', async () => {
@@ -308,25 +307,26 @@ describe('Shipment lifecycle (e2e)', () => {
       const last = res.body.stageHistory.at(-1);
       expect(last.movement).toBe('BACKWARD');
       expect(last.reason).toBe('تصحيح');
-      expect(res.body.stageHistory).toHaveLength(7);
+      expect(res.body.stageHistory).toHaveLength(5);
     });
 
-    it('refuses a future date, a stage of another flow and a stale version', async () => {
-      await move(fx.tokens.opsA, 'UNLOADING', {
+    it('refuses a future date, a stage of another flow and a stage that left the flow', async () => {
+      await move(fx.tokens.opsA, 'DO_COLLECTED', {
         occurredAt: '2999-01-01',
       }).expect(400);
       await move(fx.tokens.opsA, 'SHIPPED').expect(400);
+      await move(fx.tokens.opsA, 'UNLOADING').expect(400);
       await ctx
         .api(fx.tokens.opsA)
         .post(`/api/shipments/${s.id}/stage`, {
           version: s.version - 1,
-          to: 'UNLOADING',
+          to: 'DO_COLLECTED',
         })
         .expect(409);
     });
 
     it('records a late stage with the date it happened', async () => {
-      const res = await step(fx.tokens.opsA, 'UNLOADING', {
+      const res = await step(fx.tokens.opsA, 'DO_COLLECTED', {
         occurredAt: '2026-11-01T08:00:00.000Z',
       });
       expect(res.body.stageHistory.at(-1).at).toBe('2026-11-01T08:00:00.000Z');
@@ -337,7 +337,7 @@ describe('Shipment lifecycle (e2e)', () => {
           action: 'STAGE_MOVE',
         },
       });
-      expect(audits).toBe(7);
+      expect(audits).toBe(5);
     });
   });
 });
