@@ -243,3 +243,34 @@ export const FIELD_TABS: Record<string, 'basic' | 'shipping' | 'containers'> = {
   loadType: 'containers',
   containers: 'containers',
 };
+
+/** Every field path that holds an error, in form order: "clientId", "containers.0.containerNo". */
+function errorPaths(errors: object, prefix = ''): string[] {
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(errors)) {
+    if (!value || typeof value !== 'object') continue;
+    const path = prefix ? `${prefix}.${key}` : key;
+    if ('message' in value && typeof (value as { message?: unknown }).message === 'string') out.push(path);
+    else out.push(...errorPaths(value, path));
+  }
+  return out;
+}
+
+/** How many errors each tab holds. */
+export function errorsByTab(errors: object): { counts: Map<string, number> } {
+  const counts = new Map<string, number>();
+  for (const path of errorPaths(errors)) {
+    const tab = FIELD_TABS[path.split('.')[0]];
+    if (tab) counts.set(tab, (counts.get(tab) ?? 0) + 1);
+  }
+  return { counts };
+}
+
+/** After the tab with the error opens: focus its first wrong field and bring it into view. */
+export function focusFirstInvalid() {
+  setTimeout(() => {
+    const field = document.querySelector<HTMLElement>('form [aria-invalid="true"]');
+    field?.focus({ preventScroll: true });
+    field?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, 260);
+}

@@ -13,7 +13,7 @@ import { useAction } from '@/lib/mutations';
 import { shipmentKeys, shipmentsApi } from './api';
 import { MODE_ICONS } from './mode-icons';
 import { KIND_LIST, SHIPMENT_TYPES, type ShipmentKind } from './rules';
-import { EMPTY_FORM, FIELD_TABS, shipmentSchema, toShipmentInput, type ShipmentFormIn, type ShipmentFormOut } from './shipment-form';
+import { EMPTY_FORM, errorsByTab, focusFirstInvalid, shipmentSchema, toShipmentInput, type ShipmentFormIn, type ShipmentFormOut } from './shipment-form';
 import { BasicFields, ContainerFields, ShippingFields, type FormTab } from './ShipmentFields';
 import { FormTabs } from './FormTabs';
 
@@ -69,11 +69,17 @@ function RegistrationForm({ kind, onBack }: { kind: ShipmentKind; onBack: () => 
     invalidate: [shipmentKeys.all],
   });
 
-  const errorTabs = new Set(Object.keys(form.formState.errors).map((f) => FIELD_TABS[f]));
+  const errorCounts = errorsByTab(form.formState.errors).counts;
+  // to the first tab with an error, and into its first wrong field
   const onInvalid = (errors: FieldErrors<ShipmentFormIn>) => {
-    const first = tabs.find((t) => Object.keys(errors).some((f) => FIELD_TABS[f] === t.key));
-    if (first) setTab(first.key);
-    toast.error('فيه بيانات ناقصة أو غلط، راجع الخانات اللي باللون الأحمر');
+    const { counts } = errorsByTab(errors);
+    const target = tabs.find((t) => counts.has(t.key));
+    const total = [...counts.values()].reduce((a, b) => a + b, 0);
+    if (target) {
+      setTab(target.key);
+      focusFirstInvalid();
+    }
+    toast.error(`فيه ${total} خانة ناقصة أو غلط، راجع الخانات اللي باللون الأحمر`);
   };
   const onValid = async (values: ShipmentFormOut) => {
     try {
@@ -104,7 +110,7 @@ function RegistrationForm({ kind, onBack }: { kind: ShipmentKind; onBack: () => 
         </Button>
       </div>
 
-      <FormTabs tabs={tabs} active={tab} onChange={setTab} errorTabs={errorTabs} layoutId="new-shipment-tab" />
+      <FormTabs tabs={tabs} active={tab} onChange={setTab} errorCounts={errorCounts} layoutId="new-shipment-tab" />
 
       <div className="card p-5">
         <AnimatePresence mode="wait">

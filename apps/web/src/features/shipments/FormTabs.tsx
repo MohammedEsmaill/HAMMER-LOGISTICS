@@ -1,17 +1,17 @@
 import { motion } from 'motion/react';
 
-/** Animated tab strip; a red dot marks tabs that hold errors. */
+/** Animated tab strip; a red count marks tabs that hold errors. */
 export function FormTabs<K extends string>({
   tabs,
   active,
   onChange,
-  errorTabs,
+  errorCounts,
   layoutId,
 }: {
   tabs: { key: K; label: string; count?: number }[];
   active: K;
   onChange: (key: K) => void;
-  errorTabs?: Set<string | undefined>;
+  errorCounts?: Map<string, number>;
   layoutId: string;
 }) {
   return (
@@ -29,7 +29,11 @@ export function FormTabs<K extends string>({
           <span className={`relative flex items-center gap-2 ${active === t.key ? 'text-gold' : 'text-muted'}`}>
             {t.label}
             {t.count !== undefined && t.count > 0 && <span className="rounded-full bg-gold/15 px-1.5 text-xs text-gold">{t.count}</span>}
-            {errorTabs?.has(t.key) && <span className="size-2 rounded-full bg-danger" aria-label="فيه أخطاء" />}
+            {!!errorCounts?.get(t.key) && (
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-white" aria-label={`${errorCounts.get(t.key)} خانة محتاجة تتصلح`}>
+                {errorCounts.get(t.key)}
+              </span>
+            )}
           </span>
         </button>
       ))}

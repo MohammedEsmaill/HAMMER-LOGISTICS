@@ -13,7 +13,7 @@ import { useEmployeeOptions } from '../employees/api';
 import { shipmentsApi, type Shipment } from './api';
 import { FormTabs } from './FormTabs';
 import { CONTAINER_TYPES, partyLabels, REGIMES, SHIPMENT_TYPES } from './rules';
-import { FIELD_TABS, shipmentSchema, toFormValues, toShipmentInput, type ShipmentFormIn, type ShipmentFormOut } from './shipment-form';
+import { errorsByTab, focusFirstInvalid, shipmentSchema, toFormValues, toShipmentInput, type ShipmentFormIn, type ShipmentFormOut } from './shipment-form';
 import { BasicFields, ContainerFields, ShippingFields, type FormTab } from './ShipmentFields';
 import { dayValue, useShipmentAction } from './use-shipment-action';
 
@@ -58,10 +58,13 @@ function EditBasicDrawer({ shipment, open, onClose }: { shipment: Shipment; open
   }, [open]);
 
   const onInvalid = (errors: FieldErrors<ShipmentFormIn>) => {
-    const first = tabs.find((t) => Object.keys(errors).some((f) => FIELD_TABS[f] === t.key));
-    if (first) setTab(first.key);
+    const { counts } = errorsByTab(errors);
+    const target = tabs.find((t) => counts.has(t.key));
+    if (!target) return;
+    setTab(target.key);
+    focusFirstInvalid();
   };
-  const errorTabs = new Set(Object.keys(form.formState.errors).map((f) => FIELD_TABS[f]));
+  const errorCounts = errorsByTab(form.formState.errors).counts;
 
   return (
     <Drawer
@@ -86,7 +89,7 @@ function EditBasicDrawer({ shipment, open, onClose }: { shipment: Shipment; open
         className="space-y-5"
         onSubmit={form.handleSubmit((v) => save.mutateAsync(v).then(onClose, () => undefined), onInvalid)}
       >
-        <FormTabs tabs={tabs} active={tab} onChange={setTab} errorTabs={errorTabs} layoutId="edit-shipment-tab" />
+        <FormTabs tabs={tabs} active={tab} onChange={setTab} errorCounts={errorCounts} layoutId="edit-shipment-tab" />
         {tab === 'basic' && <BasicFields form={form} rules={rules} />}
         {tab === 'shipping' && <ShippingFields form={form} rules={rules} withOperation={false} />}
         {tab === 'containers' && <ContainerFields form={form} />}
