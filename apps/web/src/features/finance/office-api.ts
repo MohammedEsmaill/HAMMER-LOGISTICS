@@ -1,3 +1,4 @@
+import { AR } from '@/lib/format';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Page } from '@/lib/mutations';
@@ -198,6 +199,6 @@ export const officeApi = {
 
 /** "2026-11-01T00:00:00Z" → "نوفمبر 2026" */
 export const monthLabel = (iso: string) =>
-  new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso.length === 7 ? `${iso}-01` : iso));
+  new Intl.DateTimeFormat(AR, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso.length === 7 ? `${iso}-01` : iso));
 
 export const currentMonth = () => new Date().toISOString().slice(0, 7);

@@ -1,3 +1,4 @@
+import { AR } from '@/lib/format';
 import type { ReactNode } from 'react';
 import type { CompanySettings } from './account-api';
 import { CURRENCIES, money, STATUS, type Currency } from './api';
@@ -9,8 +10,8 @@ const GOLD = '#a8791f';
 const GOLD_SOFT = '#f6efdc';
 const LINE = '#d9d2c3';
 
-const day = (d: string) => new Intl.DateTimeFormat('ar-EG', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(d));
-const stamp = (d: string) => new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(d));
+const day = (d: string) => new Intl.DateTimeFormat(AR, { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(d));
+const stamp = (d: string) => new Intl.DateTimeFormat(AR, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(d));
 const num = (v: string | number) => money(v);
 
 function SectionTitle({ n, children }: { n: number; children: ReactNode }) {

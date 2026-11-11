@@ -53,6 +53,11 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   CLOUDINARY_URL?: string;
+
+  /** Without CLOUDINARY_URL, uploads are kept on this server's disk, in this folder. */
+  @IsOptional()
+  @IsString()
+  UPLOAD_DIR: string = 'uploads';
 }
 
 export type AppConfig = EnvironmentVariables;

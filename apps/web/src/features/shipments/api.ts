@@ -44,9 +44,19 @@ export interface Container {
   weight: string;
 }
 
+export type DocumentCategory = 'DOCUMENT' | 'SETTLEMENT' | 'RECEIPT';
+
+/** What a shipment file is filed under (more can be added later). */
+export const DOCUMENT_CATEGORIES: Record<DocumentCategory, { label: string; plural: string }> = {
+  DOCUMENT: { label: 'مستند', plural: 'مستندات' },
+  SETTLEMENT: { label: 'تسوية', plural: 'تسويات' },
+  RECEIPT: { label: 'إيصال', plural: 'إيصالات' },
+};
+
 export interface ShipmentDocument {
   id: number;
   name: string;
+  category: DocumentCategory;
   fileName: string;
   url: string;
   mimeType: string;
@@ -226,9 +236,10 @@ export const shipmentsApi = {
     api.delete<Shipment>(path(id, `/inspections/${itemId}`), { version }),
   moveStage: (id: number, input: { version: number; to: string; occurredAt?: string; reason?: string }) =>
     api.post<Shipment>(path(id, '/stage'), input),
-  uploadDocument: (id: number, name: string, file: File) => {
+  uploadDocument: (id: number, name: string, category: DocumentCategory, file: File) => {
     const form = new FormData();
     form.append('name', name);
+    form.append('category', category);
     form.append('file', file);
     return api.upload<ShipmentDocument>(path(id, '/documents'), form);
   },

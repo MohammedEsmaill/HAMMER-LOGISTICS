@@ -296,7 +296,9 @@ describe('Shipment lifecycle (e2e)', () => {
       await step(fx.tokens.nafeza, 'DO_COLLECTED');
       await step(fx.tokens.nafeza, 'EXAMINATION');
       expect(s.currentStage).toBe('EXAMINATION');
-      expect(s.stageLabel).toBe('جاري الكشف');
+      expect((s as ShipmentBody & { stageLabel: string }).stageLabel).toBe(
+        'جاري الكشف',
+      );
       await move(fx.tokens.nafeza, 'REGISTERED').expect(403);
     });
 

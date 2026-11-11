@@ -5,26 +5,31 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ErrorBox } from '@/components/ui/ErrorBox';
-import { IconButton } from '@/components/ui/misc';
+import { Badge, IconButton } from '@/components/ui/misc';
+import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
-import { shipmentsApi, type Shipment, type ShipmentDocument } from './api';
+import { DOCUMENT_CATEGORIES, shipmentsApi, type DocumentCategory, type Shipment, type ShipmentDocument } from './api';
 import { useShipmentAction } from './use-shipment-action';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const sizeLabel = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
 
-/** The shipment's PDF documents: upload, open, delete. */
+/** The shipment's PDF files, filed as documents, settlements or receipts: upload, filter, open, delete. */
 export function DocumentsTab({ shipment }: { shipment: Shipment }) {
   const { can } = useAuth();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState('');
+  const [category, setCategory] = useState<DocumentCategory | ''>('');
+  const [filter, setFilter] = useState<DocumentCategory | ''>('');
   const [problem, setProblem] = useState('');
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState<ShipmentDocument | null>(null);
-  const upload = useShipmentAction(shipment.id, () => shipmentsApi.uploadDocument(shipment.id, name.trim(), file!), 'اترفع المستند');
+  const upload = useShipmentAction(shipment.id, () => shipmentsApi.uploadDocument(shipment.id, name.trim(), category as DocumentCategory, file!), 'اترفع المستند');
   const remove = useShipmentAction(shipment.id, (id: number) => shipmentsApi.removeDocument(shipment.id, id), 'اتمسح المستند');
+
+  const shown = filter ? shipment.documents.filter((d) => d.category === filter) : shipment.documents;
 
   const choose = (f: File | undefined) => {
     if (!f) return;
@@ -37,11 +42,13 @@ export function DocumentsTab({ shipment }: { shipment: Shipment }) {
 
   const submit = () => {
     if (!file) return setProblem('اختار الملف');
+    if (!category) return setProblem('اختار نوع الملف: مستند أو تسوية أو إيصال');
     if (name.trim().length < 2) return setProblem('اكتب اسم المستند (حرفين على الأقل)');
     setProblem('');
     upload.mutateAsync(undefined).then(() => {
       setFile(null);
       setName('');
+      setCategory('');
       if (input.current) input.current.value = '';
     }, () => undefined);
   };
@@ -80,7 +87,14 @@ export function DocumentsTab({ shipment }: { shipment: Shipment }) {
             <input ref={input} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => choose(e.target.files?.[0])} />
           </div>
           {file && (
-            <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="grid items-end gap-3 sm:grid-cols-[12rem_1fr_auto]">
+              <SelectField
+                label="النوع"
+                placeholder="اختار النوع"
+                options={Object.entries(DOCUMENT_CATEGORIES).map(([value, c]) => ({ value, label: c.label }))}
+                value={category}
+                onChange={(e) => setCategory(e.target.value as DocumentCategory | '')}
+              />
               <TextField label="اسم المستند" placeholder="فاتورة تجارية، شهادة منشأ..." maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
               <Button loading={upload.isPending} onClick={submit}>
                 رفع
@@ -96,17 +110,42 @@ export function DocumentsTab({ shipment }: { shipment: Shipment }) {
         </div>
       )}
 
-      {shipment.documents.length === 0 && <EmptyState compact text="مفيش مستندات على الشحنة." />}
+      {shipment.documents.length > 0 && (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="فلتر النوع">
+          {([['', 'الكل', shipment.documents.length], ...Object.entries(DOCUMENT_CATEGORIES).map(([k, c]) => [k, c.plural, shipment.documents.filter((d) => d.category === k).length])] as [DocumentCategory | '', string, number][]).map(
+            ([key, label, count]) => (
+              <button
+                key={key || 'all'}
+                type="button"
+                aria-pressed={filter === key}
+                onClick={() => setFilter(key)}
+                className={`focus-ring flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
+                  filter === key ? 'border-gold bg-gold/15 font-semibold text-gold' : 'border-line text-muted hover:text-ink'
+                }`}
+              >
+                {label}
+                <span className="rounded-full bg-surface-2 px-1.5 text-xs">{count}</span>
+              </button>
+            ),
+          )}
+        </div>
+      )}
+      {shown.length === 0 && (
+        <EmptyState compact text={shipment.documents.length ? `مفيش ${DOCUMENT_CATEGORIES[filter as DocumentCategory]?.plural ?? 'ملفات'} على الشحنة.` : 'مفيش مستندات على الشحنة.'} />
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
-        {shipment.documents.map((d) => (
+        {shown.map((d) => (
           <div key={d.id} className="flex items-center gap-3 rounded-xl border border-line p-3">
             <span className="grid size-10 place-items-center rounded-lg bg-danger/10 text-danger">
               <FileText className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold">{d.name}</div>
+              <div className="flex items-center gap-2">
+                <span className="truncate font-semibold">{d.name}</span>
+                <Badge tone="gold">{DOCUMENT_CATEGORIES[d.category]?.label ?? 'مستند'}</Badge>
+              </div>
               <div className="truncate text-xs text-muted">
-                {sizeLabel(d.size)} · {formatDate(d.createdAt)} · {d.uploadedBy.email.split('@')[0]}
+                <bdi>{sizeLabel(d.size)}</bdi> · <bdi>{formatDate(d.createdAt)}</bdi> · <bdi>{d.uploadedBy.email.split('@')[0]}</bdi>
               </div>
             </div>
             <a

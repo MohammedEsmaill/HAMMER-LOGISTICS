@@ -47,6 +47,7 @@ describe('Shipment documents (e2e)', () => {
       'فاتورة تجارية',
     ).expect(201);
     expect(res.body.name).toBe('فاتورة تجارية');
+    expect(res.body.category).toBe('DOCUMENT');
     expect(res.body.fileName).toBe('فاتورة تجارية.pdf');
     expect(res.body.url).toMatch(/^https:\/\/files\.test\/shipments\/HL/);
     expect(ctx.storage.files.size).toBe(1);
@@ -56,6 +57,30 @@ describe('Shipment documents (e2e)', () => {
       .get(`/api/shipments/${shipmentId}`)
       .expect(200);
     expect(detail.body.documents).toHaveLength(1);
+  });
+
+  it('files a document as a document, a settlement or a receipt', async () => {
+    const res = await request(ctx.app.getHttpServer())
+      .post(`/api/shipments/${shipmentId}/documents`)
+      .set('Authorization', `Bearer ${fx.tokens.scan}`)
+      .field('name', 'إيصال سداد الرسوم')
+      .field('category', 'RECEIPT')
+      .attach('file', PDF, {
+        filename: 'r.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(201);
+    expect(res.body.category).toBe('RECEIPT');
+    await request(ctx.app.getHttpServer())
+      .post(`/api/shipments/${shipmentId}/documents`)
+      .set('Authorization', `Bearer ${fx.tokens.scan}`)
+      .field('name', 'ملف')
+      .field('category', 'PHOTO')
+      .attach('file', PDF, {
+        filename: 'r.pdf',
+        contentType: 'application/pdf',
+      })
+      .expect(400);
   });
 
   it('checks the content, not the extension', async () => {

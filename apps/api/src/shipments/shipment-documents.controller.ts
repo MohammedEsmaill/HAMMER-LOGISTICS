@@ -35,7 +35,7 @@ export class ShipmentDocumentsController {
     return this.documents.list(actor, id);
   }
 
-  /** multipart/form-data: "file" (PDF) + "name". */
+  /** multipart/form-data: "file" (PDF) + "name" + "category". */
   @Post()
   @RequirePermissions('shipments.documents.upload')
   @UseInterceptors(
@@ -50,7 +50,12 @@ export class ShipmentDocumentsController {
     @Body() dto: UploadDocumentDto,
     @UploadedFile() file: File | undefined,
   ) {
-    return this.documents.upload(actor, id, dto.name, file);
+    return this.documents.upload(
+      actor,
+      id,
+      { name: dto.name, category: dto.category },
+      file,
+    );
   }
 
   @Delete(':documentId')

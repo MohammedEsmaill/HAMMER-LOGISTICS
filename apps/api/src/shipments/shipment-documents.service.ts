@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DocumentCategory, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
@@ -18,6 +18,7 @@ export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const DOCUMENT_SELECT = {
   id: true,
   name: true,
+  category: true,
   fileName: true,
   url: true,
   mimeType: true,
@@ -55,7 +56,7 @@ export class ShipmentDocumentsService {
   async upload(
     actor: AuthUser,
     shipmentId: number,
-    name: string,
+    input: { name: string; category: DocumentCategory },
     file: UploadedFile | undefined,
   ) {
     const shipment = await this.findShipment(actor, shipmentId);
@@ -70,7 +71,8 @@ export class ShipmentDocumentsService {
         const document = await tx.shipmentDocument.create({
           data: {
             shipmentId,
-            name,
+            name: input.name,
+            category: input.category,
             fileName: decodeFileName(file.originalname),
             url: stored.url,
             publicId: stored.publicId,

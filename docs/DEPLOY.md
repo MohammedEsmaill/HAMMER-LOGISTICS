@@ -25,7 +25,7 @@
 3. هيطلب منك القيم دي:
    - `DATABASE_URL`: الـ connection string من Neon.
    - `WEB_ORIGIN`: رابط Vercel (هتعرفه في خطوة 3، ممكن تحطه بعدين وتعمل Redeploy).
-   - `CLOUDINARY_URL`: من cloudinary.com، علشان رفع المستندات. ممكن تسيبه فاضي دلوقتي، والسيستم هيشتغل من غير رفع مستندات.
+   - `CLOUDINARY_URL`: من cloudinary.com، علشان رفع المستندات. **مهم أونلاين:** من غيره الملفات بتتحفظ على سيرفر Render نفسه، وبتضيع مع كل deploy.
    - `JWT_ACCESS_SECRET` و`JWT_REFRESH_SECRET` بيتعملوا تلقائي.
 4. بعد ما الـ deploy يخلص، افتح `https://hammer-logistics-api.onrender.com/api/health`، المفروض يرجّع `{"status":"ok"}`.
    لو Render إدّى الخدمة اسم تاني، عدّل الرابط في `apps/web/vercel.json`.

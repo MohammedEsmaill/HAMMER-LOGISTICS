@@ -1,3 +1,4 @@
+import { AR } from '@/lib/format';
 import type { Workbook, Worksheet } from 'exceljs';
 import type { CompanySettings } from './account-api';
 import { CURRENCIES, STATUS, type Currency } from './api';
@@ -367,7 +368,7 @@ export async function downloadReportExcel(report: Report, company: CompanySettin
   const period = `الفترة: من ${report.from.slice(0, 10)} إلى ${report.to.slice(0, 10)}`;
   const meta = [
     ...(filters.length ? [filters.join('  ·  ')] : []),
-    `طلّعه: ${generatedBy}  ·  ${new Date(report.generatedAt).toLocaleString('ar-EG')}`,
+    `طلّعه: ${generatedBy}  ·  ${new Date(report.generatedAt).toLocaleString(AR)}`,
     ...(report.truncated ? ['التقرير كبير، واتعرض أول 20,000 سطر بس.'] : []),
   ];
   const head: Head = (ws, span) => {

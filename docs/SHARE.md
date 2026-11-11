@@ -84,4 +84,5 @@ cloudflared tunnel --url http://localhost:4173
 
 - الداتابيز على جهازك، فخلي بالك تعمل نسخة احتياطية لو فيه بيانات حقيقية:
   `docker exec -t hammer-logistics-db-1 pg_dump -U hammer hammer_logistics > backup.sql`
-- رفع المستندات محتاج `CLOUDINARY_URL` في `.env`. من غيره كل حاجة تانية شغالة.
+- مستندات الشحنات: لو `CLOUDINARY_URL` فاضي في `.env`، الملفات بتتحفظ على جهازك في فولدر `apps/api/uploads`.
+  خلي بالك تاخد نسخة من الفولدر ده مع نسخة الداتابيز. ولو حطيت `CLOUDINARY_URL`، الملفات الجديدة بتترفع على Cloudinary.

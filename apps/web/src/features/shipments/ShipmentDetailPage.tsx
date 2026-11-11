@@ -1,3 +1,4 @@
+import { AR } from '@/lib/format';
 import { ArrowRight, Calculator, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/auth/auth-context';
 import { AnimatePresence, motion } from 'motion/react';
@@ -21,7 +22,7 @@ import { StageSelect } from './StagePanel';
 
 type Tab = 'overview' | 'customs' | 'documents' | 'history';
 
-const dateTime = (iso: string) => new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+const dateTime = (iso: string) => new Intl.DateTimeFormat(AR, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
 function HistoryTab({ shipment }: { shipment: Shipment }) {
   const entries = [...shipment.stageHistory].reverse();

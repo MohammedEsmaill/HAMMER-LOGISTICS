@@ -630,19 +630,27 @@ model BillNumber {
   @@map("bill_numbers")
 }
 
+/// مستند / تسوية / إيصال
+enum DocumentCategory {
+  DOCUMENT
+  SETTLEMENT
+  RECEIPT
+}
+
 model ShipmentDocument {
-  id           Int       @id @default(autoincrement())
-  shipmentId   Int       @map("shipment_id")
+  id           Int              @id @default(autoincrement())
+  shipmentId   Int              @map("shipment_id")
   name         String // typed by the uploader
-  fileName     String    @map("file_name")
+  category     DocumentCategory @default(DOCUMENT)
+  fileName     String           @map("file_name")
   url          String
-  publicId     String    @map("public_id") // Cloudinary
-  mimeType     String    @map("mime_type")
+  publicId     String           @map("public_id") // Cloudinary
+  mimeType     String           @map("mime_type")
   size         Int
-  uploadedById Int       @map("uploaded_by")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  deletedAt    DateTime? @map("deleted_at")
-  deletedById  Int?      @map("deleted_by")
+  uploadedById Int              @map("uploaded_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  deletedAt    DateTime?        @map("deleted_at")
+  deletedById  Int?             @map("deleted_by")
 
   shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
   uploadedBy User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)

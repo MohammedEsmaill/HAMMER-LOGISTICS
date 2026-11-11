@@ -1,3 +1,4 @@
+import { AR } from '@/lib/format';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Circle, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
@@ -24,7 +25,7 @@ import {
 } from './api';
 
 const dateTime = (iso?: string | null) =>
-  iso ? new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : '';
+  iso ? new Intl.DateTimeFormat(AR, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : '';
 const who = (u?: { email: string } | null) => u?.email.split('@')[0] ?? '';
 
 /** The document's way through the three approval levels. */
