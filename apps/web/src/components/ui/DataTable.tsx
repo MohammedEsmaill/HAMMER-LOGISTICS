@@ -1,6 +1,6 @@
-import { Inbox } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
+import { EmptyState } from './EmptyState';
 import { ErrorBox } from './ErrorBox';
 
 export interface Column<T> {
@@ -76,10 +76,7 @@ export function DataTable<T>({
         </tbody>
       </table>
       {!loading && rows?.length === 0 && (
-        <div className="grid place-items-center gap-2 p-10 text-muted">
-          <Inbox className="size-8" />
-          <p>{empty}</p>
-        </div>
+        <EmptyState text={empty} />
       )}
     </div>
   );

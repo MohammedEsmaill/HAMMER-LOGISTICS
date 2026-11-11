@@ -1,6 +1,7 @@
 import { HandCoins, Scale } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -44,8 +45,8 @@ export function StatementTable({ statement }: { statement: Statement }) {
           <tbody>
             {statement.lines.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-muted">
-                  مفيش حركات
+                <td colSpan={6}>
+                  <EmptyState compact text="مفيش حركات" />
                 </td>
               </tr>
             )}

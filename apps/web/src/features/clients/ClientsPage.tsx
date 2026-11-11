@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -339,7 +340,7 @@ function ClientDetailsDrawer({
                     )}
                   </div>
                 ))}
-                {client.factories?.length === 0 && <p className="text-sm text-muted">مفيش مصانع لسه.</p>}
+                {client.factories?.length === 0 && <EmptyState compact text="مفيش مصانع لسه." />}
               </div>
             </section>
 

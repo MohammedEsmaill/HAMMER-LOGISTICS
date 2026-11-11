@@ -1,6 +1,7 @@
 import { ExternalLink, FileText, Trash2, UploadCloud } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -95,7 +96,7 @@ export function DocumentsTab({ shipment }: { shipment: Shipment }) {
         </div>
       )}
 
-      {shipment.documents.length === 0 && <p className="py-6 text-center text-muted">مفيش مستندات على الشحنة.</p>}
+      {shipment.documents.length === 0 && <EmptyState compact text="مفيش مستندات على الشحنة." />}
       <div className="grid gap-2 sm:grid-cols-2">
         {shipment.documents.map((d) => (
           <div key={d.id} className="flex items-center gap-3 rounded-xl border border-line p-3">

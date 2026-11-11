@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, PageHeader } from '@/components/ui/misc';
@@ -61,7 +62,7 @@ function LedgerDrawer({ clientId, onClose }: { clientId: number | null; onClose:
                 </div>
               </section>
             ))}
-          {data.currencies.every((c) => !c.lines.length) && <p className="text-muted">مفيش فواتير ولا تحصيل.</p>}
+          {data.currencies.every((c) => !c.lines.length) && <EmptyState compact text="مفيش فواتير ولا تحصيل." />}
         </div>
       )}
     </Drawer>
@@ -76,7 +77,7 @@ export default function ClientLedgersPage() {
       <PageHeader title="حسابات العملاء" description="كل عميل ليه رصيدين: جنيه ودولار. مدين = الفواتير، دائن = التحصيل." />
       {error ? <ErrorBox error={error} /> : null}
       {!data && !error && <div className="h-40 rounded-2xl shimmer" />}
-      {data?.length === 0 && <p className="py-6 text-center text-muted">مفيش فواتير لسه.</p>}
+      {data?.length === 0 && <EmptyState compact text="مفيش فواتير لسه." />}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {data?.map((b) => (
           <button key={b.client.id} type="button" onClick={() => setOpen(b.client.id)} className="card focus-ring space-y-2 p-4 text-start hover:border-gold/60">

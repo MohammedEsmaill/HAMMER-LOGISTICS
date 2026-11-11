@@ -3,6 +3,7 @@ import { useAuth } from '@/auth/auth-context';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge } from '@/components/ui/misc';
 import { Spinner } from '@/components/ui/Spinner';
@@ -24,7 +25,7 @@ const dateTime = (iso: string) => new Intl.DateTimeFormat('ar-EG', { dateStyle: 
 
 function HistoryTab({ shipment }: { shipment: Shipment }) {
   const entries = [...shipment.stageHistory].reverse();
-  if (!entries.length) return <p className="py-6 text-center text-muted">لسه مفيش حركة.</p>;
+  if (!entries.length) return <EmptyState compact text="لسه مفيش حركة." />;
   return (
     <ol className="relative space-y-4 border-s border-line ps-6">
       {entries.map((e, i) => (

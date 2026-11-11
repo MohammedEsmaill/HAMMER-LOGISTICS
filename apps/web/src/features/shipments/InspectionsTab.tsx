@@ -1,6 +1,7 @@
 import { Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -142,7 +143,7 @@ export function InspectionsTab({ shipment }: { shipment: Shipment }) {
           ) : null}
         </div>
       )}
-      {shipment.inspections.length === 0 && <p className="py-6 text-center text-muted">مفيش طلبات عرض رقابي على الشحنة.</p>}
+      {shipment.inspections.length === 0 && <EmptyState compact text="مفيش طلبات عرض رقابي على الشحنة." />}
       {shipment.inspections.map((item) => (
         <InspectionRow key={`${item.id}-${shipment.version}`} shipment={shipment} item={item} authority={nameOf(item.authorityId)} editable={editable} />
       ))}

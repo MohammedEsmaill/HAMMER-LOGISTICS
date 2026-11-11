@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { PageHeader } from '@/components/ui/misc';
@@ -11,7 +12,7 @@ import { ClearerFeesPanel, StatementTable } from './LedgerDrawers';
 type Tab = 'clearers' | 'agents' | 'way-out';
 
 function HolderList({ rows, onOpen, currency }: { rows: { id: number; name: string; balance: string }[]; onOpen: (id: number) => void; currency: 'EGP' | 'USD' }) {
-  if (!rows.length) return <p className="py-6 text-center text-muted">مفيش حركات لسه</p>;
+  if (!rows.length) return <EmptyState compact text="مفيش حركات لسه" />;
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((r) => {
@@ -98,7 +99,7 @@ export default function LedgersPage() {
         (data.wayOut ? (
           <HolderList rows={[{ id: 0, name: 'WAY OUT', balance: data.wayOut.balance }]} currency="USD" onOpen={() => setOpen({ kind: 'way-out', id: null })} />
         ) : (
-          <p className="py-6 text-center text-muted">مفيش عهد WAY OUT لسه</p>
+          <EmptyState compact text="مفيش عهد WAY OUT لسه" />
         ))}
       <StatementDrawer kind={open?.kind ?? null} id={open?.id ?? null} onClose={() => setOpen(null)} />
     </>

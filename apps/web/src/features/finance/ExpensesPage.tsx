@@ -2,6 +2,7 @@ import { Plus, Receipt } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useId, useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Drawer } from '@/components/ui/Drawer';
@@ -141,7 +142,7 @@ function Report({ q }: { q: Omit<ExpensesQuery, 'page'> }) {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-2">
           <div className="text-sm text-muted">حسب النوع</div>
-          {data.byType.length === 0 && <p className="text-sm text-muted">مفيش مصاريف</p>}
+          {data.byType.length === 0 && <EmptyState compact text="مفيش مصاريف" />}
           {data.byType.map((t, i) => (
             <div key={t.expenseType.id} className="space-y-1">
               <div className="flex justify-between text-sm">

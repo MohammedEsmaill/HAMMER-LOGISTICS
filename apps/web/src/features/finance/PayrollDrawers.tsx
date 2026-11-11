@@ -1,5 +1,6 @@
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { ComboField } from '@/components/ui/ComboField';
 import { Drawer } from '@/components/ui/Drawer';
@@ -179,7 +180,7 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
                 </Button>
               )}
             </div>
-            {adjustments.length === 0 && <p className="text-sm text-muted">مفيش زيادات ولا خصومات.</p>}
+            {adjustments.length === 0 && <EmptyState compact text="مفيش زيادات ولا خصومات." />}
             {adjustments.map((a, i) => (
               <div key={i} className="grid items-start gap-2 rounded-xl border border-line p-3 sm:grid-cols-[8rem_8rem_1fr_auto]">
                 <SelectField
@@ -388,8 +389,8 @@ export function StatementDrawer({ employeeId, onClose, onNewAdvance }: { employe
               <tbody>
                 {data.lines.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-6 text-center text-muted">
-                      مفيش سلف
+                    <td colSpan={5}>
+                      <EmptyState compact text="مفيش سلف" />
                     </td>
                   </tr>
                 )}

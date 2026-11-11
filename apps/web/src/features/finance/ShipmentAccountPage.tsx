@@ -3,6 +3,7 @@ import { ArrowRight, FileText, Lock, Plus, RotateCcw, Trash2, Unlock, Wallet } f
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton } from '@/components/ui/misc';
@@ -225,7 +226,7 @@ function ExpensesTab({ view, onOpen }: { view: ShipmentAccountView; onOpen: (id:
             {c.status === 'OPEN' ? <Badge tone="gold">مفتوحة</Badge> : <Badge tone={STATUS[c.approvalStatus].tone}>{STATUS[c.approvalStatus].label}</Badge>}
           </button>
         ))}
-        {view.custodies.length === 0 && <p className="text-muted">مفيش عهد على الشحنة.</p>}
+        {view.custodies.length === 0 && <EmptyState compact text="مفيش عهد على الشحنة." />}
       </div>
       {view.clearerFee && (
         <p className="rounded-xl bg-surface-2 p-3 text-sm">
@@ -310,7 +311,7 @@ function CollectionsTab({ view, onOpen }: { view: ShipmentAccountView; onOpen: (
           <Badge tone={STATUS[c.approvalStatus].tone}>{STATUS[c.approvalStatus].label}</Badge>
         </button>
       ))}
-      {view.collections.length === 0 && <p className="py-4 text-center text-muted">مفيش تحصيل لسه.</p>}
+      {view.collections.length === 0 && <EmptyState compact text="مفيش تحصيل لسه." />}
     </div>
   );
 }
