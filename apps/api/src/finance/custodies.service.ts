@@ -4,13 +4,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Custody, CustodyHolder, CustodyPurpose, Prisma } from '@prisma/client';
+import {
+  Custody,
+  CustodyHolder,
+  CustodyPurpose,
+  Prisma,
+  ReceiptKind,
+} from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser, can } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { APPROVAL_RESET, assertCanEdit } from './approvals/approval.service';
 import { payableBeneficiary } from './beneficiaries.service';
-import { ClearerFeesService } from './clearer-fees.service';
+import { ClearerFeesService, feeContainers } from './clearer-fees.service';
 import { nextCustodyNo } from './custody-number';
 import { claimDocument } from './document-version';
 import {
@@ -98,6 +104,16 @@ export interface DuplicateReceipt {
  * the cash box (or paid straight from a bank), settled once with its items: the rest
  * comes back, or a clearer's overspend is paid out; the balances move at both times.
  */
+interface ResolvedItem {
+  expenseTypeId: number;
+  settlementItemId: number | null;
+  quantity: number;
+  amount: Prisma.Decimal;
+  receiptNo: string | null;
+  receiptKind: ReceiptKind | null;
+  description: string | null;
+}
+
 @Injectable()
 export class CustodiesService {
   constructor(
@@ -159,8 +175,30 @@ export class CustodiesService {
       },
     });
     if (!custody) throw new NotFoundException('العهدة غير موجودة');
+    const [shipment, usedElsewhere] = await Promise.all([
+      this.prisma.shipment.findUniqueOrThrow({
+        where: { id: custody.shipmentId },
+        select: {
+          mode: true,
+          loadType: true,
+          containersCount: true,
+          direction: true,
+          customsRegime: true,
+        },
+      }),
+      // price-list items already on the shipment's other custodies: once per shipment
+      this.prisma.custodyItem.findMany({
+        where: {
+          settlementItemId: { not: null },
+          custody: { shipmentId: custody.shipmentId, id: { not: custody.id } },
+        },
+        select: { settlementItemId: true },
+      }),
+    ]);
     return {
       ...custody,
+      shipmentContainers: feeContainers(shipment),
+      usedSettlementItemIds: usedElsewhere.map((u) => u.settlementItemId!),
       duplicateReceipts: await this.duplicateReceipts(this.prisma, custody.id),
     };
   }
@@ -309,7 +347,8 @@ export class CustodiesService {
         : { resetApproval: true };
       if (!resettle) this.assertAuthor(actor, before);
 
-      const spent = dto.items.reduce((s, i) => s.plus(decimal(i.amount)), ZERO);
+      const items = await this.resolveItems(tx, before, dto.items);
+      const spent = items.reduce((s, i) => s.plus(i.amount), ZERO);
       const rule = HOLDERS[before.holderType];
       let extra = ZERO;
       let returned = ZERO;
@@ -340,7 +379,7 @@ export class CustodiesService {
       if (resettle)
         await this.ledger.reverseDocument(tx, 'CUSTODY', id, actor.id);
       await tx.custodyItem.deleteMany({ where: { custodyId: id } });
-      await this.createItems(tx, id, dto.items);
+      await this.createItems(tx, id, items);
       const after = await tx.custody.update({
         where: { id },
         data: {
@@ -471,35 +510,113 @@ export class CustodiesService {
     }
   }
 
-  private async createItems(
+  /**
+   * The settlement lines with their amounts. A price-list item (clearer custodies only)
+   * takes its price, × the shipment's containers when priced per container, and may be
+   * used once per shipment; a manual line keeps the amount typed.
+   */
+  private async resolveItems(
     tx: Tx,
-    custodyId: number,
+    custody: { id: number; shipmentId: number; holderType: string },
     items: CustodyItemDto[],
-  ) {
+  ): Promise<ResolvedItem[]> {
+    const ids = items
+      .map((i) => i.settlementItemId)
+      .filter((id): id is number => !!id);
+    if (ids.length && custody.holderType !== 'CLEARER') {
+      throw new BadRequestException('بنود التصفية الثابتة لعهدة المستخلص بس');
+    }
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException('البند الثابت مينفعش يتكرر في نفس التصفية');
+    }
+    const listed = ids.length
+      ? await tx.settlementItem.findMany({ where: { id: { in: ids } } })
+      : [];
+    let containers = 1;
+    if (ids.length) {
+      // one settlement of the shipment at a time: the once-per-shipment rule holds
+      await tx.$executeRaw`SELECT 1 FROM "shipments" WHERE "id" = ${custody.shipmentId} FOR UPDATE`;
+      const shipment = await tx.shipment.findUniqueOrThrow({
+        where: { id: custody.shipmentId },
+        select: {
+          mode: true,
+          loadType: true,
+          containersCount: true,
+          direction: true,
+          customsRegime: true,
+        },
+      });
+      containers = feeContainers(shipment);
+      const used = await tx.custodyItem.findFirst({
+        where: {
+          settlementItemId: { in: ids },
+          custody: { shipmentId: custody.shipmentId, id: { not: custody.id } },
+        },
+        select: {
+          settlementItem: { select: { name: true } },
+          custody: { select: { custodyNo: true } },
+        },
+      });
+      if (used) {
+        throw new BadRequestException(
+          `«${used.settlementItem!.name}» اتسجل على الشحنة دي قبل كده (العهدة ${used.custody.custodyNo})، ومينفعش يتكرر`,
+        );
+      }
+    }
+
+    const out: ResolvedItem[] = [];
     for (const [i, item] of items.entries()) {
       if (!item.receiptNo && !item.description) {
         throw new BadRequestException(
-          `البند ${i + 1}: اكتب رقم الإيصال أو الوصف`,
+          `البند ${i + 1}: اكتب رقم الإيصال أو الملاحظات`,
         );
       }
-      const name = item.expenseType.replace(/\s+/g, ' ').trim();
+      const common = {
+        receiptNo: item.receiptNo ?? null,
+        receiptKind: item.receiptNo
+          ? (item.receiptKind ?? 'PAYMENT_RECEIPT')
+          : null,
+        description: item.description ?? null,
+      };
+      if (item.settlementItemId) {
+        const fixed = listed.find((l) => l.id === item.settlementItemId);
+        if (!fixed)
+          throw new BadRequestException(
+            `البند ${i + 1} مش موجود في بنود التصفية`,
+          );
+        if (!fixed.isActive)
+          throw new BadRequestException(`«${fixed.name}» موقوف`);
+        const quantity = fixed.perContainer ? containers : 1;
+        out.push({
+          ...common,
+          expenseTypeId: fixed.expenseTypeId,
+          settlementItemId: fixed.id,
+          quantity,
+          amount: fixed.price.times(quantity),
+        });
+        continue;
+      }
+      const name = (item.expenseType ?? '').replace(/\s+/g, ' ').trim();
       const type = await tx.expenseType.upsert({
         where: { scope_name: { scope: 'SHIPMENT', name } },
         update: {},
         create: { scope: 'SHIPMENT', name },
       });
+      out.push({
+        ...common,
+        expenseTypeId: type.id,
+        settlementItemId: null,
+        quantity: 1,
+        amount: decimal(item.amount!),
+      });
+    }
+    return out;
+  }
+
+  private async createItems(tx: Tx, custodyId: number, items: ResolvedItem[]) {
+    for (const [i, item] of items.entries()) {
       await tx.custodyItem.create({
-        data: {
-          custodyId,
-          lineNo: i + 1,
-          expenseTypeId: type.id,
-          amount: decimal(item.amount),
-          receiptNo: item.receiptNo ?? null,
-          receiptKind: item.receiptNo
-            ? (item.receiptKind ?? 'PAYMENT_RECEIPT')
-            : null,
-          description: item.description ?? null,
-        },
+        data: { custodyId, lineNo: i + 1, ...item },
       });
     }
   }

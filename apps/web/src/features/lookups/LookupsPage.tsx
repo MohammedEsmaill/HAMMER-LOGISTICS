@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePageOf } from '@/lib/use-page-of';
+import { PriceListsTab, type PriceTab } from './PriceListsTab';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton, PageHeader } from '@/components/ui/misc';
@@ -31,7 +32,9 @@ import {
   type TransportKind,
 } from './api';
 
-type Tab = 'ports' | SimpleLookup | 'countries';
+type Tab = 'ports' | SimpleLookup | 'countries' | PriceTab;
+/** The tabs that list lookup rows (not the countries or the price lists). */
+type LookupTab = 'ports' | SimpleLookup;
 
 const TABS: { key: Tab; label: string; kinded?: boolean }[] = [
   { key: 'ports', label: 'الموانئ والمطارات', kinded: true },
@@ -40,9 +43,11 @@ const TABS: { key: Tab; label: string; kinded?: boolean }[] = [
   { key: 'free-zones', label: 'المناطق الحرة' },
   { key: 'inspection-authorities', label: 'جهات الفحص' },
   { key: 'countries', label: 'الدول' },
+  { key: 'fee-rates', label: 'أتعاب المستخلص' },
+  { key: 'settlement-items', label: 'بنود التصفية' },
 ];
 
-const SINGULAR: Record<Exclude<Tab, 'countries'>, string> = {
+const SINGULAR: Record<LookupTab, string> = {
   ports: 'ميناء / مطار',
   carriers: 'خط / شركة طيران',
   'storage-yards': 'ساحة / مخزن',
@@ -79,7 +84,7 @@ function LookupFormDrawer({
   open,
   onClose,
 }: {
-  tab: Exclude<Tab, 'countries'>;
+  tab: LookupTab;
   row: Row | null;
   open: boolean;
   onClose: () => void;
@@ -207,10 +212,12 @@ function LookupFormDrawer({
   );
 }
 
+const isPriceTab = (tab: Tab): tab is PriceTab => tab === 'fee-rates' || tab === 'settlement-items';
+
 function useTabRows(tab: Tab) {
   const ports = usePorts();
   const countries = useCountries();
-  const simple = useLookup(tab === 'ports' || tab === 'countries' ? 'carriers' : tab);
+  const simple = useLookup(tab === 'ports' || tab === 'countries' || isPriceTab(tab) ? 'carriers' : tab);
   if (tab === 'ports') return ports;
   if (tab === 'countries') return countries;
   return simple;
@@ -275,7 +282,7 @@ export default function LookupsPage() {
   };
   const name: Column<Row> = { header: 'الاسم', cell: (r) => <span className="font-semibold">{r.name}</span> };
 
-  const columns: Record<Exclude<Tab, 'countries'>, Column<Row>[]> = {
+  const columns: Record<LookupTab, Column<Row>[]> = {
     ports: [
       name,
       { header: 'الكود', cell: (r) => <span dir="ltr">{(r as Port).code ?? '—'}</span> },
@@ -308,7 +315,8 @@ export default function LookupsPage() {
         title="القوائم الثابتة"
         actions={
           add &&
-          tab !== 'countries' && (
+          tab !== 'countries' &&
+          !isPriceTab(tab) && (
             <Button
               icon={<Plus className="size-4" />}
               onClick={() => {
@@ -316,7 +324,7 @@ export default function LookupsPage() {
                 setFormOpen(true);
               }}
             >
-              إضافة {SINGULAR[tab]}
+              إضافة {SINGULAR[tab as LookupTab]}
             </Button>
           )
         }
@@ -343,6 +351,10 @@ export default function LookupsPage() {
         ))}
       </div>
 
+      {isPriceTab(tab) ? (
+        <PriceListsTab tab={tab} />
+      ) : (
+        <>
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="min-w-56 flex-1">
           <SearchInput value={search} onChange={setSearch} placeholder="بحث بالاسم أو الكود" />
@@ -377,7 +389,7 @@ export default function LookupsPage() {
       {tab === 'countries' ? (
         <DataTable columns={countryColumns} rows={paged.items as Country[] | undefined} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش نتايج" />
       ) : (
-        <DataTable columns={columns[tab]} rows={paged.items as Row[] | undefined} rowKey={(r) => r.id} loading={isLoading} error={error} empty="مفيش نتايج" />
+        <DataTable columns={columns[tab as LookupTab]} rows={paged.items as Row[] | undefined} rowKey={(r) => r.id} loading={isLoading} error={error} empty="مفيش نتايج" />
       )}
       <div className="mt-4">
         {paged.total > paged.pageSize ? (
@@ -387,7 +399,10 @@ export default function LookupsPage() {
         )}
       </div>
 
-      {tab !== 'countries' && <LookupFormDrawer tab={tab} row={editing} open={formOpen} onClose={() => setFormOpen(false)} />}
+        </>
+      )}
+
+      {tab !== 'countries' && !isPriceTab(tab) && <LookupFormDrawer tab={tab as LookupTab} row={editing} open={formOpen} onClose={() => setFormOpen(false)} />}
       <ConfirmDialog
         open={!!deleting}
         title="حذف من القائمة"

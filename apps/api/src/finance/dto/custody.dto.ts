@@ -14,13 +14,14 @@ import {
   IsEnum,
   IsInt,
   IsNumber,
-  NotEquals,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
   Min,
   MinLength,
+  NotEquals,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
@@ -105,15 +106,26 @@ export class UpdateIssueDto {
 }
 
 export class CustodyItemDto {
+  /**
+   * A fixed-price settlement item (clearer custodies only): its name and amount come
+   * from the price list, so expenseType and amount are not sent.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  settlementItemId?: number;
+
   /** By name: a new type joins the shipment expense list automatically. */
+  @ValidateIf((o: CustodyItemDto) => !o.settlementItemId)
   @Trim()
   @IsString()
   @MinLength(2, { message: 'اكتب نوع المصروف' })
   @MaxLength(100)
-  expenseType!: string;
+  expenseType?: string;
 
+  @ValidateIf((o: CustodyItemDto) => !o.settlementItemId)
   @PositiveMoney()
-  amount!: number;
+  amount?: number;
 
   /** Digits and dashes, e.g. 861-26 (number - year). */
   @IsOptional()

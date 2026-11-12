@@ -25,6 +25,7 @@ import {
   type ReceiptKind,
   RECEIPT_KINDS,
 } from './custody-api';
+import { usePrices, type SettlementItem } from './prices-api';
 import { BeneficiaryPicker } from './BeneficiaryPicker';
 import { ApprovalTrail } from './MovementDrawers';
 
@@ -212,6 +213,9 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
 }
 
 interface ItemRow {
+  /** a fixed-price item: name and amount come from the price list */
+  settlementItemId?: number;
+  quantity?: number;
   expenseType: string;
   amount: string;
   receiptNo: string;
@@ -224,6 +228,8 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
   const { can, user } = useAuth();
   const { data: custody, error } = useCustody(custodyId);
   const { data: types = [] } = useShipmentExpenseTypes();
+  const isClearer = custody?.holderType === 'CLEARER';
+  const { data: prices } = usePrices(isClearer);
   const listId = useId();
   const [items, setItems] = useState<ItemRow[]>([]);
   const [settlementDate, setSettlementDate] = useState(today());
@@ -243,8 +249,9 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
         version: custody!.version,
         settlementDate,
         items: items.map((i) => ({
-          expenseType: i.expenseType.trim(),
-          amount: Number(i.amount),
+          ...(i.settlementItemId
+            ? { settlementItemId: i.settlementItemId }
+            : { expenseType: i.expenseType.trim(), amount: Number(i.amount) }),
           receiptNo: i.receiptNo.trim() || undefined,
           receiptKind: i.receiptNo.trim() ? i.receiptKind : undefined,
           description: i.description.trim() || undefined,
@@ -261,7 +268,15 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     setSettlementDate(custody.settlementDate?.slice(0, 10) ?? today());
     setItems(
       custody.items?.length
-        ? custody.items.map((i) => ({ expenseType: i.expenseType.name, amount: i.amount, receiptNo: i.receiptNo ?? '', receiptKind: i.receiptKind ?? 'PAYMENT_RECEIPT', description: i.description ?? '' }))
+        ? custody.items.map((i) => ({
+            settlementItemId: i.settlementItemId ?? undefined,
+            quantity: i.quantity,
+            expenseType: i.expenseType.name,
+            amount: i.amount,
+            receiptNo: i.receiptNo ?? '',
+            receiptKind: i.receiptKind ?? 'PAYMENT_RECEIPT',
+            description: i.description ?? '',
+          }))
         : // a bank transfer is spent exactly: one line for the whole amount to start from
           [{ expenseType: '', amount: custody.holderType === 'BANK_TRANSFER' ? custody.amount : '', receiptNo: '', receiptKind: 'PAYMENT_RECEIPT', description: '' }],
     );
@@ -290,10 +305,10 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     const p: Record<string, string> = {};
     if (items.length === 0) p.items = 'ضيف بند واحد على الأقل';
     items.forEach((it, i) => {
-      if (it.expenseType.trim().length < 2) p[`type${i}`] = 'اكتب النوع';
-      if (!validAmount(it.amount)) p[`amount${i}`] = 'مبلغ غير صحيح';
+      if (!it.settlementItemId && it.expenseType.trim().length < 2) p[`type${i}`] = 'اكتب النوع';
+      if (!it.settlementItemId && !validAmount(it.amount)) p[`amount${i}`] = 'مبلغ غير صحيح';
       if (it.receiptNo && !/^[0-9]+(-[0-9]+)*$/.test(it.receiptNo.trim())) p[`receipt${i}`] = 'أرقام وشرطة بس (861-26)';
-      if (!it.receiptNo.trim() && !it.description.trim()) p[`receipt${i}`] = 'الإيصال أو الوصف';
+      if (!it.receiptNo.trim() && !it.description.trim()) p[`receipt${i}`] = 'الإيصال أو الملاحظات';
     });
     if (custody.holderType === 'BANK_TRANSFER' && totals.diff !== 0) p.items = `في التحويل البنكي المصروف لازم يساوي ${money(custody.amount)} بالظبط`;
     if (!rule.overspend && totals.diff < 0) p.items = 'المصروف أكبر من العهدة، والصرف أكتر من العهدة للمستخلص بس';
@@ -303,6 +318,24 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(() => setEditing(false), () => undefined);
   };
   const setItem = (i: number, patch: Partial<ItemRow>) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  // price-list items still free on this shipment: each one once per shipment
+  const containers = custody.shipmentContainers ?? 1;
+  const taken = new Set([...(custody.usedSettlementItemIds ?? []), ...items.map((i) => i.settlementItemId)]);
+  const available = (prices?.items ?? []).filter((p) => p.isActive && !taken.has(p.id));
+  const addFixed = (p: SettlementItem) => {
+    const quantity = p.perContainer ? containers : 1;
+    const row: ItemRow = {
+      settlementItemId: p.id,
+      quantity,
+      expenseType: p.name,
+      amount: (Number(p.price) * quantity).toFixed(2),
+      receiptNo: '',
+      receiptKind: 'PAYMENT_RECEIPT',
+      description: '',
+    };
+    // replaces an empty first line, otherwise joins the list
+    setItems((l) => (l.length === 1 && !l[0].expenseType.trim() && !l[0].amount ? [row] : [...l, row]));
+  };
 
   return (
     <Drawer
@@ -364,6 +397,25 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
         {editing ? (
           <form id="settle-form" noValidate onSubmit={submit} className="space-y-3">
             <h3 className="font-semibold text-gold">بنود التصفية</h3>
+            {isClearer && available.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {available.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => addFixed(p)}
+                    className="focus-ring flex items-center gap-2 rounded-full border border-gold/40 bg-gold/5 px-3 py-1.5 text-sm transition-colors hover:bg-gold/15"
+                  >
+                    <Plus className="size-3.5 text-gold" />
+                    {p.name}
+                    <span className="text-xs text-muted" dir="ltr">
+                      {money(p.price)}
+                      {p.perContainer ? ` × ${containers}` : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
             <datalist id={listId}>
               {types.map((t) => (
                 <option key={t.id} value={t.name} />
@@ -372,8 +424,17 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
             {items.map((it, i) => (
               <div key={i} className="grid items-start gap-2 rounded-xl border border-line p-3 sm:grid-cols-[2rem_1fr_7rem_7rem_1fr_auto]">
                 <span className="grid size-8 place-items-center rounded-lg bg-gold/10 text-sm font-bold text-gold sm:mt-8">{i + 1}</span>
-                <TextField label="النوع" list={listId} value={it.expenseType} onChange={(e) => setItem(i, { expenseType: e.target.value })} error={problems[`type${i}`]} />
-                <TextField label="المبلغ" type="number" step="0.01" min="0.01" dir="ltr" value={it.amount} onChange={(e) => setItem(i, { amount: e.target.value })} error={problems[`amount${i}`]} />
+                {it.settlementItemId ? (
+                  <>
+                    <TextField label="البند" value={it.expenseType} readOnly />
+                    <TextField label={it.quantity && it.quantity > 1 ? `المبلغ (× ${it.quantity})` : 'المبلغ'} dir="ltr" value={money(it.amount)} readOnly />
+                  </>
+                ) : (
+                  <>
+                    <TextField label="النوع" list={listId} value={it.expenseType} onChange={(e) => setItem(i, { expenseType: e.target.value })} error={problems[`type${i}`]} />
+                    <TextField label="المبلغ" type="number" step="0.01" min="0.01" dir="ltr" value={it.amount} onChange={(e) => setItem(i, { amount: e.target.value })} error={problems[`amount${i}`]} />
+                  </>
+                )}
 <div className="space-y-1">
                   <TextField label="رقم الإيصال" dir="ltr" placeholder="861-26" value={it.receiptNo} onChange={(e) => setItem(i, { receiptNo: e.target.value })} error={problems[`receipt${i}`]} />
                   {it.receiptNo && (
@@ -392,7 +453,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                     </select>
                   )}
                 </div>
-                <TextField label="الوصف" value={it.description} maxLength={300} onChange={(e) => setItem(i, { description: e.target.value })} />
+                <TextField label="ملاحظات" value={it.description} maxLength={300} onChange={(e) => setItem(i, { description: e.target.value })} />
                 <div className="sm:mt-8">
                   <IconButton label={`شيل البند ${i + 1}`} tone="danger" onClick={() => setItems((l) => l.filter((_, j) => j !== i))}>
                     <Trash2 className="size-4" />
@@ -440,9 +501,14 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                     {custody.items?.map((i) => (
                       <tr key={i.id} className="border-b border-line last:border-0">
                         <td className="px-3 py-2 text-muted">{i.lineNo}</td>
-                        <td className="px-3 py-2">{i.expenseType.name}</td>
+                        <td className="px-3 py-2">
+                          {i.expenseType.name}
+                          {i.quantity > 1 && <span className="ms-1 text-xs text-muted">× {i.quantity}</span>}
+                        </td>
                         <td className="px-3 py-2" dir="ltr">
-                          {i.receiptNo ? RECEIPT_KINDS[i.receiptKind ?? 'PAYMENT_RECEIPT'].line(i.receiptNo) : i.description}
+                          {i.receiptNo ? RECEIPT_KINDS[i.receiptKind ?? 'PAYMENT_RECEIPT'].line(i.receiptNo) : null}
+                          {i.receiptNo && i.description ? ' · ' : null}
+                          {i.description}
                         </td>
                         <td className="px-3 py-2 font-semibold" dir="ltr">
                           {money(i.amount)}

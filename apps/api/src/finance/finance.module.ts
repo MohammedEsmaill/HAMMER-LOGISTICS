@@ -36,6 +36,8 @@ import { TransfersService } from './transfers.service';
 import { JournalController } from './journal.controller';
 import { JournalService } from './journal.service';
 import { ReportsService } from './reports.service';
+import { PricesController } from './prices.controller';
+import { PricesService } from './prices.service';
 
 @Module({
   controllers: [
@@ -54,6 +56,7 @@ import { ReportsService } from './reports.service';
     CollectionsController,
     ClientLedgerController,
     JournalController,
+    PricesController,
   ],
   providers: [
     LedgerService,
@@ -72,6 +75,7 @@ import { ReportsService } from './reports.service';
     ClientLedgerService,
     JournalService,
     ReportsService,
+    PricesService,
   ],
   exports: [LedgerService, ApprovalService, ClearerFeesService, JournalService],
 })

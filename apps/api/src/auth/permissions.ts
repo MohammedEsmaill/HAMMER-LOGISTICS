@@ -44,6 +44,7 @@ export const PERMISSIONS = {
   'finance.collections.manage': 'تسجيل التحصيل من العملاء',
   'finance.client-ledger.view': 'كشوف حساب العملاء',
   'finance.journal.view': 'عرض اليوميات والتقارير المالية',
+  'finance.prices.manage': 'تعديل أسعار أتعاب المستخلص وبنود التصفية',
   'settings.manage': 'إعدادات الشركة (بيانات الفواتير)',
 } as const;
 
@@ -59,6 +60,7 @@ export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'finance.accounts.manage',
   'finance.approved.edit',
   'finance.fees.adjust',
+  'finance.prices.manage',
 ]);
 
 export function isPermission(value: string): value is Permission {

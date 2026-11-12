@@ -16,6 +16,7 @@ import {
   UpdateFeePaymentDto,
 } from './dto/custody.dto';
 import { LedgerService } from './ledger.service';
+import { FEE_RATE_PORTS } from './prices.service';
 import { businessDate, decimal, formatAmount, todayCairo } from './money';
 import { payableBeneficiary } from './beneficiaries.service';
 import { egpCashBox, egpPayingAccount } from './paying-account';
@@ -61,21 +62,35 @@ export class ClearerFeesService {
     if (existing) return existing;
     const shipment = await tx.shipment.findUniqueOrThrow({
       where: { id: shipmentId },
-      include: { clearer: true },
+      include: { clearer: true, dischargePort: { select: { code: true } } },
     });
     const c = shipment.clearer;
     const fcl = shipment.mode === 'SEA' && shipment.loadType === 'FCL';
-    const base =
-      shipment.direction === 'EXPORT'
+    // sea imports through Alexandria / El Dekheila: the office price list, by regime;
+    // everything else: the clearer's own prices
+    const listed =
+      shipment.direction === 'IMPORT' &&
+      shipment.mode === 'SEA' &&
+      FEE_RATE_PORTS.includes(shipment.dischargePort?.code ?? '');
+    const rate = listed
+      ? await tx.clearerFeeRate.findUnique({
+          where: { regime: shipment.customsRegime ?? 'FINAL' },
+        })
+      : null;
+    const base = rate
+      ? rate.firstContainer
+      : shipment.direction === 'EXPORT'
         ? c.exportBase
         : shipment.customsRegime === 'TEMPORARY'
           ? c.importTemporaryBase
           : c.importFinalBase;
-    const extraRate = fcl
-      ? shipment.direction === 'EXPORT'
-        ? c.exportExtraContainer
-        : c.importExtraContainer
-      : ZERO;
+    const extraRate = !fcl
+      ? ZERO
+      : rate
+        ? rate.extraContainer
+        : shipment.direction === 'EXPORT'
+          ? c.exportExtraContainer
+          : c.importExtraContainer;
     const containersCount = feeContainers(shipment);
     const amount = new Prisma.Decimal(base).plus(
       new Prisma.Decimal(extraRate).times(containersCount - 1),

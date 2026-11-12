@@ -46,12 +46,22 @@ export interface ShipmentFixtures {
 export async function shipmentFixtures(
   ctx: TestContext,
   prefix: string,
+  /** The employee codes' start, when the prefix's x01–x04 are taken by another file. */
+  codeBase = prefix,
 ): Promise<ShipmentFixtures> {
   const { prisma } = ctx;
-  const scan = await ctx.userWithRole(`${prefix}01`, 'SCAN');
-  const opsA = await ctx.userWithRole(`${prefix}02`, 'OPERATION', 'OPERATION');
-  const opsB = await ctx.userWithRole(`${prefix}03`, 'OPERATION', 'OPERATION');
-  const nafeza = await ctx.userWithRole(`${prefix}04`, 'NAFEZA', 'NAFEZA');
+  const scan = await ctx.userWithRole(`${codeBase}01`, 'SCAN');
+  const opsA = await ctx.userWithRole(
+    `${codeBase}02`,
+    'OPERATION',
+    'OPERATION',
+  );
+  const opsB = await ctx.userWithRole(
+    `${codeBase}03`,
+    'OPERATION',
+    'OPERATION',
+  );
+  const nafeza = await ctx.userWithRole(`${codeBase}04`, 'NAFEZA', 'NAFEZA');
 
   const client = async (suffix: string, opsId: number) => {
     const res = await ctx

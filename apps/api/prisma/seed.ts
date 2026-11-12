@@ -245,6 +245,31 @@ const GRANTS: {
   },
 ];
 
+/** The price lists the office started with; the CEO changes them later. */
+const FEE_RATES = [
+  { regime: 'TEMPORARY', firstContainer: 2600, extraContainer: 700 },
+  { regime: 'FINAL', firstContainer: 3000, extraContainer: 700 },
+] as const;
+
+const SETTLEMENT_ITEMS: {
+  name: string;
+  price: number;
+  perContainer?: boolean;
+}[] = [
+  { name: 'عرض الزراعة', price: 200 },
+  { name: 'عرض الكيماويات', price: 300 },
+  { name: 'عرض الحماية المدنية', price: 500 },
+  { name: 'عرض أمن عام', price: 1000 },
+  { name: 'عرض واردات', price: 500 },
+  { name: 'عرض طاقة ذرية', price: 400 },
+  { name: 'عرض مخدرات', price: 500 },
+  {
+    name: 'مصاريف وزن الحاوية أثناء السير في الإجراءات',
+    price: 2500,
+    perContainer: true,
+  },
+];
+
 const CASH_BOXES = [
   { name: 'خزنة الجنيه', currency: 'EGP' },
   { name: 'خزنة الدولار', currency: 'USD' },
@@ -344,6 +369,33 @@ async function main() {
     });
     if (!exists) {
       await prisma.moneyAccount.create({ data: { ...box, type: 'CASH' } });
+    }
+  }
+
+  // the price lists: only when empty, never over the CEO's prices
+  for (const rate of FEE_RATES) {
+    await prisma.clearerFeeRate.upsert({
+      where: { regime: rate.regime },
+      update: {},
+      create: rate,
+    });
+  }
+  if ((await prisma.settlementItem.count()) === 0) {
+    for (const [i, item] of SETTLEMENT_ITEMS.entries()) {
+      const type = await prisma.expenseType.upsert({
+        where: { scope_name: { scope: 'SHIPMENT', name: item.name } },
+        update: {},
+        create: { scope: 'SHIPMENT', name: item.name },
+      });
+      await prisma.settlementItem.create({
+        data: {
+          name: item.name,
+          price: item.price,
+          perContainer: item.perContainer ?? false,
+          sortOrder: i + 1,
+          expenseTypeId: type.id,
+        },
+      });
     }
   }
 

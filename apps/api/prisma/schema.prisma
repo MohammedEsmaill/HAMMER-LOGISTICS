@@ -949,6 +949,7 @@ model ExpenseType {
 
   generalExpenses GeneralExpense[]
   custodyItems    CustodyItem[]
+  settlementItem  SettlementItem?
 
   @@unique([scope, name])
   @@map("expense_types")
@@ -1061,17 +1062,21 @@ model Custody {
 
 /// One settlement line: expense type, amount, receipt number and/or description.
 model CustodyItem {
-  id            Int          @id @default(autoincrement())
-  custodyId     Int          @map("custody_id")
-  lineNo        Int          @map("line_no")
-  expenseTypeId Int          @map("expense_type_id")
-  amount        Decimal      @db.Decimal(14, 2)
-  receiptNo     String?      @map("receipt_no") // "861-26": digits and dashes
-  receiptKind   ReceiptKind? @map("receipt_kind")
-  description   String?
+  id               Int          @id @default(autoincrement())
+  custodyId        Int          @map("custody_id")
+  lineNo           Int          @map("line_no")
+  expenseTypeId    Int          @map("expense_type_id")
+  /// a fixed-price settlement item (clearer custodies): its price × quantity, frozen here
+  settlementItemId Int?         @map("settlement_item_id")
+  quantity         Int          @default(1)
+  amount           Decimal      @db.Decimal(14, 2)
+  receiptNo        String?      @map("receipt_no") // "861-26": digits and dashes
+  receiptKind      ReceiptKind? @map("receipt_kind")
+  description      String?
 
   custody           Custody            @relation(fields: [custodyId], references: [id], onDelete: Cascade)
   expenseType       ExpenseType        @relation(fields: [expenseTypeId], references: [id], onDelete: Restrict)
+  settlementItem    SettlementItem?    @relation(fields: [settlementItemId], references: [id], onDelete: Restrict)
   statementOverride StatementOverride?
 
   @@unique([custodyId, lineNo])
@@ -1365,4 +1370,35 @@ model Collection {
   @@index([clientId])
   @@index([shipmentId])
   @@map("collections")
+}
+
+/// أتعاب المستخلص: sea imports through Alexandria or El Dekheila, by customs regime.
+/// Set by the CEO; a fee keeps the prices it was computed with.
+model ClearerFeeRate {
+  regime         CustomsRegime @id
+  firstContainer Decimal       @map("first_container") @db.Decimal(14, 2)
+  extraContainer Decimal       @map("extra_container") @db.Decimal(14, 2)
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@map("clearer_fee_rates")
+}
+
+/// بنود التصفية: fixed-price items a clearer's custody is settled with, once per
+/// shipment each. Set by the CEO; settled custodies keep the price they were settled at.
+model SettlementItem {
+  id            Int      @id @default(autoincrement())
+  name          String   @unique
+  price         Decimal  @db.Decimal(14, 2)
+  perContainer  Boolean  @default(false) @map("per_container")
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  /// the shipment expense type its custody lines are filed under (same name)
+  expenseTypeId Int      @unique @map("expense_type_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  expenseType  ExpenseType   @relation(fields: [expenseTypeId], references: [id], onDelete: Restrict)
+  custodyItems CustodyItem[]
+
+  @@map("settlement_items")
 }

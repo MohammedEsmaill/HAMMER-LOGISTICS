@@ -25,6 +25,9 @@ export interface CustodyItem {
   id: number;
   lineNo: number;
   expenseType: { id: number; name: string };
+  /** a fixed-price item of the price list (clearer custodies), with its quantity */
+  settlementItemId: number | null;
+  quantity: number;
   amount: string;
   receiptNo: string | null;
   receiptKind: ReceiptKind | null;
@@ -62,6 +65,10 @@ export interface Custody extends Approval {
   notes: string | null;
   computedFee: { id: number; amount: string } | null;
   items?: CustodyItem[];
+  /** the shipment's containers: a per-container item is price × this */
+  shipmentContainers?: number;
+  /** price-list items already on the shipment's other custodies (once per shipment) */
+  usedSettlementItemIds?: number[];
   duplicateReceipts?: { receiptNo: string; custodyNo: string; fileNo: string }[];
 }
 
@@ -196,13 +203,12 @@ export const useShipmentSearch = (search: string) =>
     placeholderData: keepPreviousData,
   });
 
-export interface ItemInput {
-  expenseType: string;
-  amount: number;
+/** A settlement line: a price-list item (by id), or a manual one (type and amount). */
+export type ItemInput = ({ settlementItemId: number } | { expenseType: string; amount: number }) & {
   receiptNo?: string;
   receiptKind?: ReceiptKind;
   description?: string;
-}
+};
 
 export const custodyApi = {
   issue: (input: {
