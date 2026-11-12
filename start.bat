@@ -53,7 +53,8 @@ if not defined CF goto nocf
 echo [4/4] Share link...
 set "LOG=%TEMP%\hammer-link.log"
 if exist "%LOG%" del "%LOG%"
-start "HAMMER - LINK" /min "%CF%" tunnel --url http://localhost:4173 --logfile "%LOG%"
+rem http2 over TCP: QUIC (UDP) drops on many networks
+start "HAMMER - LINK" /min "%CF%" tunnel --no-autoupdate --protocol http2 --url http://localhost:4173 --logfile "%LOG%"
 
 set "LINK="
 set /a waited=0
