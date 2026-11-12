@@ -43,6 +43,31 @@ start "HAMMER - API" /d "%~dp0apps\api" cmd /k node dist/main.js
 echo [3/4] Web app on http://localhost:4173 ...
 start "HAMMER - WEB" /d "%~dp0apps\web" cmd /k npx vite preview
 
+rem The web app on Vercel reaches this computer's API through a fixed ngrok link,
+rem when ngrok-domain.txt (next to start.bat) holds the domain, e.g. hammer.ngrok-free.app
+if not exist "%~dp0ngrok-domain.txt" goto cloudflare
+set "DOMAIN="
+set /p DOMAIN=<"%~dp0ngrok-domain.txt"
+set "DOMAIN=%DOMAIN:https://=%"
+set "DOMAIN=%DOMAIN:/=%"
+set "DOMAIN=%DOMAIN: =%"
+set "NG="
+if exist "%~dp0ngrok.exe" set "NG=%~dp0ngrok.exe"
+if not defined NG if exist "%~dp0..\ngrok.exe" set "NG=%~dp0..\ngrok.exe"
+if not defined NG for /f "delims=" %%i in ('where ngrok 2^>nul') do if not defined NG set "NG=%%i"
+if not defined NG (
+  echo [4/4] ngrok.exe not found next to start.bat. Put it there and run start.bat again.
+  goto opened
+)
+echo [4/4] API link for the Vercel site: https://%DOMAIN%
+start "HAMMER - API LINK" /min "%NG%" http --domain=%DOMAIN% 3000
+echo.
+echo ================================================================
+echo   The Vercel site works while this computer and the HAMMER windows stay on.
+echo ================================================================
+goto opened
+
+:cloudflare
 rem the share link: cloudflared in its own window, its log read here for the link
 set "CF="
 if exist "%~dp0cloudflared.exe" set "CF=%~dp0cloudflared.exe"

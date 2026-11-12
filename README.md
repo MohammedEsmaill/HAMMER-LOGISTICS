@@ -9,6 +9,7 @@ Customs clearance office management system.
 | `docs/erd.mmd` | Database ERD (Mermaid) |
 | `docs/DEPLOY.md` | Deployment: Neon (database), Render (API), Vercel (web) — in Arabic |
 | `docs/SHARE.md` | Run it on your machine and share it with a Cloudflare tunnel link — in Arabic |
+| `docs/VERCEL-LOCAL.md` | The web app on Vercel, the API on your machine through ngrok — in Arabic |
 
 ## Run it locally
 

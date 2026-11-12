@@ -1,5 +1,7 @@
 import { ExternalLink, FileText, Trash2, UploadCloud } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type MouseEvent } from 'react';
+import { toast } from 'sonner';
+import { TUNNEL_HEADERS } from '@/lib/api-client';
 import { useAuth } from '@/auth/auth-context';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +15,28 @@ import { DOCUMENT_CATEGORIES, shipmentsApi, type DocumentCategory, type Shipment
 import { useShipmentAction } from './use-shipment-action';
 
 const MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Files kept on the office computer (/api/files/…) open through fetch, so the request
+ * carries the header that skips a tunnel's warning page; Cloudinary links open directly.
+ */
+async function openDocument(e: MouseEvent<HTMLAnchorElement>, url: string) {
+  if (!url.startsWith('/api/')) return;
+  e.preventDefault();
+  const tab = window.open('', '_blank');
+  try {
+    const res = await fetch(url, { headers: TUNNEL_HEADERS });
+    if (!res.ok) throw new Error(String(res.status));
+    const blob = await res.blob();
+    const link = URL.createObjectURL(blob);
+    if (tab) tab.location.href = link;
+    else window.open(link, '_blank');
+    setTimeout(() => URL.revokeObjectURL(link), 60_000);
+  } catch {
+    tab?.close();
+    toast.error('الملف مش متاح دلوقتي، جرّب تاني');
+  }
+}
 const sizeLabel = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
 
 /** The shipment's PDF files, filed as documents, settlements or receipts: upload, filter, open, delete. */
@@ -152,6 +176,7 @@ export function DocumentsTab({ shipment }: { shipment: Shipment }) {
               href={d.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => openDocument(e, d.url)}
               className="focus-ring rounded-lg p-2 text-muted hover:bg-gold/10 hover:text-gold"
               title="فتح"
               aria-label={`فتح ${d.name}`}

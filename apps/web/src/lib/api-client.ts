@@ -28,11 +28,19 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * When the API sits behind a free ngrok link (the web app on Vercel, the API on the
+ * office computer), ngrok answers browser requests with a warning page unless asked
+ * not to. Harmless everywhere else.
+ */
+export const TUNNEL_HEADERS: Record<string, string> = { 'ngrok-skip-browser-warning': '1' };
+
 /** One refresh at a time: parallel 401s all wait for the same renewal. */
 export function refreshSession(): Promise<string | null> {
   refreshing ??= fetch('/api/auth/refresh', {
     method: 'POST',
     credentials: 'same-origin',
+    headers: TUNNEL_HEADERS,
   })
     .then(async (res) => {
       if (!res.ok) return null;
@@ -59,7 +67,7 @@ async function request<T>(
       url.searchParams.set(key, String(value));
     }
   }
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...TUNNEL_HEADERS };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
 
