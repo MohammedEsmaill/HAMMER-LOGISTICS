@@ -23,8 +23,8 @@ export function StatementTable({ statement }: { statement: Statement }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <Box label="مدين" value={money(statement.totals.debit, cur)} />
-        <Box label="دائن" value={money(statement.totals.credit, cur)} />
+        <Box label="مدين" value={money(statement.totals.debit, cur)} tone="text-debit" />
+        <Box label="دائن" value={money(statement.totals.credit, cur)} tone="text-credit" />
         <Box
           label={b > 0 ? 'رصيد مدين' : b < 0 ? 'مستحقات' : 'الرصيد'}
           value={money(Math.abs(b), cur)}
@@ -64,10 +64,10 @@ export function StatementTable({ statement }: { statement: Statement }) {
                 <td className="px-3 py-2 whitespace-nowrap text-muted">
                   <span dir="ltr">{l.reference}</span> · {l.fileNo}
                 </td>
-                <td className="px-3 py-2" dir="ltr">
+                <td className="px-3 py-2 font-semibold text-debit" dir="ltr">
                   {Number(l.debit) ? money(l.debit) : ''}
                 </td>
-                <td className="px-3 py-2" dir="ltr">
+                <td className="px-3 py-2 font-semibold text-credit" dir="ltr">
                   {Number(l.credit) ? money(l.credit) : ''}
                 </td>
                 <td className="px-3 py-2 font-bold" dir="ltr">

@@ -21,8 +21,8 @@ function HolderList({ rows, onOpen, currency }: { rows: HolderRow[]; onOpen: (id
     { header: 'الاسم', cell: (r) => <span className="font-semibold">{r.name}</span> },
     { header: 'عهد مفتوحة', cell: (r) => (r.openCustodies ? <Badge tone="gold">{r.openCustodies}</Badge> : <span className="text-muted">—</span>) },
     { header: 'عدد الحركات', cell: (r) => r.movements },
-    { header: 'مدين', cell: (r) => <span dir="ltr">{money(r.debit, currency)}</span> },
-    { header: 'دائن', cell: (r) => <span dir="ltr">{money(r.credit, currency)}</span> },
+    { header: 'مدين', cell: (r) => <span className="font-semibold text-debit" dir="ltr">{money(r.debit, currency)}</span> },
+    { header: 'دائن', cell: (r) => <span className="font-semibold text-credit" dir="ltr">{money(r.credit, currency)}</span> },
     {
       header: 'رصيد مدين',
       cell: (r) => (Number(r.balance) > 0 ? <b className="text-warning" dir="ltr">{money(r.balance, currency)}</b> : <span className="text-muted">—</span>),
@@ -42,10 +42,10 @@ function HolderList({ rows, onOpen, currency }: { rows: HolderRow[]; onOpen: (id
       {rows.length > 1 && (
         <div className="card grid gap-3 p-4 text-sm sm:grid-cols-4">
           <div>
-            مدين: <b dir="ltr">{money(sum('debit'), currency)}</b>
+            مدين: <b className="text-debit" dir="ltr">{money(sum('debit'), currency)}</b>
           </div>
           <div>
-            دائن: <b dir="ltr">{money(sum('credit'), currency)}</b>
+            دائن: <b className="text-credit" dir="ltr">{money(sum('credit'), currency)}</b>
           </div>
           <div>
             رصيد مدين: <b className="text-warning" dir="ltr">{money(owed, currency)}</b>

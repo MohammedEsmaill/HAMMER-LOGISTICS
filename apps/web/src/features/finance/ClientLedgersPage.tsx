@@ -46,10 +46,10 @@ function LedgerDrawer({ clientId, onClose }: { clientId: number | null; onClose:
                           <td className="px-3 py-2" dir="ltr">
                             {l.fileNo}
                           </td>
-                          <td className="px-3 py-2" dir="ltr">
+                          <td className="px-3 py-2 font-semibold text-debit" dir="ltr">
                             {Number(l.debit) ? money(l.debit) : ''}
                           </td>
-                          <td className="px-3 py-2 text-success" dir="ltr">
+                          <td className="px-3 py-2 font-semibold text-credit" dir="ltr">
                             {Number(l.credit) ? money(l.credit) : ''}
                           </td>
                           <td className="px-3 py-2 font-bold" dir="ltr">
