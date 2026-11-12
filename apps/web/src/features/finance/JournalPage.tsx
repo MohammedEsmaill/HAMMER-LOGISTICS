@@ -91,7 +91,7 @@ export default function JournalPage() {
       cell: (r) => (
         <div className="whitespace-nowrap">
           <div className="font-semibold">{JOURNAL_TYPES[r.type].label}</div>
-          <div className="text-xs text-muted" dir="ltr" style={{ textAlign: 'right' }}>
+          <div className="text-xs text-muted" dir="ltr">
             {r.ref}
           </div>
         </div>
@@ -100,7 +100,7 @@ export default function JournalPage() {
     {
       header: 'البيان',
       cell: (r) => (
-        <div className="max-w-80 min-w-48">
+        <div className="mx-auto max-w-80 min-w-48">
           {r.counterparty && <div className="font-medium">{r.counterparty}</div>}
           <div className="line-clamp-2 text-sm text-muted">{r.description || '—'}</div>
           {r.fileNo && <div className="text-xs text-gold">ملف {r.fileNo}</div>}

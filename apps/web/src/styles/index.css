@@ -190,3 +190,15 @@ body {
     break-inside: avoid;
   }
 }
+
+/*
+ * Every table on the screens: headers and cells centred, the contents of a cell too.
+ * Unlayered, so it wins over text-start / justify-* utilities. The printed invoice and
+ * reports keep their own layout.
+ */
+table:not(:is(.report-page, .invoice-page) table) :is(th, td) {
+  text-align: center;
+}
+table:not(:is(.report-page, .invoice-page) table) td > :is(.flex, .inline-flex) {
+  justify-content: center;
+}
