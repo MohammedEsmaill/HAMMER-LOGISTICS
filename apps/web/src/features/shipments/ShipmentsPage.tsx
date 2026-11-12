@@ -11,13 +11,14 @@ import { SelectField } from '@/components/ui/SelectField';
 import { formatDate } from '@/lib/format';
 import { useShipments, type ShipmentListItem, type ShipmentsQuery } from './api';
 import { MODE_ICONS } from './mode-icons';
-import { KIND_LIST, kindOf, SHIPMENT_TYPES, STAGE_FILTER, STAGE_LABELS } from './rules';
+import { EXPORT_STAGES, FREE_ZONE_STAGES, IMPORT_STAGES, KIND_LIST, kindOf, SHIPMENT_TYPES, STAGE_LABELS } from './rules';
 
 const KIND_OPTIONS = KIND_LIST.map((t) => ({ value: t.kind, label: t.label }));
-const STAGE_OPTIONS = STAGE_FILTER.map((value) => ({
-  value,
-  label: value === 'ARRIVED_DESTINATION' ? 'تم الوصول (صادر)' : STAGE_LABELS[value],
-}));
+/** The agreed import stages; an export type brings its own. */
+const stageOptions = (kind: string) => {
+  const list: readonly string[] = kind.startsWith('EXPORT') ? EXPORT_STAGES : kind === 'IMPORT_FREE_ZONE' ? FREE_ZONE_STAGES : IMPORT_STAGES;
+  return list.map((value) => ({ value, label: STAGE_LABELS[value] }));
+};
 
 export default function ShipmentsPage() {
   const { can } = useAuth();
@@ -94,14 +95,18 @@ export default function ShipmentsPage() {
             placeholder="كل الأنواع"
             options={KIND_OPTIONS}
             value={q.kind}
-            onChange={(e) => set({ kind: e.target.value as ShipmentsQuery['kind'] })}
+            onChange={(e) => {
+              const kind = e.target.value as ShipmentsQuery['kind'];
+              // a stage the new type does not go through is dropped from the filter
+              set({ kind, ...(stageOptions(kind).some((o) => o.value === q.stage) ? {} : { stage: '' }) });
+            }}
           />
         </div>
         <div className="w-48">
           <SelectField
             label="المرحلة"
             placeholder="كل المراحل"
-            options={STAGE_OPTIONS}
+            options={stageOptions(q.kind)}
             value={q.stage}
             onChange={(e) => set({ stage: e.target.value })}
           />

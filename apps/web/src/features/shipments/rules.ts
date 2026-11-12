@@ -243,8 +243,8 @@ export const STAGE_LABELS: Record<string, string> = {
   DELIVERED_TO_IMPORTER: 'تم التسليم للمستورد',
 };
 
-/** The stages a shipment can be in today: import first, then export. */
-export const STAGE_FILTER = [
+/** The stages of each kind of shipment, in order: the stage filter lists the chosen kind's. */
+export const IMPORT_STAGES = [
   'REGISTERED',
   'ARRIVED',
   'DO_COLLECTED',
@@ -254,6 +254,10 @@ export const STAGE_FILTER = [
   'APPROVED',
   'DUTIES_PAID',
   'CLEARED',
+] as const;
+export const FREE_ZONE_STAGES = IMPORT_STAGES.filter((s) => s !== 'ARRIVED' && s !== 'DO_COLLECTED');
+export const EXPORT_STAGES = [
+  'REGISTERED',
   'SUBMITTED',
   'DELIVERED_TO_PORT',
   'RELEASE_RECEIVED',
