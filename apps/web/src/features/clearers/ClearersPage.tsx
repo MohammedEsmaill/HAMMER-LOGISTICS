@@ -11,6 +11,7 @@ import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton, PageHeader, Switch } from '@/components/ui/misc';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
+import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { formatMoney } from '@/lib/format';
 import { toastError, useAction } from '@/lib/mutations';
@@ -23,6 +24,8 @@ import {
   type Clearer,
   type Prices,
 } from './api';
+import { useLookup, usePorts } from '../lookups/api';
+import { WorkplacePicker, type Workplaces } from './WorkplacePicker';
 
 const pricesSchema = z.object(
   Object.fromEntries(PRICE_FIELDS.map((f) => [f.key, money])) as Record<keyof Prices, typeof money>,
@@ -32,8 +35,6 @@ const dataSchema = z.object({
   fullName: z.string().trim().min(3, 'الاسم 3 حروف على الأقل').max(120),
   phone: z.string().trim().min(1, 'اكتب التليفون').max(20),
   nationalId,
-  /** typed comma-separated, sent as a list */
-  offices: z.string().trim().max(1000),
   notes: optionalText(1000),
 });
 
@@ -42,12 +43,6 @@ const createSchema = dataSchema.merge(pricesSchema);
 type DataForm = z.input<typeof dataSchema>;
 type PricesForm = z.input<typeof pricesSchema>;
 type CreateForm = z.input<typeof createSchema>;
-
-const toOffices = (text: string) =>
-  text
-    .split(/[،,]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
 
 function PriceFields({ register, errors }: { register: (k: keyof Prices) => object; errors: Partial<Record<string, { message?: string }>> }) {
   return (
@@ -64,10 +59,6 @@ function PriceFields({ register, errors }: { register: (k: keyof Prices) => obje
           {...register(f.key)}
         />
       ))}
-      <p className="text-xs text-muted sm:col-span-2">
-        الأتعاب = الأساس + الحاوية الإضافية × (عدد الحاويات − 1). LCL والجوي والمناطق الحرة بياخدوا الأساس بس. تغيير
-        الأسعار ميأثرش على أتعاب اتحسبت قبل كده.
-      </p>
     </div>
   );
 }
@@ -76,13 +67,15 @@ function CreateClearerDrawer({ open, onClose }: { open: boolean; onClose: () => 
   const { register, handleSubmit, reset, formState } = useForm<CreateForm, unknown, z.output<typeof createSchema>>({
     resolver: zodResolver(createSchema),
   });
+  const [places, setPlaces] = useState<Workplaces>({ portIds: [], freeZoneIds: [] });
   const create = useAction(
-    ({ offices, ...rest }: z.output<typeof createSchema>) => clearersApi.create({ ...rest, customsOffices: toOffices(offices) }),
+    (form: z.output<typeof createSchema>) => clearersApi.create({ ...form, ...places }),
     { success: 'اتضاف المستخلص', invalidate: [clearerKeys.all] },
   );
   useEffect(() => {
     if (open) {
-      reset({ offices: '' });
+      reset({});
+      setPlaces({ portIds: [], freeZoneIds: [] });
       create.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the drawer opens
@@ -114,7 +107,9 @@ function CreateClearerDrawer({ open, onClose }: { open: boolean; onClose: () => 
           <TextField label="الاسم بالكامل" className="sm:col-span-2" error={formState.errors.fullName?.message} {...register('fullName')} />
           <TextField label="التليفون" dir="ltr" inputMode="tel" error={formState.errors.phone?.message} {...register('phone')} />
           <TextField label="الرقم القومي" dir="ltr" inputMode="numeric" maxLength={14} error={formState.errors.nationalId?.message} {...register('nationalId')} />
-          <TextField label="الجمارك اللي بيشتغل فيها" className="sm:col-span-2" error={formState.errors.offices?.message} {...register('offices')} />
+          <div className="sm:col-span-2">
+            <WorkplacePicker value={places} onChange={setPlaces} />
+          </div>
           <TextField label="ملاحظات" className="sm:col-span-2" {...register('notes')} />
         </section>
         <section>
@@ -131,8 +126,9 @@ function EditClearerDrawer({ clearer, onClose }: { clearer: Clearer | null; onCl
   const [tab, setTab] = useState<'data' | 'prices'>('data');
   const dataForm = useForm<DataForm, unknown, z.output<typeof dataSchema>>({ resolver: zodResolver(dataSchema) });
   const pricesForm = useForm<PricesForm, unknown, z.output<typeof pricesSchema>>({ resolver: zodResolver(pricesSchema) });
+  const [places, setPlaces] = useState<Workplaces>({ portIds: [], freeZoneIds: [] });
   const saveData = useAction(
-    ({ offices, ...rest }: z.output<typeof dataSchema>) => clearersApi.update(clearer!.id, { ...rest, customsOffices: toOffices(offices) }),
+    (form: z.output<typeof dataSchema>) => clearersApi.update(clearer!.id, { ...form, ...places }),
     { success: 'اتحفظت البيانات', invalidate: [clearerKeys.all] },
   );
   const savePrices = useAction((prices: Prices) => clearersApi.updatePrices(clearer!.id, prices), {
@@ -147,9 +143,9 @@ function EditClearerDrawer({ clearer, onClose }: { clearer: Clearer | null; onCl
       fullName: clearer.fullName,
       phone: clearer.phone,
       nationalId: clearer.nationalId,
-      offices: clearer.customsOffices.join('، '),
       notes: clearer.notes ?? '',
     });
+    setPlaces({ portIds: clearer.ports.map((p) => p.id), freeZoneIds: clearer.freeZones.map((z) => z.id) });
     pricesForm.reset(Object.fromEntries(PRICE_FIELDS.map((f) => [f.key, clearer[f.key]])));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when another clearer opens
   }, [clearer]);
@@ -195,7 +191,9 @@ function EditClearerDrawer({ clearer, onClose }: { clearer: Clearer | null; onCl
           <TextField label="الاسم بالكامل" className="sm:col-span-2" error={dataForm.formState.errors.fullName?.message} {...dataForm.register('fullName')} />
           <TextField label="التليفون" dir="ltr" error={dataForm.formState.errors.phone?.message} {...dataForm.register('phone')} />
           <TextField label="الرقم القومي" dir="ltr" maxLength={14} error={dataForm.formState.errors.nationalId?.message} {...dataForm.register('nationalId')} />
-          <TextField label="الجمارك اللي بيشتغل فيها" className="sm:col-span-2" {...dataForm.register('offices')} />
+          <div className="sm:col-span-2">
+            <WorkplacePicker value={places} onChange={setPlaces} />
+          </div>
           <TextField label="ملاحظات" className="sm:col-span-2" {...dataForm.register('notes')} />
           {saveData.error ? (
             <div className="sm:col-span-2">
@@ -221,7 +219,10 @@ function EditClearerDrawer({ clearer, onClose }: { clearer: Clearer | null; onCl
 export default function ClearersPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useClearers(search, page);
+  const [place, setPlace] = useState('');
+  const { data, isLoading, error } = useClearers(search, page, place);
+  const { data: ports = [] } = usePorts({ egyptian: true });
+  const { data: zones = [] } = useLookup('free-zones');
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Clearer | null>(null);
   const [deleting, setDeleting] = useState<Clearer | null>(null);
@@ -243,12 +244,15 @@ export default function ClearersPage() {
       ),
     },
     {
-      header: 'الجمارك',
-      cell: (c) => (
-        <div className="flex flex-wrap gap-1">
-          {c.customsOffices.length ? c.customsOffices.map((o) => <Badge key={o}>{o}</Badge>) : <span className="text-muted">—</span>}
-        </div>
-      ),
+      header: 'جهة التخليص',
+      cell: (c) => {
+        const places = [...c.ports.map((p) => p.name), ...c.freeZones.map((z) => z.name)];
+        return (
+          <div className="flex flex-wrap gap-1">
+            {places.length ? places.map((o) => <Badge key={o}>{o}</Badge>) : <span className="text-muted">—</span>}
+          </div>
+        );
+      },
     },
     { header: 'أساس النهائي', cell: (c) => formatMoney(c.importFinalBase) },
     { header: 'أساس السماح', cell: (c) => formatMoney(c.importTemporaryBase) },
@@ -290,15 +294,29 @@ export default function ClearersPage() {
           </Button>
         }
       />
-      <div className="mb-4">
-        <SearchInput
-          value={search}
-          onChange={(s) => {
-            setSearch(s);
-            setPage(1);
-          }}
-          placeholder="بحث بالاسم أو الرقم القومي أو التليفون"
-        />
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="min-w-60 flex-1">
+          <SearchInput
+            value={search}
+            onChange={(s) => {
+              setSearch(s);
+              setPage(1);
+            }}
+            placeholder="بحث بالاسم أو الرقم القومي أو التليفون"
+          />
+        </div>
+        <div className="w-64">
+          <SelectField
+            label="جهة التخليص"
+            placeholder="الكل"
+            options={[...ports.map((p) => ({ value: `p${p.id}`, label: p.name })), ...zones.map((z) => ({ value: `z${z.id}`, label: z.name }))]}
+            value={place}
+            onChange={(e) => {
+              setPlace(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
       </div>
       <DataTable columns={columns} rows={data?.items} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش مستخلصين" onRowClick={setEditing} />
       <div className="mt-4">

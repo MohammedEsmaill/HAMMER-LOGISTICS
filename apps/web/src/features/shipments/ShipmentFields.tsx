@@ -73,6 +73,17 @@ export function BasicFields({ form, rules }: { form: ShipmentForm; rules: TypeRu
   const { data: factories = [] } = useFactories(clientId ? Number(clientId) : undefined);
   const { data: clearers = [] } = useClearerOptions();
   const { data: countries = [] } = useCountries();
+  // the shipment's Egyptian side: discharge port (import), loading port (export), or free zone
+  const [dischargePortId, loadingPortId, freeZoneId] = useWatch({ control: form.control, name: ['dischargePortId', 'loadingPortId', 'freeZoneId'] });
+  const place = rules.freeZone
+    ? { zone: Number(freeZoneId) || 0 }
+    : { port: Number(rules.direction === 'IMPORT' ? dischargePortId : loadingPortId) || 0 };
+  const works = (c: (typeof clearers)[number]) =>
+    'zone' in place ? !!place.zone && c.freeZoneIds.includes(place.zone) : !!place.port && c.portIds.includes(place.port);
+  // everyone stays pickable; who works at the shipment's place comes first
+  const clearerOptions = [...clearers]
+    .sort((a, b) => Number(works(b)) - Number(works(a)))
+    .map((c) => ({ value: c.id, label: works(c) ? `${c.fullName} ✓` : c.fullName }));
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -92,7 +103,7 @@ export function BasicFields({ form, rules }: { form: ShipmentForm; rules: TypeRu
         placeholder={clientId ? 'اختار المصنع' : 'اختار العميل الأول'}
         options={factories.map((f) => ({ value: f.id, label: `${f.name} (${f.taxNumber})` }))}
       />
-      <Combo form={form} name="clearerId" label="المستخلص" options={clearers.map((c) => ({ value: c.id, label: c.fullName }))} />
+      <Combo form={form} name="clearerId" label="المستخلص" options={clearerOptions} />
       <Combo form={form} name="countryId" label={labels.country} options={countries.map((c) => ({ value: c.id, label: `${c.nameAr} · ${c.nameEn}` }))} />
       <TextField label={labels.foreignParty} error={errorAt(form, 'foreignPartyName')} {...register('foreignPartyName')} />
       <TextField label={labels.consignee} error={errorAt(form, 'consignee')} {...register('consignee')} />

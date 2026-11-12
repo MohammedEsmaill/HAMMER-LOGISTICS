@@ -1,7 +1,9 @@
+import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
@@ -45,12 +47,19 @@ export class CreateClearerDto {
   @Matches(NATIONAL_ID, { message: 'الرقم القومي لازم يكون 14 رقم' })
   nationalId!: string;
 
+  /** جهة التخليص: Egyptian ports / airports the clearer works in. */
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(20)
-  @IsString({ each: true })
-  @MaxLength(120, { each: true })
-  customsOffices?: string[];
+  @ArrayMaxSize(40)
+  @IsInt({ each: true })
+  portIds?: number[];
+
+  /** جهة التخليص: free zones the clearer works in. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @IsInt({ each: true })
+  freeZoneIds?: number[];
 
   @IsOptional()
   @Trim()
@@ -94,12 +103,19 @@ export class UpdateClearerDto {
   @Matches(NATIONAL_ID, { message: 'الرقم القومي لازم يكون 14 رقم' })
   nationalId?: string;
 
+  /** جهة التخليص: Egyptian ports / airports the clearer works in. */
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(20)
-  @IsString({ each: true })
-  @MaxLength(120, { each: true })
-  customsOffices?: string[];
+  @ArrayMaxSize(40)
+  @IsInt({ each: true })
+  portIds?: number[];
+
+  /** جهة التخليص: free zones the clearer works in. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @IsInt({ each: true })
+  freeZoneIds?: number[];
 
   @IsOptional()
   @IsBoolean()
@@ -112,4 +128,15 @@ export class UpdateClearerDto {
   notes?: string;
 }
 
-export class ClearersQueryDto extends ListQueryDto {}
+export class ClearersQueryDto extends ListQueryDto {
+  /** Only the clearers working in this port / free zone. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  portId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  freeZoneId?: number;
+}

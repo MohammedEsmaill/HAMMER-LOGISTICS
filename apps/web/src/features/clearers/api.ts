@@ -17,7 +17,9 @@ export interface Clearer extends Record<PriceKey, string> {
   fullName: string;
   phone: string;
   nationalId: string;
-  customsOffices: string[];
+  /** جهة التخليص */
+  ports: { id: number; name: string; kind: 'SEA' | 'AIR' }[];
+  freeZones: { id: number; name: string }[];
   isActive: boolean;
   notes: string | null;
 }
@@ -28,20 +30,29 @@ export interface ClearerData {
   fullName: string;
   phone: string;
   nationalId: string;
-  customsOffices: string[];
+  portIds: number[];
+  freeZoneIds: number[];
   notes?: string;
 }
 
 export const clearerKeys = {
   all: ['clearers'] as const,
-  list: (search: string, page: number) => ['clearers', 'list', search, page] as const,
+  list: (search: string, page: number, place: string) => ['clearers', 'list', search, page, place] as const,
   options: ['clearers', 'options'] as const,
 };
 
-export const useClearers = (search: string, page: number) =>
+/** place: '' for all, 'p<id>' for a port, 'z<id>' for a free zone. */
+export const useClearers = (search: string, page: number, place = '') =>
   useQuery({
-    queryKey: clearerKeys.list(search, page),
-    queryFn: () => api.get<Page<Clearer>>('/clearers', { search, page, pageSize: 25 }),
+    queryKey: clearerKeys.list(search, page, place),
+    queryFn: () =>
+      api.get<Page<Clearer>>('/clearers', {
+        search,
+        page,
+        pageSize: 25,
+        ...(place.startsWith('p') ? { portId: Number(place.slice(1)) } : {}),
+        ...(place.startsWith('z') ? { freeZoneId: Number(place.slice(1)) } : {}),
+      }),
     placeholderData: keepPreviousData,
   });
 

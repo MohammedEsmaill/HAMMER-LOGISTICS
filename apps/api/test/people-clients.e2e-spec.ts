@@ -148,7 +148,6 @@ describe('Employees, clearers, clients (e2e)', () => {
       fullName: 'Clearer One',
       phone: '01222222222',
       nationalId: '28001010000001',
-      customsOffices: ['جمرك الإسكندرية'],
       ...prices,
     };
 
@@ -170,6 +169,54 @@ describe('Employees, clearers, clients (e2e)', () => {
         })
         .expect(200);
       expect(updated.body.importFinalBase).toBe('3200');
+    });
+
+    it('works in Egyptian ports and free zones (جهة التخليص), listed first in the shipment form', async () => {
+      const ports = await ctx.prisma.port.findMany({
+        where: { code: { in: ['EGALY', 'CNSHA'] } },
+      });
+      const alexandria = ports.find((p) => p.code === 'EGALY')!;
+      const shanghai = ports.find((p) => p.code === 'CNSHA');
+      const zone = await ctx.prisma.freeZone.findFirstOrThrow();
+      const clearer = await ctx.prisma.clearer.findFirstOrThrow({
+        where: { nationalId: '28001010000001' },
+      });
+      if (shanghai) {
+        await ctx
+          .api(ctx.ceoToken)
+          .patch(`/api/clearers/${clearer.id}`, { portIds: [shanghai.id] })
+          .expect(400);
+      }
+      const res = await ctx
+        .api(ctx.ceoToken)
+        .patch(`/api/clearers/${clearer.id}`, {
+          portIds: [alexandria.id],
+          freeZoneIds: [zone.id],
+        })
+        .expect(200);
+      expect(res.body.ports.map((p: { id: number }) => p.id)).toEqual([
+        alexandria.id,
+      ]);
+      expect(res.body.freeZones.map((z: { id: number }) => z.id)).toEqual([
+        zone.id,
+      ]);
+      const filtered = await ctx
+        .api(ctx.ceoToken)
+        .get(`/api/clearers?portId=${alexandria.id}`)
+        .expect(200);
+      expect(filtered.body.items.map((c: { id: number }) => c.id)).toContain(
+        clearer.id,
+      );
+      const options = await ctx
+        .api(ctx.ceoToken)
+        .get('/api/clearers/options')
+        .expect(200);
+      expect(
+        options.body.find((c: { id: number }) => c.id === clearer.id),
+      ).toMatchObject({
+        portIds: [alexandria.id],
+        freeZoneIds: [zone.id],
+      });
     });
 
     it('a clearer cannot be created without prices', () =>
@@ -213,6 +260,8 @@ describe('Employees, clearers, clients (e2e)', () => {
       expect(res.body).toContainEqual({
         id: expect.any(Number),
         fullName: 'Clearer One',
+        portIds: expect.any(Array),
+        freeZoneIds: expect.any(Array),
       });
     });
   });

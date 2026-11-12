@@ -213,8 +213,16 @@ export const useFactories = (clientId: number | undefined) =>
     staleTime: 5 * 60_000,
   });
 
+export interface ClearerOption {
+  id: number;
+  fullName: string;
+  /** جهة التخليص */
+  portIds: number[];
+  freeZoneIds: number[];
+}
+
 export const useClearerOptions = () =>
-  useQuery({ queryKey: ['clearers', 'options'], queryFn: () => api.get<Person[]>('/clearers/options'), staleTime: 5 * 60_000 });
+  useQuery({ queryKey: ['clearers', 'options'], queryFn: () => api.get<ClearerOption[]>('/clearers/options'), staleTime: 5 * 60_000 });
 
 const path = (id: number, rest = '') => `/shipments/${id}${rest}`;
 

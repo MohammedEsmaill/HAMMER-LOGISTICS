@@ -255,7 +255,6 @@ model Clearer {
   fullName             String    @map("full_name")
   phone                String
   nationalId           String    @map("national_id")
-  customsOffices       String[]  @map("customs_offices")
   // fee prices — set and changed by the CEO only
   importFinalBase      Decimal   @map("import_final_base") @db.Decimal(14, 2)
   importTemporaryBase  Decimal   @map("import_temporary_base") @db.Decimal(14, 2)
@@ -269,12 +268,15 @@ model Clearer {
   deletedAt            DateTime? @map("deleted_at")
   deletedById          Int?      @map("deleted_by")
 
-  deletedBy     User?         @relation("ClearerDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
-  users         User[]        @relation("UserClearer")
+  deletedBy     User?             @relation("ClearerDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  users         User[]            @relation("UserClearer")
   shipments     Shipment[]
   custodies     Custody[]
   fees          ClearerFee[]
   beneficiaries Beneficiary[]
+  /// جهة التخليص: the Egyptian ports / airports and free zones the clearer works in
+  ports         ClearerPort[]
+  freeZones     ClearerFreeZone[]
 
   @@map("clearers")
 }
@@ -467,6 +469,7 @@ model Port {
   loadingShipments   Shipment[]    @relation("ShipmentLoadingPort")
   dischargeShipments Shipment[]    @relation("ShipmentDischargePort")
   storageYards       StorageYard[]
+  clearers           ClearerPort[]
 
   @@unique([kind, name])
   @@map("ports")
@@ -489,6 +492,7 @@ model FreeZone {
   name String @unique
 
   shipments Shipment[]
+  clearers  ClearerFreeZone[]
 
   @@map("free_zones")
 }
@@ -1401,4 +1405,30 @@ model SettlementItem {
   custodyItems CustodyItem[]
 
   @@map("settlement_items")
+}
+
+/// A port or airport (Egyptian) a clearer clears at.
+model ClearerPort {
+  clearerId Int @map("clearer_id")
+  portId    Int @map("port_id")
+
+  clearer Clearer @relation(fields: [clearerId], references: [id], onDelete: Cascade)
+  port    Port    @relation(fields: [portId], references: [id], onDelete: Restrict)
+
+  @@id([clearerId, portId])
+  @@index([portId])
+  @@map("clearer_ports")
+}
+
+/// A free zone a clearer clears at.
+model ClearerFreeZone {
+  clearerId  Int @map("clearer_id")
+  freeZoneId Int @map("free_zone_id")
+
+  clearer  Clearer  @relation(fields: [clearerId], references: [id], onDelete: Cascade)
+  freeZone FreeZone @relation(fields: [freeZoneId], references: [id], onDelete: Restrict)
+
+  @@id([clearerId, freeZoneId])
+  @@index([freeZoneId])
+  @@map("clearer_free_zones")
 }
