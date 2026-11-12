@@ -1,37 +1,60 @@
 import { useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { DataTable, type Column } from '@/components/ui/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
-import { PageHeader } from '@/components/ui/misc';
+import { Badge, PageHeader } from '@/components/ui/misc';
+import { formatDate } from '@/lib/format';
 import { FormTabs } from '../shipments/FormTabs';
 import { money } from './api';
-import { useHolders, useStatement } from './custody-api';
+import { useHolders, useStatement, type HolderTotals } from './custody-api';
 import { ClearerFeesPanel, StatementTable } from './LedgerDrawers';
 
 type Tab = 'clearers' | 'agents' | 'way-out';
 
-function HolderList({ rows, onOpen, currency }: { rows: { id: number; name: string; balance: string }[]; onOpen: (id: number) => void; currency: 'EGP' | 'USD' }) {
-  if (!rows.length) return <EmptyState compact text="مفيش حركات لسه" />;
+type HolderRow = { id: number; name: string } & HolderTotals;
+
+/** One row per holder: مدين, دائن, then what is left: a debit balance or dues (مستحقات). */
+function HolderList({ rows, onOpen, currency }: { rows: HolderRow[]; onOpen: (id: number) => void; currency: 'EGP' | 'USD' }) {
+  const columns: Column<HolderRow>[] = [
+    { header: 'الاسم', cell: (r) => <span className="font-semibold">{r.name}</span> },
+    { header: 'عهد مفتوحة', cell: (r) => (r.openCustodies ? <Badge tone="gold">{r.openCustodies}</Badge> : <span className="text-muted">—</span>) },
+    { header: 'عدد الحركات', cell: (r) => r.movements },
+    { header: 'مدين', cell: (r) => <span dir="ltr">{money(r.debit, currency)}</span> },
+    { header: 'دائن', cell: (r) => <span dir="ltr">{money(r.credit, currency)}</span> },
+    {
+      header: 'رصيد مدين',
+      cell: (r) => (Number(r.balance) > 0 ? <b className="text-warning" dir="ltr">{money(r.balance, currency)}</b> : <span className="text-muted">—</span>),
+    },
+    {
+      header: 'مستحقات',
+      cell: (r) => (Number(r.balance) < 0 ? <b className="text-success" dir="ltr">{money(Math.abs(Number(r.balance)), currency)}</b> : <span className="text-muted">—</span>),
+    },
+    { header: 'آخر حركة', cell: (r) => <span className="whitespace-nowrap">{formatDate(r.lastDate)}</span> },
+  ];
+  const sum = (k: 'debit' | 'credit') => rows.reduce((s, r) => s + Number(r[k]), 0);
+  const owed = rows.reduce((s, r) => s + Math.max(0, Number(r.balance)), 0);
+  const dues = rows.reduce((s, r) => s + Math.max(0, -Number(r.balance)), 0);
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {rows.map((r) => {
-        const b = Number(r.balance);
-        return (
-          <button
-            key={r.id}
-            type="button"
-            onClick={() => onOpen(r.id)}
-            className="card focus-ring space-y-1 p-4 text-start transition-colors hover:border-gold/60"
-          >
-            <div className="font-bold">{r.name}</div>
-            <div className={`text-xl font-bold ${b > 0 ? 'text-warning' : b < 0 ? 'text-success' : 'text-muted'}`} dir="ltr" style={{ textAlign: 'right' }}>
-              {money(Math.abs(b), currency)}
-            </div>
-            <div className="text-xs text-muted">{b > 0 ? 'معاه فلوس للمكتب' : b < 0 ? 'المكتب عليه فلوس له' : 'متسوي'}</div>
-          </button>
-        );
-      })}
+    <div className="space-y-3">
+      <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} empty="مفيش حركات لسه" onRowClick={(r) => onOpen(r.id)} />
+      {rows.length > 1 && (
+        <div className="card grid gap-3 p-4 text-sm sm:grid-cols-4">
+          <div>
+            مدين: <b dir="ltr">{money(sum('debit'), currency)}</b>
+          </div>
+          <div>
+            دائن: <b dir="ltr">{money(sum('credit'), currency)}</b>
+          </div>
+          <div>
+            رصيد مدين: <b className="text-warning" dir="ltr">{money(owed, currency)}</b>
+          </div>
+          <div>
+            مستحقات: <b className="text-success" dir="ltr">{money(dues, currency)}</b>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -97,7 +120,7 @@ export default function LedgersPage() {
       {data && tab === 'agents' && <HolderList rows={data.agents} currency="EGP" onOpen={(id) => setOpen({ kind: 'agents', id })} />}
       {data && tab === 'way-out' &&
         (data.wayOut ? (
-          <HolderList rows={[{ id: 0, name: 'إيداع دولاري', balance: data.wayOut.balance }]} currency="USD" onOpen={() => setOpen({ kind: 'way-out', id: null })} />
+          <HolderList rows={[{ id: 0, name: 'إيداع دولاري', ...data.wayOut }]} currency="USD" onOpen={() => setOpen({ kind: 'way-out', id: null })} />
         ) : (
           <EmptyState compact text="مفيش عهد إيداع دولاري لسه" />
         ))}

@@ -154,25 +154,65 @@ export class HolderLedgerService {
       }),
       this.prisma.custody.count({ where: { holderType: 'WAY_OUT' } }),
     ]);
-    const balance = async (
-      p: Promise<{ totals: { balance: Prisma.Decimal } }>,
-    ) => (await p).totals.balance;
+    const [clearerOpen, agentOpen, wayOutOpen] = await Promise.all([
+      this.prisma.custody.groupBy({
+        by: ['clearerId'],
+        where: { holderType: 'CLEARER', status: 'OPEN' },
+        _count: true,
+      }),
+      this.prisma.custody.groupBy({
+        by: ['agentEmployeeId'],
+        where: { holderType: 'AGENT', status: 'OPEN' },
+        _count: true,
+      }),
+      this.prisma.custody.count({
+        where: { holderType: 'WAY_OUT', status: 'OPEN' },
+      }),
+    ]);
+    // one row per holder: debit, credit, balance, open custodies, last movement
+    const row = async (
+      statement: Promise<{
+        lines: { date: Date }[];
+        totals: {
+          debit: Prisma.Decimal;
+          credit: Prisma.Decimal;
+          balance: Prisma.Decimal;
+        };
+      }>,
+      openCustodies: number,
+    ) => {
+      const s = await statement;
+      return {
+        debit: s.totals.debit,
+        credit: s.totals.credit,
+        balance: s.totals.balance,
+        movements: s.lines.length,
+        lastDate: s.lines.at(-1)?.date ?? null,
+        openCustodies,
+      };
+    };
     return {
       clearers: await Promise.all(
         clearers.map(async (c) => ({
           id: c.id,
           name: c.fullName,
-          balance: await balance(this.clearer(c.id)),
+          ...(await row(
+            this.clearer(c.id),
+            clearerOpen.find((g) => g.clearerId === c.id)?._count ?? 0,
+          )),
         })),
       ),
       agents: await Promise.all(
         agents.map(async (a) => ({
           id: a.id,
           name: a.fullName,
-          balance: await balance(this.agent(a.id)),
+          ...(await row(
+            this.agent(a.id),
+            agentOpen.find((g) => g.agentEmployeeId === a.id)?._count ?? 0,
+          )),
         })),
       ),
-      wayOut: wayOut ? { balance: await balance(this.wayOut()) } : null,
+      wayOut: wayOut ? await row(this.wayOut(), wayOutOpen) : null,
     };
   }
 

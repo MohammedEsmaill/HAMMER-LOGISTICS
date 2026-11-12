@@ -123,10 +123,21 @@ export interface Statement {
   totals: { debit: string; credit: string; balance: string };
 }
 
+/** A holder's totals: مدين = what they received, دائن = what they accounted for or earned. */
+export interface HolderTotals {
+  debit: string;
+  credit: string;
+  /** > 0: owes the office (مدين); < 0: the office owes them (مستحقات). */
+  balance: string;
+  movements: number;
+  lastDate: string | null;
+  openCustodies: number;
+}
+
 export interface Holders {
-  clearers: { id: number; name: string; balance: string }[];
-  agents: { id: number; name: string; balance: string }[];
-  wayOut: { balance: string } | null;
+  clearers: ({ id: number; name: string } & HolderTotals)[];
+  agents: ({ id: number; name: string } & HolderTotals)[];
+  wayOut: HolderTotals | null;
 }
 
 export interface CustodiesQuery {

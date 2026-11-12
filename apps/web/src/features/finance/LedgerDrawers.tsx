@@ -16,17 +16,17 @@ import { useEditable } from './finance-helpers';
 import { SelectField } from '@/components/ui/SelectField';
 import { ApprovalTrail } from './MovementDrawers';
 
-/** The statement table: عليه / له / الرصيد after each line. */
+/** The statement table: مدين / دائن / the balance after each line. */
 export function StatementTable({ statement }: { statement: Statement }) {
   const cur = statement.currency;
   const b = Number(statement.totals.balance);
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <Box label="عليه (استلم من المكتب)" value={money(statement.totals.debit, cur)} />
-        <Box label="له (صرف ورد وأتعاب)" value={money(statement.totals.credit, cur)} />
+        <Box label="مدين" value={money(statement.totals.debit, cur)} />
+        <Box label="دائن" value={money(statement.totals.credit, cur)} />
         <Box
-          label={b > 0 ? 'الرصيد: معاه فلوس للمكتب' : b < 0 ? 'الرصيد: المكتب عليه فلوس له' : 'الرصيد'}
+          label={b > 0 ? 'رصيد مدين' : b < 0 ? 'مستحقات' : 'الرصيد'}
           value={money(Math.abs(b), cur)}
           tone={b > 0 ? 'text-warning' : b < 0 ? 'text-success' : 'text-gold'}
         />
@@ -35,7 +35,7 @@ export function StatementTable({ statement }: { statement: Statement }) {
         <table className="w-full text-sm">
           <thead className="bg-surface-2 text-muted">
             <tr>
-              {['التاريخ', 'البيان', 'المرجع', 'عليه', 'له', 'الرصيد'].map((h) => (
+              {['التاريخ', 'البيان', 'المرجع', 'مدين', 'دائن', 'الرصيد'].map((h) => (
                 <th key={h} className="px-3 py-2 text-start font-medium whitespace-nowrap">
                   {h}
                 </th>
