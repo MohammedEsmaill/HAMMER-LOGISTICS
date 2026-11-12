@@ -7,11 +7,20 @@ interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   icon?: ReactNode;
   hint?: string;
+  /** Dates are today at the latest; only expected dates (an ETA) may be later. */
+  allowFuture?: boolean;
+}
+
+/** Today (or now) on this computer, as a date / datetime-local input takes it. */
+function nowFor(type: string) {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return type === 'datetime-local' ? d.toISOString().slice(0, 16) : d.toISOString().slice(0, 10);
 }
 
 /** Labelled input; the error appears under it and is announced to screen readers. */
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
-  { label, error, icon, hint, type = 'text', className = '', ...props },
+  { label, error, icon, hint, allowFuture, type = 'text', className = '', ...props },
   ref,
 ) {
   const id = useId();
@@ -37,6 +46,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
           aria-invalid={!!error}
           aria-describedby={describedBy}
           className="h-full w-full bg-transparent text-ink outline-none placeholder:text-muted/60"
+          max={(type === 'date' || type === 'datetime-local') && !allowFuture ? nowFor(type) : undefined}
           {...props}
         />
         {isPassword && (

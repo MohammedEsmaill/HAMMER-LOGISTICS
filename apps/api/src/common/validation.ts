@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsNumber, Min } from 'class-validator';
+import { IsNumber, Min, ValidateBy } from 'class-validator';
 
 /** Trims strings; turns empty strings into undefined so optional fields stay optional. */
 export const Trim = () =>
@@ -34,3 +34,35 @@ export function toDecimal(value: number | undefined) {
 export const NATIONAL_ID = /^[0-9]{14}$/;
 export const EGYPT_MOBILE = /^01[0125][0-9]{8}$/;
 export const TAX_NUMBER = /^[0-9]{9}$/;
+
+/** Today in Cairo, as a UTC midnight: the day the office is living. */
+function cairoToday(): Date {
+  const day = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+  }).format(new Date());
+  return new Date(`${day}T00:00:00.000Z`);
+}
+
+/**
+ * A date that already happened: today at the latest (Cairo). Every recorded date
+ * follows this rule; only expected dates (the ETA) may be in the future.
+ */
+export const NotFuture = (label = 'التاريخ') =>
+  ValidateBy({
+    name: 'notFuture',
+    validator: {
+      validate: (value: unknown) => {
+        if (value === null || value === undefined) return true;
+        if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+          return true; // IsDate reports a bad date
+        }
+        const day = Date.UTC(
+          value.getUTCFullYear(),
+          value.getUTCMonth(),
+          value.getUTCDate(),
+        );
+        return day <= cairoToday().getTime();
+      },
+      defaultMessage: () => `${label} مينفعش يبقى بعد النهاردة`,
+    },
+  });

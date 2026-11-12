@@ -132,7 +132,7 @@ function OperationCard({ shipment }: { shipment: Shipment }) {
       {editable && shipment.mode !== 'FREE_ZONE' ? (
         <div className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <TextField label={air ? 'رقم الطائرة / الرحلة' : 'اسم المركب'} maxLength={100} value={vesselName} onChange={(e) => setVessel(e.target.value)} />
-          <TextField label="ETA" type="date" value={eta} onChange={(e) => setEta(e.target.value)} />
+          <TextField label="ETA" type="date" allowFuture value={eta} onChange={(e) => setEta(e.target.value)} />
           <Button disabled={!changed} loading={save.isPending} onClick={() => save.mutate(undefined)}>
             حفظ
           </Button>

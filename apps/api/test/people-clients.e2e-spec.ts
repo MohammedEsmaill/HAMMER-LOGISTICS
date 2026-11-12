@@ -73,6 +73,14 @@ describe('Employees, clearers, clients (e2e)', () => {
         .expect(403);
     });
 
+    it('refuses a hire date after today', async () => {
+      const res = await ctx
+        .api(hr)
+        .post('/api/employees', employeeBody('309', { hireDate: '2999-01-01' }))
+        .expect(400);
+      expect(res.body.message.join()).toContain('تاريخ التعيين');
+    });
+
     it('rejects a duplicate fingerprint code and a malformed national id', async () => {
       const dup = await ctx
         .api(hr)

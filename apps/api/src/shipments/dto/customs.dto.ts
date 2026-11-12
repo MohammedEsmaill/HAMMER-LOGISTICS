@@ -10,17 +10,20 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { Trim } from '../../common/validation';
+import { Trim, NotFuture } from '../../common/validation';
 import { VersionedDto } from './update-shipment.dto';
 
+/** An optional recorded date: today at the latest. */
 const DateField = () => {
   const type = Type(() => Date);
   const isDate = IsDate();
   const optional = IsOptional();
+  const notFuture = NotFuture();
   return (target: object, key: string) => {
     optional(target, key);
     type(target, key);
     isDate(target, key);
+    notFuture(target, key);
   };
 };
 
@@ -74,6 +77,7 @@ export class AddInspectionDto extends VersionedDto {
 
   @Type(() => Date)
   @IsDate()
+  @NotFuture('تاريخ طلب العرض')
   requestedAt!: Date;
 
   @IsOptional()
@@ -93,6 +97,7 @@ export class UpdateInspectionDto extends VersionedDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  @NotFuture('تاريخ طلب العرض')
   requestedAt?: Date;
 
   @IsOptional()

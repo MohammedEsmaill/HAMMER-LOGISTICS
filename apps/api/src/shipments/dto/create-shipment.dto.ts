@@ -21,7 +21,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { Trim } from '../../common/validation';
+import { Trim, NotFuture } from '../../common/validation';
 import { normaliseContainerNumber } from '../container-number';
 
 /** Bill and booking numbers: trimmed, upper-case, no inner spaces. */
@@ -110,6 +110,7 @@ export class CreateShipmentDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  @NotFuture('تاريخ الإخطار')
   notificationDate?: Date;
 
   @IsInt()

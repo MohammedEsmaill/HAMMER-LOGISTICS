@@ -180,7 +180,7 @@ export function ShippingFields({ form, rules, withOperation }: { form: ShipmentF
       {withOperation && rules.route && (
         <>
           <TextField label={air ? 'رقم الطائرة / الرحلة (اختياري)' : 'اسم المركب (اختياري)'} error={errorAt(form, 'vesselName')} {...register('vesselName')} />
-          <TextField label="تاريخ الوصول المتوقع ETA (اختياري)" type="date" error={errorAt(form, 'eta')} {...register('eta')} />
+          <TextField label="تاريخ الوصول المتوقع ETA (اختياري)" type="date" allowFuture error={errorAt(form, 'eta')} {...register('eta')} />
         </>
       )}
     </div>

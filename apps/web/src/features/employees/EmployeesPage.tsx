@@ -31,6 +31,13 @@ import {
 
 const departmentOptions = Object.entries(DEPARTMENTS).map(([value, label]) => ({ value, label }));
 
+/** A recorded date is today at the latest (as this computer counts the day). */
+const notAfterToday = (v: string) => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return v <= d.toISOString().slice(0, 10);
+};
+
 const schema = z
   .object({
     code: z.string().trim().min(1, 'اكتب رقم البصمة').max(20, '20 حرف بالكتير'),
@@ -42,10 +49,10 @@ const schema = z
       errorMap: () => ({ message: 'اختار القسم' }),
     }),
     jobTitle: z.string().trim().min(1, 'اكتب المسمى الوظيفي').max(80),
-    hireDate: z.string().min(1, 'اختار تاريخ التعيين'),
+    hireDate: z.string().min(1, 'اختار تاريخ التعيين').refine(notAfterToday, 'تاريخ التعيين مينفعش يبقى بعد النهاردة'),
     basicSalary: money.optional(),
     status: z.enum(['ACTIVE', 'LEFT']),
-    leaveDate: z.string().optional(),
+    leaveDate: z.string().optional().refine((v) => !v || notAfterToday(v), 'تاريخ ترك العمل مينفعش يبقى بعد النهاردة'),
     notes: optionalText(1000),
   })
   .refine((v) => v.status !== 'LEFT' || !!v.leaveDate, {

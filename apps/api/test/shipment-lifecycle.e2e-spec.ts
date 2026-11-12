@@ -195,6 +195,25 @@ describe('Shipment lifecycle (e2e)', () => {
       expect(refused.body.message.join()).toContain('تاريخ الشحن');
     });
 
+    it('a recorded date cannot be after today; the expected arrival can', async () => {
+      const s = await register();
+      const future = await ctx
+        .api(fx.tokens.nafeza)
+        .patch(`/api/shipments/${s.id}/customs`, {
+          version: s.version,
+          examinationDate: '2999-01-01',
+        })
+        .expect(400);
+      expect(future.body.message.join()).toContain('بعد النهاردة');
+      await ctx
+        .api(fx.tokens.opsA)
+        .patch(`/api/shipments/${s.id}/operation`, {
+          version: s.version,
+          eta: '2999-01-01',
+        })
+        .expect(200);
+    });
+
     it('the storage yard must be in the shipment’s Egyptian port', async () => {
       const s = await register(); // discharges at Alexandria
       await ctx

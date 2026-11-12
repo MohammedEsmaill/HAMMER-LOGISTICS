@@ -10,7 +10,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
-import { Money, NATIONAL_ID, Trim } from '../../common/validation';
+import { Money, NATIONAL_ID, Trim, NotFuture } from '../../common/validation';
 
 export class CreateEmployeeDto {
   @Trim()
@@ -50,6 +50,7 @@ export class CreateEmployeeDto {
 
   @Type(() => Date)
   @IsDate()
+  @NotFuture('تاريخ التعيين')
   hireDate!: Date;
 
   @IsOptional()
@@ -108,6 +109,7 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  @NotFuture('تاريخ التعيين')
   hireDate?: Date;
 
   @IsOptional()
@@ -117,6 +119,7 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
+  @NotFuture('تاريخ ترك العمل')
   leaveDate?: Date;
 
   @IsOptional()
