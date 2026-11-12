@@ -43,19 +43,50 @@ start "HAMMER - API" /d "%~dp0apps\api" cmd /k node dist/main.js
 echo [3/4] Web app on http://localhost:4173 ...
 start "HAMMER - WEB" /d "%~dp0apps\web" cmd /k npx vite preview
 
+rem the share link: cloudflared in its own window, its log read here for the link
 set "CF="
 if exist "%~dp0cloudflared.exe" set "CF=%~dp0cloudflared.exe"
 if not defined CF if exist "%~dp0..\cloudflared.exe" set "CF=%~dp0..\cloudflared.exe"
 if not defined CF for /f "delims=" %%i in ('where cloudflared 2^>nul') do if not defined CF set "CF=%%i"
-if defined CF (
-  echo [4/4] Share link: look in the "HAMMER - LINK" window for https://....trycloudflare.com
-  start "HAMMER - LINK" cmd /k ""%CF%" tunnel --url http://localhost:4173"
-) else (
-  echo [4/4] cloudflared.exe not found, so no share link. The system still works on this computer.
-)
+if not defined CF goto nocf
 
-timeout /t 6 /nobreak >nul
+echo [4/4] Share link...
+set "LOG=%TEMP%\hammer-link.log"
+if exist "%LOG%" del "%LOG%"
+start "HAMMER - LINK" /min "%CF%" tunnel --url http://localhost:4173 --logfile "%LOG%"
+
+set "LINK="
+set /a waited=0
+:waitlink
+timeout /t 2 /nobreak >nul
+for /f "usebackq delims=" %%L in (`powershell -NoProfile -Command "$m = Select-String -Path $env:TEMP\hammer-link.log -Pattern 'https://(?!api\.)[a-z0-9-]+\.trycloudflare\.com' -ErrorAction SilentlyContinue ^| Select-Object -First 1; if ($m) { $m.Matches[0].Value }"`) do set "LINK=%%L"
+if defined LINK goto gotlink
+set /a waited+=2
+if %waited% lss 60 goto waitlink
+echo.
+echo The share link did not come up within a minute. Check the internet connection,
+echo then close the HAMMER windows and run start.bat again.
+goto opened
+
+:gotlink
+echo %LINK%| clip
+echo.
+echo ================================================================
+echo   Share link (already copied, paste it with Ctrl+V):
+echo.
+echo   %LINK%
+echo.
+echo   It may take up to a minute before it opens on other devices.
+echo   It changes every time start.bat runs.
+echo ================================================================
+goto opened
+
+:nocf
+echo [4/4] cloudflared.exe not found next to start.bat, so no share link.
+echo       Put cloudflared.exe in %~dp0 and run start.bat again.
+
+:opened
 start "" http://localhost:4173
 echo.
-echo Running. To stop: close the HAMMER windows.
-timeout /t 5 >nul
+echo Running. To stop: close the HAMMER windows. Keep this window to see the link.
+pause
