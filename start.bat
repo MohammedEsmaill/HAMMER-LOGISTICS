@@ -59,7 +59,7 @@ set "LINK="
 set /a waited=0
 :waitlink
 timeout /t 2 /nobreak >nul
-for /f "usebackq delims=" %%L in (`powershell -NoProfile -Command "$m = Select-String -Path $env:TEMP\hammer-link.log -Pattern 'https://(?!api\.)[a-z0-9-]+\.trycloudflare\.com' -ErrorAction SilentlyContinue ^| Select-Object -First 1; if ($m) { $m.Matches[0].Value }"`) do set "LINK=%%L"
+call :findlink
 if defined LINK goto gotlink
 set /a waited+=2
 if %waited% lss 60 goto waitlink
@@ -69,13 +69,13 @@ echo then close the HAMMER windows and run start.bat again.
 goto opened
 
 :gotlink
-echo %LINK%| clip
+<nul set /p "=%LINK%"| clip
 echo.
 echo ================================================================
 echo   Share link (already copied, paste it with Ctrl+V):
-echo.
-echo   %LINK%
-echo.
+echo(
+echo(  %LINK%
+echo(
 echo   It may take up to a minute before it opens on other devices.
 echo   It changes every time start.bat runs.
 echo ================================================================
@@ -90,3 +90,22 @@ start "" http://localhost:4173
 echo.
 echo Running. To stop: close the HAMMER windows. Keep this window to see the link.
 pause
+exit /b 0
+
+rem Reads cloudflared's log for the tunnel link (https://<words>.trycloudflare.com),
+rem skipping its own API address. Sets LINK, or leaves it empty.
+:findlink
+if not exist "%LOG%" exit /b 0
+setlocal EnableDelayedExpansion
+set "found="
+for /f "usebackq delims=" %%A in (`findstr /i /c:".trycloudflare.com" "%LOG%"`) do (
+  set "line=%%A"
+  set "line=!line:"= !"
+  set "line=!line:|= !"
+  for %%W in (!line!) do (
+    set "word=%%W"
+    if not defined found if /i "!word:~0,8!"=="https://" if /i "!word:~-18!"==".trycloudflare.com" if /i not "!word!"=="https://api.trycloudflare.com" set "found=!word!"
+  )
+)
+endlocal & set "LINK=%found%"
+exit /b 0
