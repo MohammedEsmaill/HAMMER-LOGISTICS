@@ -17,9 +17,10 @@ import {
 } from './dto/custody.dto';
 import { LedgerService } from './ledger.service';
 import { FEE_RATE_PORTS } from './prices.service';
-import { businessDate, decimal, formatAmount, todayCairo } from './money';
+import { decimal, formatAmount, todayCairo } from './money';
 import { payableBeneficiary } from './beneficiaries.service';
 import { egpCashBox, egpPayingAccount } from './paying-account';
+import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const ZERO = new Prisma.Decimal(0);
@@ -307,7 +308,7 @@ export class ClearerFeesService {
           accountId: box.id,
           beneficiaryId: dto.beneficiaryId ?? null,
           transferRef: dto.transferRef?.toUpperCase() ?? null,
-          paymentDate: businessDate(dto.paymentDate, 'تاريخ الصرف'),
+          paymentDate: await openDate(tx, dto.paymentDate, 'تاريخ الصرف'),
           notes: dto.notes,
           createdById: actor.id,
         },
@@ -343,6 +344,7 @@ export class ClearerFeesService {
         where: { id },
       });
       const { resetApproval } = assertCanEdit(actor, before);
+      await assertDayEditable(tx, actor, before.paymentDate);
       await this.lockFee(tx, before.feeId);
       const amount =
         dto.amount !== undefined ? decimal(dto.amount) : before.amount;
@@ -355,7 +357,7 @@ export class ClearerFeesService {
       }
       const paymentDate =
         dto.paymentDate !== undefined
-          ? businessDate(dto.paymentDate, 'تاريخ الصرف')
+          ? await openDate(tx, dto.paymentDate, 'تاريخ الصرف', actor)
           : before.paymentDate;
       const moneyChanged =
         !amount.equals(before.amount) ||

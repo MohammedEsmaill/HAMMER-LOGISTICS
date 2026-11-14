@@ -15,7 +15,8 @@ import {
   UpdateOtherMovementDto,
 } from './dto/movement.dto';
 import { LedgerService } from './ledger.service';
-import { businessDate, decimal } from './money';
+import { decimal } from './money';
+import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const ACCOUNT = {
@@ -99,7 +100,7 @@ export class OtherMovementsService {
           direction,
           amount: decimal(dto.amount),
           reason: dto.reason,
-          movementDate: businessDate(dto.movementDate, 'تاريخ الحركة'),
+          movementDate: await openDate(tx, dto.movementDate, 'تاريخ الحركة'),
           createdById: actor.id,
         },
       });
@@ -146,11 +147,12 @@ export class OtherMovementsService {
         where: { id },
       });
       const { resetApproval } = assertCanEdit(actor, before);
+      await assertDayEditable(tx, actor, before.movementDate);
       const amount =
         dto.amount !== undefined ? decimal(dto.amount) : before.amount;
       const movementDate =
         dto.movementDate !== undefined
-          ? businessDate(dto.movementDate, 'تاريخ الحركة')
+          ? await openDate(tx, dto.movementDate, 'تاريخ الحركة', actor)
           : before.movementDate;
       const moneyChanged =
         !amount.equals(before.amount) ||

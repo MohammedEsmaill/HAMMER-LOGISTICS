@@ -1,3 +1,4 @@
+import { assertDayEditable, openDate } from './days';
 import {
   BadRequestException,
   ConflictException,
@@ -15,7 +16,7 @@ import {
   UpdateTransferDto,
 } from './dto/movement.dto';
 import { LedgerService } from './ledger.service';
-import { businessDate, decimal } from './money';
+import { decimal } from './money';
 
 const ACCOUNT = {
   select: { id: true, name: true, type: true, currency: true },
@@ -98,7 +99,7 @@ export class TransfersService {
         toAccountId: dto.toAccountId,
         amount: decimal(dto.amount),
         chequeNo: dto.chequeNo?.toUpperCase() ?? null,
-        transferDate: businessDate(dto.transferDate, 'تاريخ التحويل'),
+        transferDate: await openDate(tx, dto.transferDate, 'تاريخ التحويل'),
       };
       const { currency } = await this.check(tx, fields);
       const transfer = await tx.transfer.create({
@@ -129,6 +130,7 @@ export class TransfersService {
       await this.claim(tx, id, dto.version);
       const before = await tx.transfer.findUniqueOrThrow({ where: { id } });
       const { resetApproval } = assertCanEdit(actor, before);
+      await assertDayEditable(tx, actor, before.transferDate);
 
       const fields: TransferFields = {
         fromAccountId: dto.fromAccountId ?? before.fromAccountId,
@@ -140,7 +142,7 @@ export class TransfersService {
             : (dto.chequeNo?.toUpperCase() ?? null),
         transferDate:
           dto.transferDate !== undefined
-            ? businessDate(dto.transferDate, 'تاريخ التحويل')
+            ? await openDate(tx, dto.transferDate, 'تاريخ التحويل', actor)
             : before.transferDate,
       };
       const moneyChanged =

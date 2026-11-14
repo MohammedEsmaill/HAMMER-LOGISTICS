@@ -131,3 +131,67 @@ export function defaultPeriodValue(kind: PeriodKind): string {
   if (kind === 'year') return t.slice(0, 4);
   return t;
 }
+
+/* ---------- daily journals ---------- */
+
+export type DayStatus = 'OPEN' | 'CLOSED' | 'REOPENED';
+
+export const DAY_STATUS: Record<DayStatus, { label: string; tone: 'success' | 'muted' | 'gold' }> = {
+  OPEN: { label: 'مفتوحة', tone: 'success' },
+  CLOSED: { label: 'مقفولة', tone: 'muted' },
+  REOPENED: { label: 'مفتوحة بإذن المدير', tone: 'gold' },
+};
+
+export interface JournalDayRow {
+  date: string;
+  status: DayStatus;
+  closedAt: string | null;
+  reopenedUntil: string | null;
+  operations: number;
+  totals: Record<Currency, { in: string; out: string }>;
+}
+
+export interface JournalDay {
+  date: string;
+  status: DayStatus;
+  closedAt: string | null;
+  reopenedUntil: string | null;
+  reopenedBy: { id: number; email: string } | null;
+  reopenCount: number;
+  accounts: { account: { id: number; name: string; type: 'CASH' | 'BANK'; currency: Currency }; opening: string; in: string; out: string; closing: string }[];
+}
+
+export interface JournalDaysQuery {
+  page: number;
+  from?: string;
+  to?: string;
+  search?: string;
+}
+
+export const useJournalDays = (q: JournalDaysQuery) =>
+  useQuery({
+    queryKey: [...financeKeys.all, 'journal-days', q] as const,
+    queryFn: () => api.get<Page<JournalDayRow>>('/finance/journal/days', journalParams({ ...q, pageSize: 31 })),
+    placeholderData: keepPreviousData,
+  });
+
+export const useJournalDay = (date: string | null) =>
+  useQuery({
+    queryKey: [...financeKeys.all, 'journal-day', date] as const,
+    queryFn: () => api.get<JournalDay>(`/finance/journal/days/${date}`),
+    enabled: !!date,
+  });
+
+export const journalDaysApi = {
+  reopen: (date: string) => api.post<JournalDay>(`/finance/journal/days/${date}/reopen`),
+};
+
+/** A report of the journal for a period, in its own tab (print / PDF / Excel). */
+export const openJournalReport = (from: string, to: string) =>
+  window.open(`/print/reports/journal?from=${from}&to=${to}`, '_blank', 'noopener');
+
+/** "الأحد 14/11/2026" */
+export const dayTitle = (date: string) =>
+  new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }).format(
+    new Date(`${date}T00:00:00Z`),
+  );

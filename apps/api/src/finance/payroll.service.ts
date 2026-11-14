@@ -20,8 +20,9 @@ import {
   UpdateSalaryDto,
 } from './dto/payroll.dto';
 import { LedgerService } from './ledger.service';
-import { businessDate, decimal, formatAmount, todayCairo } from './money';
+import { decimal, formatAmount, todayCairo } from './money';
 import { egpPayingAccount } from './paying-account';
+import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const EMPLOYEE = {
@@ -151,7 +152,7 @@ export class PayrollService {
           adjustments: adjustments as unknown as Prisma.InputJsonValue,
           ...figures,
           accountId: account.id,
-          paymentDate: businessDate(dto.paymentDate, 'تاريخ الصرف'),
+          paymentDate: await openDate(tx, dto.paymentDate, 'تاريخ الصرف'),
           notes: dto.notes,
           createdById: actor.id,
         },
@@ -186,6 +187,7 @@ export class PayrollService {
         where: { id },
       });
       const { resetApproval } = assertCanEdit(actor, before);
+      await assertDayEditable(tx, actor, before.paymentDate);
       await this.lockEmployee(tx, before.employeeId);
 
       const adjustments =
@@ -210,7 +212,7 @@ export class PayrollService {
       if (dto.accountId !== undefined) await egpPayingAccount(tx, accountId);
       const paymentDate =
         dto.paymentDate !== undefined
-          ? businessDate(dto.paymentDate, 'تاريخ الصرف')
+          ? await openDate(tx, dto.paymentDate, 'تاريخ الصرف', actor)
           : before.paymentDate;
 
       const moneyChanged =
@@ -364,7 +366,7 @@ export class PayrollService {
           employeeId: employee.id,
           amount: decimal(dto.amount),
           accountId: account.id,
-          advanceDate: businessDate(dto.advanceDate, 'تاريخ السلفة'),
+          advanceDate: await openDate(tx, dto.advanceDate, 'تاريخ السلفة'),
           notes: dto.notes,
           createdById: actor.id,
         },
@@ -400,6 +402,7 @@ export class PayrollService {
         where: { id },
       });
       const { resetApproval } = assertCanEdit(actor, before);
+      await assertDayEditable(tx, actor, before.advanceDate);
       await this.lockEmployee(tx, before.employeeId);
 
       const amount =
@@ -417,7 +420,7 @@ export class PayrollService {
       if (dto.accountId !== undefined) await egpPayingAccount(tx, accountId);
       const advanceDate =
         dto.advanceDate !== undefined
-          ? businessDate(dto.advanceDate, 'تاريخ السلفة')
+          ? await openDate(tx, dto.advanceDate, 'تاريخ السلفة', actor)
           : before.advanceDate;
       const moneyChanged =
         !amount.equals(before.amount) ||

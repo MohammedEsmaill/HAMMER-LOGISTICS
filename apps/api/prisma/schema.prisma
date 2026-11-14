@@ -372,6 +372,7 @@ model User {
   finishedAccounts       ShipmentAccount[]      @relation("AccountFinishedBy")
   statementOverrides     StatementOverride[]    @relation("OverrideBy")
   statementExtras        StatementExtraLine[]   @relation("ExtraLineBy")
+  reopenedDays           JournalDay[]           @relation("JournalDayReopenedBy")
 
   @@map("users")
 }
@@ -718,16 +719,17 @@ model MoneyAccount {
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
-  movements        MoneyMovement[]
-  transfersOut     Transfer[]          @relation("TransferFrom")
-  transfersIn      Transfer[]          @relation("TransferTo")
-  otherMovements   OtherMovement[]
-  salaryPayments   SalaryPayment[]
-  employeeAdvances EmployeeAdvance[]
-  generalExpenses  GeneralExpense[]
-  custodies        Custody[]
-  feePayments      ClearerFeePayment[]
-  collections      Collection[]
+  movements          MoneyMovement[]
+  transfersOut       Transfer[]          @relation("TransferFrom")
+  transfersIn        Transfer[]          @relation("TransferTo")
+  otherMovements     OtherMovement[]
+  salaryPayments     SalaryPayment[]
+  employeeAdvances   EmployeeAdvance[]
+  generalExpenses    GeneralExpense[]
+  custodies          Custody[]
+  feePayments        ClearerFeePayment[]
+  collections        Collection[]
+  journalDayAccounts JournalDayAccount[]
 
   @@unique([id, currency]) // target of the composite FKs that lock a document's currency
   @@map("money_accounts")
@@ -1431,4 +1433,43 @@ model ClearerFreeZone {
   @@id([clearerId, freeZoneId])
   @@index([freeZoneId])
   @@map("clearer_free_zones")
+}
+
+enum DayStatus {
+  OPEN
+  CLOSED
+}
+
+/// اليومية: one per business day (Cairo). A day closes by itself after midnight; then no
+/// operation may be recorded on it or edited, except by the CEO, who may reopen it until
+/// the end of the current day.
+model JournalDay {
+  date          DateTime  @id @db.Date
+  status        DayStatus @default(CLOSED)
+  closedAt      DateTime? @map("closed_at")
+  /// a reopened day stays open until this day ends, then closes again
+  reopenedUntil DateTime? @map("reopened_until") @db.Date
+  reopenedById  Int?      @map("reopened_by")
+  reopenCount   Int       @default(0) @map("reopen_count")
+
+  reopenedBy User?               @relation("JournalDayReopenedBy", fields: [reopenedById], references: [id], onDelete: Restrict)
+  accounts   JournalDayAccount[]
+
+  @@map("journal_days")
+}
+
+/// Each account's figures for the day, as they stood when the day closed.
+model JournalDayAccount {
+  date      DateTime @db.Date
+  accountId Int      @map("account_id")
+  opening   Decimal  @db.Decimal(14, 2)
+  in        Decimal  @db.Decimal(14, 2)
+  out       Decimal  @db.Decimal(14, 2)
+  closing   Decimal  @db.Decimal(14, 2)
+
+  day     JournalDay   @relation(fields: [date], references: [date], onDelete: Cascade)
+  account MoneyAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@id([date, accountId])
+  @@map("journal_day_accounts")
 }

@@ -38,6 +38,7 @@ import { JournalService } from './journal.service';
 import { ReportsService } from './reports.service';
 import { PricesController } from './prices.controller';
 import { PricesService } from './prices.service';
+import { JournalDaysService } from './journal-days.service';
 
 @Module({
   controllers: [
@@ -76,7 +77,14 @@ import { PricesService } from './prices.service';
     JournalService,
     ReportsService,
     PricesService,
+    JournalDaysService,
   ],
-  exports: [LedgerService, ApprovalService, ClearerFeesService, JournalService],
+  exports: [
+    LedgerService,
+    ApprovalService,
+    ClearerFeesService,
+    JournalService,
+    JournalDaysService,
+  ],
 })
 export class FinanceModule {}

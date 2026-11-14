@@ -11,8 +11,9 @@ import {
   UpdateExpenseDto,
 } from './dto/expense.dto';
 import { LedgerService } from './ledger.service';
-import { businessDate, decimal } from './money';
+import { decimal } from './money';
 import { egpCashBox } from './paying-account';
+import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const TYPE = { select: { id: true, name: true } } as const;
@@ -136,7 +137,7 @@ export class ExpensesService {
           payee: dto.payee,
           amount: decimal(dto.amount),
           receiptNo: dto.receiptNo.toUpperCase(),
-          expenseDate: businessDate(dto.expenseDate, 'تاريخ المصروف'),
+          expenseDate: await openDate(tx, dto.expenseDate, 'تاريخ المصروف'),
           accountId: box.id,
           notes: dto.notes,
           createdById: actor.id,
@@ -172,11 +173,12 @@ export class ExpensesService {
         where: { id },
       });
       const { resetApproval } = assertCanEdit(actor, before);
+      await assertDayEditable(tx, actor, before.expenseDate);
       const amount =
         dto.amount !== undefined ? decimal(dto.amount) : before.amount;
       const expenseDate =
         dto.expenseDate !== undefined
-          ? businessDate(dto.expenseDate, 'تاريخ المصروف')
+          ? await openDate(tx, dto.expenseDate, 'تاريخ المصروف', actor)
           : before.expenseDate;
       const moneyChanged =
         !amount.equals(before.amount) ||

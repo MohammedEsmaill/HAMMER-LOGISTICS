@@ -14,8 +14,9 @@ import {
   UpdateCollectionDto,
 } from './dto/shipment-account.dto';
 import { LedgerService } from './ledger.service';
-import { businessDate, decimal, formatAmount } from './money';
+import { decimal, formatAmount } from './money';
 import { ShipmentAccountService } from './shipment-account.service';
+import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const ZERO = new Prisma.Decimal(0);
@@ -69,7 +70,11 @@ export class CollectionsService {
           amount,
           method: dto.method,
           accountId: account.id,
-          collectionDate: businessDate(dto.collectionDate, 'تاريخ التحصيل'),
+          collectionDate: await openDate(
+            tx,
+            dto.collectionDate,
+            'تاريخ التحصيل',
+          ),
           reference: dto.reference,
           notes: dto.notes,
           createdById: actor.id,
@@ -104,6 +109,7 @@ export class CollectionsService {
       await claimDocument(tx, 'COLLECTION', id, dto.version);
       const before = await tx.collection.findUniqueOrThrow({ where: { id } });
       const { resetApproval } = assertCanEdit(actor, before);
+      await assertDayEditable(tx, actor, before.collectionDate);
       const amount =
         dto.amount !== undefined ? decimal(dto.amount) : before.amount;
       await this.assertWithinOutstanding(
@@ -114,7 +120,7 @@ export class CollectionsService {
       );
       const collectionDate =
         dto.collectionDate !== undefined
-          ? businessDate(dto.collectionDate, 'تاريخ التحصيل')
+          ? await openDate(tx, dto.collectionDate, 'تاريخ التحصيل', actor)
           : before.collectionDate;
       const moneyChanged =
         !amount.equals(before.amount) ||

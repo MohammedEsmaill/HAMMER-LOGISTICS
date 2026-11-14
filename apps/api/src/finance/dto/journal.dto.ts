@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsDate, IsIn, IsInt, IsOptional, Min } from 'class-validator';
+import { IsDate, IsIn, IsInt, IsOptional, Matches, Min } from 'class-validator';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
 
 export const JOURNAL_TYPES = [
@@ -62,4 +62,22 @@ export class JournalQueryDto extends ListQueryDto {
   @IsInt()
   @Min(1)
   createdBy?: number;
+}
+
+/** The days list: a period, and a file number or a party to look for. */
+export class JournalDaysQueryDto extends ListQueryDto {
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  from?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  to?: Date;
+}
+
+export class DayParam {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'التاريخ لازم يكون YYYY-MM-DD' })
+  date!: string;
 }

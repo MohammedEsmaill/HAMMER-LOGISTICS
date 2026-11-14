@@ -1,6 +1,5 @@
-import { ArrowLeftRight, Banknote, Briefcase, FileBarChart, HandCoins, Plus, Receipt, RotateCcw, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, FileBarChart, HandCoins, Plus, Receipt, RotateCcw, Wallet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import type { Permission } from '@/auth/permissions';
 import { Button } from '@/components/ui/Button';
@@ -10,9 +9,8 @@ import { Badge, PageHeader } from '@/components/ui/misc';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { SelectField } from '@/components/ui/SelectField';
-import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
-import { CURRENCIES, money, STATUS, useAccounts, type ApprovalStatus, type Currency } from './api';
+import { CURRENCIES, money, STATUS, today, useAccounts, type ApprovalStatus, type Currency } from './api';
 import { IssueCustodyDrawer } from './CustodyDrawers';
 import { DocumentDrawers, type OpenDocument } from './DocumentDrawers';
 import { ExpenseDrawer } from './ExpensesPage';
@@ -27,6 +25,9 @@ import {
   type JournalRow,
   type JournalType,
 } from './journal-api';
+import { dayTitle, openJournalReport } from './journal-api';
+import { JournalArchive } from './JournalArchive';
+import { FormTabs } from '../shipments/FormTabs';
 import { OtherDrawer, TransferDrawer } from './MovementDrawers';
 import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
 
@@ -66,24 +67,20 @@ function TypeChips({ value, onChange, salaryData }: { value: JournalType[]; onCh
   );
 }
 
-/**
- * The journal: every money operation of the office, newest first, filtered and paged by
- * the server. The treasury manager records from here; the others read and report.
- */
-export default function JournalPage() {
-  const { can, canAny } = useAuth();
-  const salaryData = canAny('finance.payroll.manage', 'finance.approve');
-  const [q, setQ] = useState<JournalQuery>(EMPTY);
-  const { data, isLoading, error } = useJournal(q);
-  const { data: accounts = [] } = useAccounts();
-  const { data: authors = [] } = useJournalAuthors();
-  const [open, setOpen] = useState<OpenDocument | null>(null);
-  const [picker, setPicker] = useState(false);
-  const [creating, setCreating] = useState<NewKind | null>(null);
-  const set = (patch: Partial<JournalQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
-  const newKinds = NEW_KINDS.filter((k) => can(k.permission));
-  const filtered = JSON.stringify({ ...q, page: 1 }) !== JSON.stringify(EMPTY);
-
+/** The operations of the journal, as one table everywhere (today, a past day). */
+export function JournalTable({
+  rows,
+  loading,
+  error,
+  empty,
+  onOpen,
+}: {
+  rows: JournalRow[] | undefined;
+  loading?: boolean;
+  error?: unknown;
+  empty: string;
+  onOpen: (r: JournalRow) => void;
+}) {
   const columns: Column<JournalRow>[] = [
     { header: 'التاريخ', cell: (r) => <span className="whitespace-nowrap">{formatDate(r.operationDate)}</span> },
     {
@@ -127,6 +124,30 @@ export default function JournalPage() {
     { header: 'الحالة', cell: (r) => <Badge tone={STATUS[r.approvalStatus].tone}>{STATUS[r.approvalStatus].label}</Badge> },
     { header: 'سجّلها', cell: (r) => <span className="text-sm text-muted">{r.createdBy.email.split('@')[0]}</span> },
   ];
+  return <DataTable columns={columns} rows={rows} rowKey={(r) => `${r.type}-${r.id}`} loading={loading} error={error} empty={empty} onRowClick={onOpen} />;
+}
+
+/**
+ * The journal: every money operation of the office, newest first, filtered and paged by
+ * the server. The treasury manager records from here; the others read and report.
+ */
+export default function JournalPage() {
+  const { can, canAny } = useAuth();
+  const salaryData = canAny('finance.payroll.manage', 'finance.approve');
+  const [view, setView] = useState<'today' | 'archive'>('today');
+  const [q, setQ] = useState<JournalQuery>(EMPTY);
+  const day = today();
+  // today's journal: only what happened today
+  const { data, isLoading, error } = useJournal({ ...q, from: day, to: day });
+  const { data: accounts = [] } = useAccounts();
+  const { data: authors = [] } = useJournalAuthors();
+  const [open, setOpen] = useState<OpenDocument | null>(null);
+  const [picker, setPicker] = useState(false);
+  const [creating, setCreating] = useState<NewKind | null>(null);
+  const set = (patch: Partial<JournalQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
+  const newKinds = NEW_KINDS.filter((k) => can(k.permission));
+  const filtered = JSON.stringify({ ...q, page: 1 }) !== JSON.stringify(EMPTY);
+
 
   return (
     <>
@@ -134,11 +155,12 @@ export default function JournalPage() {
         title="اليوميات"
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link to="/reports">
-              <Button variant="ghost" icon={<FileBarChart className="size-4" />}>
-                التقارير
-              </Button>
-            </Link>
+            <Button variant="ghost" icon={<FileBarChart className="size-4" />} onClick={() => openJournalReport(day, day)}>
+              تقرير اليوم
+            </Button>
+            <Button variant="ghost" icon={<FileBarChart className="size-4" />} onClick={() => openJournalReport(`${day.slice(0, 7)}-01`, day)}>
+              تقرير الشهر
+            </Button>
             {newKinds.length > 0 && (
               <Button icon={<Plus className="size-4" />} onClick={() => setPicker(true)}>
                 معاملة جديدة
@@ -147,6 +169,28 @@ export default function JournalPage() {
           </div>
         }
       />
+
+      <div className="mb-4">
+        <FormTabs
+          tabs={[
+            { key: 'today', label: 'يومية النهاردة' },
+            { key: 'archive', label: 'سجل اليوميات' },
+          ]}
+          active={view}
+          onChange={setView}
+          layoutId="journal-view"
+        />
+      </div>
+
+      {view === 'archive' ? (
+        <JournalArchive onOpen={setOpen} />
+      ) : (
+        <>
+      <div className="card mb-4 flex flex-wrap items-center gap-3 p-4">
+        <CalendarDays className="size-5 text-gold" />
+        <span className="text-lg font-bold">يومية {dayTitle(day)}</span>
+        <Badge tone="success">مفتوحة</Badge>
+      </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         {(data?.totals.length ? data.totals : []).map((t) => (
@@ -176,8 +220,6 @@ export default function JournalPage() {
           <div className="min-w-60 flex-1">
             <SearchInput value={q.search ?? ''} onChange={(search) => set({ search })} placeholder="بحث بالبيان أو المرجع أو رقم الملف أو المبلغ..." />
           </div>
-          <TextField label="من" type="date" className="w-40" value={q.from ?? ''} onChange={(e) => set({ from: e.target.value || undefined })} />
-          <TextField label="إلى" type="date" className="w-40" value={q.to ?? ''} onChange={(e) => set({ to: e.target.value || undefined })} />
           {filtered && (
             <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setQ(EMPTY)}>
               مسح الفلاتر
@@ -224,18 +266,18 @@ export default function JournalPage() {
         </div>
       </section>
 
-      <DataTable
-        columns={columns}
+      <JournalTable
         rows={data?.items}
-        rowKey={(r) => `${r.type}-${r.id}`}
         loading={isLoading}
         error={error}
-        empty={filtered ? 'مفيش معاملات بالفلتر ده' : 'لسه مفيش معاملات'}
-        onRowClick={(r) => setOpen({ type: r.type, id: r.id })}
+        empty={filtered ? 'مفيش معاملات بالفلتر ده' : 'لسه مفيش معاملات النهاردة'}
+        onOpen={(r) => setOpen({ type: r.type, id: r.id })}
       />
       <div className="mt-4">
         <Pagination page={q.page} pageSize={JOURNAL_PAGE_SIZE} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
       </div>
+        </>
+      )}
 
       <Drawer open={picker} onClose={() => setPicker(false)} title="معاملة جديدة">
         <div className="grid gap-3">

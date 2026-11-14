@@ -27,7 +27,8 @@ import {
   UpdateIssueDto,
 } from './dto/custody.dto';
 import { LedgerService } from './ledger.service';
-import { businessDate, decimal, formatAmount } from './money';
+import { decimal, formatAmount } from './money';
+import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
 const ZERO = new Prisma.Decimal(0);
@@ -246,7 +247,7 @@ export class CustodiesService {
           transferRef: dto.transferRef?.toUpperCase() ?? null,
           currency: account.currency,
           amount: decimal(dto.amount),
-          issueDate: businessDate(dto.issueDate, 'تاريخ الصرف'),
+          issueDate: await openDate(tx, dto.issueDate, 'تاريخ الصرف'),
           notes: dto.notes,
           createdById: actor.id,
         },
@@ -284,6 +285,7 @@ export class CustodiesService {
         throw new BadRequestException('العهدة اتصفت، عدّل التصفية بدل الصرف');
       }
       this.assertAuthor(actor, before);
+      await assertDayEditable(tx, actor, before.issueDate);
       const rule = HOLDERS[before.holderType];
       if (
         dto.purpose !== undefined &&
@@ -295,7 +297,7 @@ export class CustodiesService {
         dto.amount !== undefined ? decimal(dto.amount) : before.amount;
       const issueDate =
         dto.issueDate !== undefined
-          ? businessDate(dto.issueDate, 'تاريخ الصرف')
+          ? await openDate(tx, dto.issueDate, 'تاريخ الصرف', actor)
           : before.issueDate;
       const moneyChanged =
         !amount.equals(before.amount) ||
@@ -368,7 +370,14 @@ export class CustodiesService {
       } else {
         returned = before.amount.minus(spent);
       }
-      const settlementDate = businessDate(dto.settlementDate, 'تاريخ التصفية');
+      // a re-settlement edits the day it was settled on
+      if (resettle) await assertDayEditable(tx, actor, before.settlementDate);
+      const settlementDate = await openDate(
+        tx,
+        dto.settlementDate,
+        'تاريخ التصفية',
+        resettle ? actor : undefined,
+      );
       if (settlementDate < before.issueDate) {
         throw new BadRequestException(
           'تاريخ التصفية مينفعش يبقى قبل تاريخ الصرف',
