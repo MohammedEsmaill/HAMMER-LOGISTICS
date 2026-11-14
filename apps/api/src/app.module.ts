@@ -10,6 +10,7 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter'
 import { validateEnv } from './config/env.validation';
 import { EmployeesModule } from './employees/employees.module';
 import { LookupsModule } from './lookups/lookups.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RolesModule } from './roles/roles.module';
 import { FinanceModule } from './finance/finance.module';
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
     ShipmentsModule,
     FinanceModule,
     SettingsModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: PrismaExceptionFilter }],

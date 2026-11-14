@@ -58,6 +58,11 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   UPLOAD_DIR: string = 'uploads';
+
+  /** Where the linked WhatsApp session is kept (secret: never commit it). */
+  @IsOptional()
+  @IsString()
+  WA_AUTH_DIR: string = 'whatsapp-auth';
 }
 
 export type AppConfig = EnvironmentVariables;

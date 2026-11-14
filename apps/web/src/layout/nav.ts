@@ -13,6 +13,7 @@ import {
   HardHat,
   LayoutDashboard,
   ListTree,
+  MessageCircle,
   NotebookPen,
   FileBarChart,
   ShieldCheck,
@@ -140,4 +141,11 @@ export const NAV: NavItem[] = [
     any: ['lookups.add', 'lookups.manage'],
   },
   { to: '/settings', label: 'إعدادات الشركة', icon: Settings, group: 'admin', any: ['settings.manage'] },
+  {
+    to: '/notifications',
+    label: 'تنبيهات واتساب',
+    icon: MessageCircle,
+    group: 'admin',
+    any: ['notifications.manage'],
+  },
 ];

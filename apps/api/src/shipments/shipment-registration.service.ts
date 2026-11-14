@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { FileNumberService } from './file-number.service';
@@ -18,6 +19,7 @@ export class ShipmentRegistrationService {
     private readonly fileNumbers: FileNumberService,
     private readonly shipments: ShipmentsService,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async register(actor: AuthUser, dto: CreateShipmentDto) {
@@ -81,6 +83,7 @@ export class ShipmentRegistrationService {
         },
         tx,
       );
+      await this.notifications.newShipment(tx, shipment.id);
       return shipment.id;
     });
     return this.shipments.get(actor, id);

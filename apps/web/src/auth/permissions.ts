@@ -44,7 +44,8 @@ export type Permission =
   | 'finance.client-ledger.view'
   | 'finance.journal.view'
   | 'finance.prices.manage'
-  | 'settings.manage';
+  | 'settings.manage'
+  | 'notifications.manage';
 
 export interface Profile {
   id: number;

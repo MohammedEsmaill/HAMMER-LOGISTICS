@@ -601,6 +601,8 @@ model Shipment {
   invoices        Invoice[]
   collections     Collection[]
 
+  notifications Notification[]
+
   @@index([clientId])
   @@index([operationEmployeeId])
   @@index([clearerId])
@@ -1472,4 +1474,38 @@ model JournalDayAccount {
 
   @@id([date, accountId])
   @@map("journal_day_accounts")
+}
+
+enum NotificationKind {
+  NEW_SHIPMENT
+  ETA_TOMORROW
+  STUCK
+  TEST
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// A message for the staff WhatsApp group. Written with what caused it (in the same
+/// transaction), sent later by the WhatsApp sender, retried until it goes or fails.
+model Notification {
+  id         Int                @id @default(autoincrement())
+  kind       NotificationKind
+  shipmentId Int?               @map("shipment_id")
+  /// once per event: NEW:<id>, ETA:<id>:<eta>, STUCK:<id>:<stage>:<day>
+  dedupeKey  String             @unique @map("dedupe_key")
+  text       String
+  status     NotificationStatus @default(PENDING)
+  attempts   Int                @default(0)
+  error      String?
+  createdAt  DateTime           @default(now()) @map("created_at")
+  sentAt     DateTime?          @map("sent_at")
+
+  shipment Shipment? @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([status, id])
+  @@map("notifications")
 }

@@ -1,0 +1,193 @@
+import { NotificationsService } from '../src/notifications/notifications.service';
+import { WhatsappService } from '../src/notifications/whatsapp.service';
+import { ShipmentFixtures, shipmentFixtures } from './fixtures';
+import { closeTestContext, createTestContext, TestContext } from './helpers';
+
+const DAY = 86_400_000;
+
+/** A Cairo date n days from today, as YYYY-MM-DD. */
+function cairoDay(offset: number): string {
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+  }).format(new Date());
+  return new Date(new Date(`${today}T00:00:00.000Z`).getTime() + offset * DAY)
+    .toISOString()
+    .slice(0, 10);
+}
+
+describe('WhatsApp group alerts (e2e)', () => {
+  let ctx: TestContext;
+  let fx: ShipmentFixtures;
+  const sent: { jid: string; text: string }[] = [];
+  const service = () => ctx.app.get(NotificationsService);
+
+  const register = async (extra: object = {}) =>
+    (
+      await ctx
+        .api(fx.tokens.scan)
+        .post('/api/shipments', fx.seaImport(extra))
+        .expect(201)
+    ).body as { id: number; fileNo: string; version: number };
+
+  /** Puts the shipment in a stage it entered `hours` ago. */
+  const parkIn = async (id: number, stage: string, hours: number) => {
+    await ctx.prisma.shipment.update({
+      where: { id },
+      data: {
+        currentStage: stage as never,
+        stageHistory: [
+          {
+            from: null,
+            to: 'REGISTERED',
+            movement: 'FORWARD',
+            at: new Date(Date.now() - (hours + 24) * 3600_000).toISOString(),
+            by: 1,
+          },
+          {
+            from: 'REGISTERED',
+            to: stage,
+            movement: 'FORWARD',
+            at: new Date(Date.now() - hours * 3600_000).toISOString(),
+            by: 1,
+          },
+        ],
+      },
+    });
+  };
+
+  const queued = (kind: string) =>
+    ctx.prisma.notification.findMany({
+      where: { kind: kind as never },
+      orderBy: { id: 'asc' },
+    });
+
+  beforeAll(async () => {
+    ctx = await createTestContext();
+    fx = await shipmentFixtures(ctx, '4', '97');
+    // a fake linked number: records what would be sent
+    const wa = ctx.app.get(WhatsappService);
+    Object.defineProperty(wa, 'ready', { get: () => true });
+    wa.send = (jid: string, text: string) => {
+      sent.push({ jid, text });
+      return Promise.resolve();
+    };
+  });
+
+  afterAll(() => closeTestContext(ctx));
+
+  it('only the CEO links WhatsApp and picks the group', async () => {
+    await ctx
+      .api(fx.tokens.scan)
+      .get('/api/notifications/whatsapp')
+      .expect(403);
+    const res = await ctx
+      .api(ctx.ceoToken)
+      .get('/api/notifications/whatsapp')
+      .expect(200);
+    expect(res.body.group).toBeNull();
+    await ctx
+      .api(ctx.ceoToken)
+      .patch('/api/notifications/whatsapp/group', {
+        jid: 'not-a-group',
+        name: 'x',
+      })
+      .expect(400);
+    await ctx
+      .api(ctx.ceoToken)
+      .patch('/api/notifications/whatsapp/group', {
+        jid: '120363000000000001@g.us',
+        name: 'موظفين HAMMER',
+      })
+      .expect(200);
+  });
+
+  it('a new shipment is announced once', async () => {
+    const s = await register();
+    const rows = (await queued('NEW_SHIPMENT')).filter(
+      (n) => n.shipmentId === s.id,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].text).toContain(s.fileNo);
+    expect(rows[0].text).toContain('شحنة جديدة');
+  });
+
+  it('sends the queue to the group in order', async () => {
+    sent.length = 0;
+    // older test files' shipments may be queued too: send until empty
+    while ((await service().sendPending()) > 0);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.every((m) => m.jid === '120363000000000001@g.us')).toBe(true);
+    expect(
+      await ctx.prisma.notification.count({ where: { status: 'PENDING' } }),
+    ).toBe(0);
+  }, 120_000);
+
+  it('a vessel due tomorrow is announced the day before, and again after its ETA moves', async () => {
+    const s = await register({ eta: cairoDay(1) });
+    const far = await register({ eta: cairoDay(5) });
+    await service().etaTomorrow();
+    await service().etaTomorrow(); // once per date
+    let mine = (await queued('ETA_TOMORROW')).filter(
+      (n) => n.shipmentId === s.id,
+    );
+    expect(mine).toHaveLength(1);
+    expect(
+      (await queued('ETA_TOMORROW')).some((n) => n.shipmentId === far.id),
+    ).toBe(false);
+
+    // the vessel is put back three days: announced again the day before the new date
+    await ctx.prisma.shipment.update({
+      where: { id: s.id },
+      data: { eta: new Date(`${cairoDay(3)}T00:00:00.000Z`) },
+    });
+    await service().etaTomorrow(new Date(Date.now() + 2 * DAY));
+    mine = (await queued('ETA_TOMORROW')).filter((n) => n.shipmentId === s.id);
+    expect(mine).toHaveLength(2);
+    expect(mine[1].dedupeKey).toBe(`ETA:${s.id}:${cairoDay(3)}`);
+  });
+
+  it('a shipment past its registration is not announced for its ETA', async () => {
+    const s = await register({ eta: cairoDay(1) });
+    await parkIn(s.id, 'ARRIVED', 1);
+    await service().etaTomorrow();
+    expect(
+      (await queued('ETA_TOMORROW')).some((n) => n.shipmentId === s.id),
+    ).toBe(false);
+  });
+
+  it('lists shipments stuck over 48 hours once a day, not registered or cleared ones', async () => {
+    const stuck = await register();
+    const fresh = await register();
+    const registered = await register();
+    const cleared = await register();
+    await parkIn(stuck.id, 'EXAMINATION', 50);
+    await parkIn(fresh.id, 'VALUATION', 30);
+    await parkIn(registered.id, 'REGISTERED', 80);
+    await parkIn(cleared.id, 'CLEARED', 80);
+
+    expect(await service().stuck()).toBeGreaterThanOrEqual(1);
+    expect(await service().stuck()).toBe(0); // already done today
+    const today = (await queued('STUCK')).at(-1)!;
+    expect(today.dedupeKey).toBe(`STUCK:${cairoDay(0)}`);
+    expect(today.text).toContain(stuck.fileNo);
+    expect(today.text).toContain('جاري الكشف');
+    for (const s of [fresh, registered, cleared])
+      expect(today.text).not.toContain(s.fileNo);
+
+    // still stuck the next morning: listed again
+    await service().stuck(new Date(Date.now() + DAY));
+    const next = (await queued('STUCK')).at(-1)!;
+    expect(next.dedupeKey).toBe(`STUCK:${cairoDay(1)}`);
+    expect(next.text).toContain(stuck.fileNo);
+    expect(next.text).toContain(fresh.fileNo); // 30 hours in, a day later it is over 48 too
+  });
+
+  it('the CEO sees the log of alerts', async () => {
+    const res = await ctx
+      .api(ctx.ceoToken)
+      .get('/api/notifications?pageSize=5')
+      .expect(200);
+    expect(res.body.items.length).toBeGreaterThan(0);
+    expect(res.body.total).toBeGreaterThan(0);
+  });
+});
