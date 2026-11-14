@@ -17,7 +17,7 @@ import { WhatsappService } from './whatsapp.service';
 
 export class GroupDto {
   @IsString()
-  @Matches(/^[0-9-]+@g\.us$/, { message: 'جروب غير صحيح' })
+  @Matches(/^[0-9-]+@g\.us$/, { message: 'معرّف المجموعة غير صحيح' })
   jid!: string;
 
   @IsString()

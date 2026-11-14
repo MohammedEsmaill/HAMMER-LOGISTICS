@@ -175,7 +175,7 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
 
   async send(jid: string, text: string) {
     if (!this.socket || this.state !== 'CONNECTED')
-      throw new Error('واتساب مش متصل');
+      throw new Error('واتساب غير متصل');
     await this.socket.sendMessage(jid, { text });
   }
 }

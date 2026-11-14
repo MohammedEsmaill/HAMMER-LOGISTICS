@@ -22,22 +22,22 @@ import {
 
 const STATE: Record<WhatsappState, { label: string; tone: 'success' | 'gold' | 'muted' | 'danger' }> = {
   CONNECTED: { label: 'متصل', tone: 'success' },
-  QR: { label: 'مستني المسح', tone: 'gold' },
-  CONNECTING: { label: 'جاري الاتصال', tone: 'gold' },
-  DISCONNECTED: { label: 'مش متصل', tone: 'danger' },
+  QR: { label: 'بانتظار مسح الرمز', tone: 'gold' },
+  CONNECTING: { label: 'جارٍ الاتصال', tone: 'gold' },
+  DISCONNECTED: { label: 'غير متصل', tone: 'danger' },
 };
 
 const KIND: Record<NotificationRow['kind'], string> = {
   NEW_SHIPMENT: 'شحنة جديدة',
-  ETA_TOMORROW: 'وصول بكرة',
+  ETA_TOMORROW: 'وصول متوقع غدًا',
   STUCK: 'شحنات متأخرة',
-  TEST: 'تجربة',
+  TEST: 'رسالة تجريبية',
 };
 
 const STATUS: Record<NotificationRow['status'], { label: string; tone: 'success' | 'gold' | 'danger' }> = {
-  SENT: { label: 'اتبعت', tone: 'success' },
-  PENDING: { label: 'في الانتظار', tone: 'gold' },
-  FAILED: { label: 'متبعتش', tone: 'danger' },
+  SENT: { label: 'تم الإرسال', tone: 'success' },
+  PENDING: { label: 'قيد الانتظار', tone: 'gold' },
+  FAILED: { label: 'تعذّر الإرسال', tone: 'danger' },
 };
 
 /** "15/11/2026 09:00", Cairo time */
@@ -80,18 +80,18 @@ export default function NotificationsPage() {
       const g = groups.data?.find((x) => x.id === groupId);
       return notificationsApi.setGroup({ jid: groupId, name: g?.name ?? '' });
     },
-    { success: 'اتحفظ الجروب', invalidate: [notificationKeys.status] },
+    { success: 'تم حفظ المجموعة', invalidate: [notificationKeys.status] },
   );
-  const test = useAction(notificationsApi.test, { success: 'اتبعتت رسالة تجربة للجروب' });
+  const test = useAction(notificationsApi.test, { success: 'أُرسلت رسالة تجريبية إلى المجموعة' });
   const retry = useAction(notificationsApi.retry, { invalidate: [['notifications', 'log']] });
 
   const columns: Column<NotificationRow>[] = [
-    { header: 'الوقت', cell: (n) => <span dir="ltr">{dateTime(n.createdAt)}</span> },
-    { header: 'النوع', cell: (n) => KIND[n.kind] },
-    { header: 'الشحنة', cell: (n) => (n.shipment ? <span dir="ltr">{n.shipment.fileNo}</span> : '—') },
+    { header: 'التاريخ والوقت', cell: (n) => <span dir="ltr">{dateTime(n.createdAt)}</span> },
+    { header: 'نوع التنبيه', cell: (n) => KIND[n.kind] },
+    { header: 'رقم الملف', cell: (n) => (n.shipment ? <span dir="ltr">{n.shipment.fileNo}</span> : '—') },
     { header: 'الحالة', cell: (n) => <Badge tone={STATUS[n.status].tone}>{STATUS[n.status].label}</Badge> },
     {
-      header: 'الرسالة',
+      header: 'نص الرسالة',
       className: 'max-w-md',
       cell: (n) => (
         <div className="text-start">
@@ -106,12 +106,12 @@ export default function NotificationsPage() {
 
   return (
     <>
-      <PageHeader title="تنبيهات واتساب" />
+      <PageHeader title="إشعارات واتساب" />
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="card space-y-4 p-5">
           <div className="flex items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-lg font-bold">
-              <MessageCircle className="size-5 text-gold" /> رقم الشركة
+              <MessageCircle className="size-5 text-gold" /> رقم واتساب الشركة
             </h3>
             {s && <Badge tone={STATE[s.state].tone}>{STATE[s.state].label}</Badge>}
           </div>
@@ -124,7 +124,7 @@ export default function NotificationsPage() {
             </Button>
           )}
 
-          {s?.state === 'CONNECTING' && <p className="text-muted">جاري الاتصال بواتساب...</p>}
+          {s?.state === 'CONNECTING' && <p className="text-muted">جارٍ الاتصال بواتساب...</p>}
 
           {s?.state === 'QR' && (
             <div className="flex flex-col items-center gap-3">
@@ -134,7 +134,7 @@ export default function NotificationsPage() {
                 <Spinner />
               )}
               <p className="text-center text-sm text-muted">
-                من موبايل الرقم: واتساب ← الأجهزة المرتبطة ← ربط جهاز، وامسح الكود
+                من هاتف الرقم: افتح واتساب ← الأجهزة المرتبطة ← ربط جهاز، ثم امسح الرمز
               </p>
             </div>
           )}
@@ -148,27 +148,27 @@ export default function NotificationsPage() {
                 {s.account.name && <p className="text-sm text-muted">{s.account.name}</p>}
               </div>
               <Button variant="ghost" onClick={() => setConfirmLogout(true)}>
-                <Unlink className="size-4" /> فك الربط
+                <Unlink className="size-4" /> إلغاء الربط
               </Button>
             </div>
           )}
         </section>
 
         <section className="card space-y-4 p-5">
-          <h3 className="text-lg font-bold">جروب الموظفين</h3>
+          <h3 className="text-lg font-bold">مجموعة الموظفين</h3>
           {s?.group && (
             <p>
-              التنبيهات بتتبعت لـ: <span className="font-semibold text-gold">{s.group.name}</span>
+              تُرسَل التنبيهات إلى: <span className="font-semibold text-gold">{s.group.name}</span>
             </p>
           )}
           {connected ? (
             <>
               <SelectField
-                label="الجروب"
+                label="المجموعة"
                 value={groupId}
                 onChange={(e) => setGroupId(e.target.value)}
                 options={(groups.data ?? []).map((g) => ({ value: g.id, label: `${g.name} (${g.members})` }))}
-                placeholder={groups.isLoading ? 'جاري التحميل...' : 'اختار الجروب'}
+                placeholder={groups.isLoading ? 'جارٍ التحميل...' : 'اختر المجموعة'}
               />
               <div className="flex flex-wrap justify-end gap-2">
                 <Button
@@ -177,7 +177,7 @@ export default function NotificationsPage() {
                   loading={test.isPending}
                   onClick={() => test.mutateAsync(undefined).then(refresh, toastError)}
                 >
-                  <Send className="size-4" /> رسالة تجربة
+                  <Send className="size-4" /> إرسال رسالة تجريبية
                 </Button>
                 <Button
                   disabled={!groupId || groupId === s.group?.jid}
@@ -189,7 +189,7 @@ export default function NotificationsPage() {
               </div>
             </>
           ) : (
-            <p className="text-sm text-muted">اربط الرقم الأول عشان تختار الجروب.</p>
+            <p className="text-sm text-muted">اربط الرقم أولًا لتتمكن من اختيار المجموعة.</p>
           )}
         </section>
       </div>
@@ -197,7 +197,7 @@ export default function NotificationsPage() {
       <div className="mt-6 mb-3 flex items-center justify-between gap-3">
         <h3 className="text-lg font-bold">سجل التنبيهات</h3>
         <Button variant="ghost" loading={retry.isPending} onClick={() => retry.mutateAsync(undefined).catch(toastError)}>
-          <RefreshCw className="size-4" /> إعادة إرسال اللي متبعتش
+          <RefreshCw className="size-4" /> إعادة إرسال التنبيهات المتعثرة
         </Button>
       </div>
       <DataTable
@@ -206,7 +206,7 @@ export default function NotificationsPage() {
         rowKey={(n) => n.id}
         loading={log.isLoading}
         error={log.error}
-        empty="مفيش تنبيهات لسه"
+        empty="لا توجد تنبيهات بعد"
       />
       {log.data && (
         <div className="mt-3">
@@ -216,9 +216,9 @@ export default function NotificationsPage() {
 
       <ConfirmDialog
         open={confirmLogout}
-        title="فك ربط الرقم"
-        message="التنبيهات هتقف لحد ما تربط الرقم تاني."
-        confirmLabel="فك الربط"
+        title="إلغاء ربط الرقم"
+        message="ستتوقف التنبيهات إلى أن يُعاد ربط الرقم."
+        confirmLabel="إلغاء الربط"
         onConfirm={() => notificationsApi.logout().then(refresh)}
         onClose={() => setConfirmLogout(false)}
       />

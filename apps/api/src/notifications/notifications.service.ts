@@ -83,13 +83,15 @@ function place(s: ShipmentInfo): string | undefined {
 function header(s: ShipmentInfo): string[] {
   const kind = shipmentKind(s.direction, s.mode);
   return [
-    `الملف: *${s.fileNo}* (${MODE[kind]})`,
+    `رقم الملف: *${s.fileNo}* (${MODE[kind]})`,
     `العميل: ${s.client.name}`,
     ...(place(s)
-      ? [`${s.mode === 'FREE_ZONE' ? 'المنطقة الحرة' : 'الميناء'}: ${place(s)}`]
+      ? [
+          `${s.mode === 'FREE_ZONE' ? 'المنطقة الحرة' : s.direction === 'IMPORT' ? 'ميناء الوصول' : 'ميناء الشحن'}: ${place(s)}`,
+        ]
       : []),
-    ...(s.vesselName ? [`المركب: ${s.vesselName}`] : []),
-    `الأوبريشن: ${s.operationEmployee.fullName}`,
+    ...(s.vesselName ? [`اسم السفينة: ${s.vesselName}`] : []),
+    `مسؤول التشغيل: ${s.operationEmployee.fullName}`,
   ];
 }
 
@@ -104,11 +106,27 @@ export function stageSince(
   return null;
 }
 
+/** Arabic counting: يوم، يومان، 3 أيام، 11 يومًا */
+function count(
+  n: number,
+  one: string,
+  two: string,
+  few: string,
+  many: string,
+): string {
+  if (n === 1) return one;
+  if (n === 2) return two;
+  if (n % 100 >= 3 && n % 100 <= 10) return `${n} ${few}`;
+  return `${n} ${many}`;
+}
+
 function duration(ms: number): string {
   const days = Math.floor(ms / DAY_MS);
   const hours = Math.floor((ms % DAY_MS) / 3600_000);
-  if (days === 0) return `${hours} ساعة`;
-  return hours ? `${days} يوم و${hours} ساعة` : `${days} يوم`;
+  const d = count(days, 'يوم', 'يومين', 'أيام', 'يومًا');
+  const h = count(hours, 'ساعة', 'ساعتين', 'ساعات', 'ساعة');
+  if (days === 0) return h;
+  return hours ? `${d} و${h}` : d;
 }
 
 /**
@@ -164,7 +182,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     const text = [
       '🆕 *شحنة جديدة*',
       ...header(s),
-      ...(s.eta ? [`الوصول المتوقع: ${dmy(s.eta)}`] : []),
+      ...(s.eta ? [`تاريخ الوصول المتوقع: ${dmy(s.eta)}`] : []),
     ].join('\n');
     await this.enqueue(tx, 'NEW_SHIPMENT', `NEW:${s.id}`, text, s.id);
   }
@@ -200,9 +218,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     let queued = 0;
     for (const s of due) {
       const text = [
-        '🚢 *وصول بكرة*',
+        '🚢 *وصول متوقع غدًا*',
         ...header(s),
-        `الوصول المتوقع: ${dmy(tomorrow)}`,
+        `تاريخ الوصول المتوقع: ${dmy(tomorrow)}`,
       ].join('\n');
       if (
         await this.enqueue(
@@ -252,12 +270,12 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const blocks = late.map(({ s, since }) =>
         [
           `• *${s.fileNo}* — ${s.client.name}`,
-          `  المرحلة: ${stageLabel(shipmentKind(s.direction, s.mode), s.currentStage)} من ${duration(now.getTime() - since.getTime())}`,
-          `  الأوبريشن: ${s.operationEmployee.fullName}`,
+          `  المرحلة: ${stageLabel(shipmentKind(s.direction, s.mode), s.currentStage)} منذ ${duration(now.getTime() - since.getTime())}`,
+          `  مسؤول التشغيل: ${s.operationEmployee.fullName}`,
         ].join('\n'),
       );
       const text = [
-        `⏳ *شحنات متأخرة* (أكتر من ${STUCK_HOURS} ساعة في نفس المرحلة): ${late.length}`,
+        `⏳ *شحنات متأخرة* (تجاوزت ${STUCK_HOURS} ساعة في المرحلة نفسها): ${late.length}`,
         '',
         ...blocks,
       ].join('\n');
@@ -317,7 +335,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           status: 'PENDING',
           createdAt: { lt: new Date(now.getTime() - STALE_MS) },
         },
-        data: { status: 'FAILED', error: 'اتأخر ومتبعتش (واتساب مكانش متصل)' },
+        data: {
+          status: 'FAILED',
+          error: 'لم يُرسَل في موعده لانقطاع الاتصال بواتساب',
+        },
       });
       const queue = await this.prisma.notification.findMany({
         where: { status: 'PENDING' },
@@ -369,7 +390,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       this.prisma,
       'TEST',
       `TEST:${at}`,
-      `✅ رسالة تجربة من HAMMER LINE\nبواسطة: ${actor.email}`,
+      `✅ رسالة تجريبية من نظام HAMMER LINE\nأرسلها: ${actor.email}`,
     );
     void this.sendPending();
     return { queued: true };

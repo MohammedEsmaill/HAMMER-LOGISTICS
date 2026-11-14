@@ -143,7 +143,7 @@ export const NAV: NavItem[] = [
   { to: '/settings', label: 'إعدادات الشركة', icon: Settings, group: 'admin', any: ['settings.manage'] },
   {
     to: '/notifications',
-    label: 'تنبيهات واتساب',
+    label: 'إشعارات واتساب',
     icon: MessageCircle,
     group: 'admin',
     any: ['notifications.manage'],
