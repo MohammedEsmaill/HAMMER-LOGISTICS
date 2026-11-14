@@ -7,6 +7,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Drawer } from '@/components/ui/Drawer';
 import { Badge, PageHeader } from '@/components/ui/misc';
 import { Pagination } from '@/components/ui/Pagination';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { SelectField } from '@/components/ui/SelectField';
 import { formatDate } from '@/lib/format';
@@ -45,27 +46,6 @@ const NEW_KINDS: { kind: NewKind; label: string; icon: LucideIcon; permission: P
 
 const EMPTY: JournalQuery = { page: 1, types: [], accountId: '', currency: '', status: '', flow: '', createdBy: '', search: '' };
 
-function TypeChips({ value, onChange, salaryData }: { value: JournalType[]; onChange: (v: JournalType[]) => void; salaryData: boolean }) {
-  const types = (Object.keys(JOURNAL_TYPES) as JournalType[]).filter((t) => salaryData || !JOURNAL_TYPES[t].restricted);
-  return (
-    <div className="flex flex-wrap gap-2">
-      {types.map((t) => {
-        const on = value.includes(t);
-        return (
-          <button
-            key={t}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onChange(on ? value.filter((v) => v !== t) : [...value, t])}
-            className={`focus-ring rounded-full border px-3 py-1.5 text-sm transition-colors ${on ? 'border-gold bg-gold/15 font-semibold text-gold' : 'border-line text-muted hover:text-ink'}`}
-          >
-            {JOURNAL_TYPES[t].label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /** The operations of the journal, as one table everywhere (today, a past day). */
 export function JournalTable({
@@ -146,6 +126,9 @@ export default function JournalPage() {
   const [creating, setCreating] = useState<NewKind | null>(null);
   const set = (patch: Partial<JournalQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
   const newKinds = NEW_KINDS.filter((k) => can(k.permission));
+  const typeOptions = (Object.keys(JOURNAL_TYPES) as JournalType[])
+    .filter((t) => salaryData || !JOURNAL_TYPES[t].restricted)
+    .map((t) => ({ value: t, label: JOURNAL_TYPES[t].label }));
   const filtered = JSON.stringify({ ...q, page: 1 }) !== JSON.stringify(EMPTY);
 
 
@@ -220,13 +203,19 @@ export default function JournalPage() {
           <div className="min-w-60 flex-1">
             <SearchInput value={q.search ?? ''} onChange={(search) => set({ search })} placeholder="بحث بالبيان أو المرجع أو رقم الملف أو المبلغ..." />
           </div>
+          <MultiSelect
+            label="فلترة حسب"
+            className="w-72"
+            options={typeOptions}
+            value={q.types ?? []}
+            onChange={(types) => set({ types })}
+          />
           {filtered && (
             <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setQ(EMPTY)}>
               مسح الفلاتر
             </Button>
           )}
         </div>
-        <TypeChips value={q.types ?? []} onChange={(types) => set({ types })} salaryData={salaryData} />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <SelectField
             label="الخزنة / الحساب"

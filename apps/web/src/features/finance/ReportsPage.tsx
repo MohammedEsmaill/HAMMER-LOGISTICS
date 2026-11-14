@@ -4,6 +4,7 @@ import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { PageHeader } from '@/components/ui/misc';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { toastError } from '@/lib/mutations';
@@ -152,24 +153,15 @@ export default function ReportsPage() {
           )}
         </div>
         {kind === 'journal' && (
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(JOURNAL_TYPES) as JournalType[])
+          <MultiSelect
+            label="نوع المعاملة"
+            className="max-w-sm"
+            options={(Object.keys(JOURNAL_TYPES) as JournalType[])
               .filter((t) => salaryData || !JOURNAL_TYPES[t].restricted)
-              .map((t) => {
-                const on = types.includes(t);
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setTypes(on ? types.filter((x) => x !== t) : [...types, t])}
-                    className={`focus-ring rounded-full border px-3 py-1.5 text-sm ${on ? 'border-gold bg-gold/15 font-semibold text-gold' : 'border-line text-muted hover:text-ink'}`}
-                  >
-                    {JOURNAL_TYPES[t].label}
-                  </button>
-                );
-              })}
-          </div>
+              .map((t) => ({ value: t, label: JOURNAL_TYPES[t].label }))}
+            value={types}
+            onChange={setTypes}
+          />
         )}
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
           <Button onClick={show} disabled={!range} loading={isFetching}>
