@@ -3,6 +3,23 @@ rem HAMMER LINE: start everything with a double-click.
 rem The database (Docker), the API, the web app, and the share link if cloudflared.exe is found.
 setlocal
 cd /d "%~dp0"
+rem --auto: started with Windows (autostart-install.bat): minimized windows, no browser,
+rem and it waits for Docker Desktop to come up first
+set "AUTO="
+if /i "%~1"=="--auto" set "AUTO=1"
+set "MIN="
+if defined AUTO set "MIN=/min"
+if not defined AUTO goto dockercheck
+echo Waiting for Docker Desktop...
+set /a dtries=0
+:waitdocker
+docker info >nul 2>&1
+if not errorlevel 1 goto dockercheck
+set /a dtries+=1
+if %dtries% geq 100 goto dockercheck
+timeout /t 3 /nobreak >nul
+goto waitdocker
+:dockercheck
 
 echo [1/4] Database (Docker Desktop must be open)...
 docker compose up -d
@@ -38,10 +55,10 @@ if not exist "apps\web\dist\index.html" (
 )
 
 echo [2/4] API on http://localhost:3000 ...
-start "HAMMER - API" /d "%~dp0apps\api" cmd /k node dist/main.js
+start "HAMMER - API" %MIN% /d "%~dp0apps\api" cmd /k node dist/main.js
 
 echo [3/4] Web app on http://localhost:4173 ...
-start "HAMMER - WEB" /d "%~dp0apps\web" cmd /k npx vite preview
+start "HAMMER - WEB" %MIN% /d "%~dp0apps\web" cmd /k npx vite preview
 
 rem The web app on Vercel reaches this computer's API through a fixed ngrok link,
 rem when ngrok-domain.txt (next to start.bat) holds the domain, e.g. hammer.ngrok-free.app
@@ -112,9 +129,10 @@ echo [4/4] cloudflared.exe not found next to start.bat, so no share link.
 echo       Put cloudflared.exe in %~dp0 and run start.bat again.
 
 :opened
-start "" http://localhost:4173
+if not defined AUTO start "" http://localhost:4173
 echo.
-echo Running. To stop: close the HAMMER windows. Keep this window to see the link.
+echo Running. To stop: close the HAMMER windows (or run stop.bat). Keep this window to see the link.
+if defined AUTO exit /b 0
 pause
 exit /b 0
 

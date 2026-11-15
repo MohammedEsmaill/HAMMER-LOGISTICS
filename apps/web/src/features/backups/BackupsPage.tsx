@@ -11,7 +11,7 @@ import { api } from '@/lib/api-client';
 import { toastError, useAction } from '@/lib/mutations';
 import { IntegrityCard } from './IntegrityCard';
 
-type Kind = 'AUTO' | 'MANUAL' | 'PRE_RESTORE' | 'UPLOADED';
+type Kind = 'AUTO' | 'MANUAL' | 'PRE_RESTORE' | 'PRE_UPDATE' | 'UPLOADED';
 
 interface Backup {
   name: string;
@@ -36,6 +36,7 @@ const KINDS: Record<Kind, { label: string; tone: 'gold' | 'muted' | 'success' | 
   AUTO: { label: 'تلقائية', tone: 'success' },
   MANUAL: { label: 'يدوية', tone: 'gold' },
   PRE_RESTORE: { label: 'قبل الاسترجاع', tone: 'muted' },
+  PRE_UPDATE: { label: 'قبل التحديث', tone: 'muted' },
   UPLOADED: { label: 'مرفوعة', tone: 'muted' },
 };
 
