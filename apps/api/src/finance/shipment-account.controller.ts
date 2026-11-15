@@ -19,6 +19,7 @@ import { ClientLedgerService } from './client-ledger.service';
 import { CollectionsService } from './collections.service';
 import {
   AccountsQueryDto,
+  ClientLedgerQueryDto,
   CreateCollectionDto,
   ExtraLineDto,
   FinishDto,
@@ -163,7 +164,10 @@ export class ClientLedgerController {
 
   @Get(':id/ledger')
   @RequirePermissions('finance.client-ledger.view')
-  ledgerOf(@Param('id', ParseIntPipe) id: number) {
-    return this.ledger.ledger(id);
+  ledgerOf(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() q: ClientLedgerQueryDto,
+  ) {
+    return this.ledger.ledger(id, { from: q.from, to: q.to });
   }
 }

@@ -42,6 +42,8 @@ const ReportPrintPage = lazy(() => import('@/features/finance/ReportPrintPage'))
 const AccountPage = lazy(() => import('@/features/finance/AccountPage'));
 const InvoicePrintPage = lazy(() => import('@/features/finance/InvoicePrintPage'));
 const ShipmentPrintPage = lazy(() => import('@/features/shipments/ShipmentPrintPage'));
+const ClientLedgerPage = lazy(() => import('@/features/finance/ClientLedgerPage'));
+const ClientStatementPrintPage = lazy(() => import('@/features/finance/ClientStatementPrintPage'));
 const ACCOUNT_VIEW = [
   'finance.shipment-account.view',
   'finance.statement.manage',
@@ -101,6 +103,19 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    // a client statement on paper
+    path: '/print/client-ledgers/:id',
+    element: (
+      <RequireAuth>
+        <RequirePermission any={['finance.client-ledger.view']}>
+          <Suspense fallback={null}>
+            <ClientStatementPrintPage />
+          </Suspense>
+        </RequirePermission>
+      </RequireAuth>
+    ),
+  },
+  {
     // a printable report, without the app around it
     path: '/print/reports/:kind',
     element: (
@@ -136,6 +151,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission any={[...ACCOUNT_VIEW]}>
             <ShipmentAccountPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'client-ledgers/:id',
+        element: (
+          <RequirePermission any={['finance.client-ledger.view']}>
+            <ClientLedgerPage />
           </RequirePermission>
         ),
       },

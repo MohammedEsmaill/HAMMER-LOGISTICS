@@ -15,14 +15,14 @@ const IN = 'FF15803D';
 const OUT = 'FFB91C1C';
 const MONEY = '#,##0.00';
 
-interface Col {
+export interface Col {
   header: string;
   width: number;
   money?: boolean;
   date?: boolean;
 }
 
-type Cell = string | number | Date | null;
+export type Cell = string | number | Date | null;
 
 const thin = { style: 'thin' as const, color: { argb: LINE } };
 const box = { top: thin, left: thin, bottom: thin, right: thin };
@@ -34,7 +34,7 @@ const day = (d: string) => new Date(`${d.slice(0, 10)}T00:00:00`);
  * Builds the sheets of a report on the company's letterhead: the company and the logo,
  * the report title, period and filters, then styled tables with totals.
  */
-class SheetWriter {
+export class SheetWriter {
   row = 1;
   readonly ws: Worksheet;
   readonly span: number;
@@ -342,7 +342,7 @@ function accountsSheets(wb: Workbook, report: AccountsReport, head: Head) {
 
 type Head = (ws: Worksheet, span: number) => SheetWriter;
 
-async function logoImage(wb: Workbook): Promise<number | null> {
+export async function logoImage(wb: Workbook): Promise<number | null> {
   try {
     const blob = await (await fetch('/logo-full.png')).blob();
     const base64 = await new Promise<string>((resolve, reject) => {

@@ -196,3 +196,16 @@ export class AccountsQueryDto extends ListQueryDto {
   @Min(1)
   clientId?: number;
 }
+
+/** A client statement's period; without it, the whole account. */
+export class ClientLedgerQueryDto {
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  from?: Date;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  to?: Date;
+}

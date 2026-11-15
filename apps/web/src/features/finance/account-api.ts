@@ -121,18 +121,70 @@ export interface CompanySettings {
   emails: string[];
 }
 
-export interface ClientLedger {
-  client: { id: number; name: string };
-  currencies: {
-    currency: Currency;
-    lines: { date: string; kind: string; description: string; fileNo: string; debit: string; credit: string; balance: string; approvalStatus: ApprovalStatus }[];
-    totals: { debit: string; credit: string; balance: string };
+export type LedgerLineKind = 'CLEARANCE' | 'STATEMENT' | 'CASH' | 'TRANSFER';
+
+export interface LedgerLine {
+  date: string;
+  kind: LedgerLineKind;
+  label: string;
+  ref: string | null;
+  shipmentId: number;
+  fileNo: string;
+  invoiceId: number | null;
+  collectionId: number | null;
+  debit: string;
+  credit: string;
+  balance: string | null;
+  approvalStatus: ApprovalStatus;
+}
+
+export interface ClientAccount {
+  currency: Currency;
+  active: boolean;
+  summary: {
+    billed: string;
+    collected: string;
+    balance: string;
+    oldestDays: number | null;
+    lastCollection: string | null;
+    pending: { count: number; billed: string; collected: string };
+  };
+  aging: { upTo30: string; from31To60: string; from61To90: string; over90: string };
+  statement: { opening: string; lines: LedgerLine[]; debit: string; credit: string; closing: string };
+  shipments: {
+    shipmentId: number;
+    fileNo: string;
+    accountStatus: 'OPEN' | 'FINISHED' | null;
+    billed: string;
+    collected: string;
+    remaining: string;
+    oldestUnpaidDate: string | null;
+    ageDays: number | null;
   }[];
+  pending: LedgerLine[];
+}
+
+export interface ClientLedger {
+  client: { id: number; name: string; mobile: string; email: string };
+  from: string | null;
+  to: string | null;
+  generatedAt: string;
+  currencies: ClientAccount[];
 }
 
 export interface ClientBalance {
   client: { id: number; name: string };
-  currencies: Partial<Record<Currency, { billed: string; collected: string; balance: string }>>;
+  currencies: Partial<
+    Record<
+      Currency,
+      { billed: string; collected: string; balance: string; pending: number; oldestDays: number | null; lastCollection: string | null }
+    >
+  >;
+}
+
+export interface LedgerPeriod {
+  from?: string;
+  to?: string;
 }
 
 export const accountKeys = {
@@ -141,7 +193,7 @@ export const accountKeys = {
   invoice: (id: number) => ['finance', 'invoice', id] as const,
   company: ['settings', 'company'] as const,
   balances: ['finance', 'client-balances'] as const,
-  ledger: (id: number) => ['finance', 'client-ledger', id] as const,
+  ledger: (id: number, period: LedgerPeriod = {}) => ['finance', 'client-ledger', id, period] as const,
 };
 
 export const useShipmentAccounts = (q: { search?: string; status?: string; paymentStatus?: string; page: number }) =>
@@ -167,8 +219,13 @@ export const useCompany = () =>
 export const useClientBalances = () =>
   useQuery({ queryKey: accountKeys.balances, queryFn: () => api.get<ClientBalance[]>('/finance/clients/balances') });
 
-export const useClientLedger = (id: number | null) =>
-  useQuery({ queryKey: accountKeys.ledger(id ?? 0), queryFn: () => api.get<ClientLedger>(`/finance/clients/${id}/ledger`), enabled: !!id });
+export const useClientLedger = (id: number | null, period: LedgerPeriod = {}) =>
+  useQuery({
+    queryKey: accountKeys.ledger(id ?? 0, period),
+    queryFn: () => api.get<ClientLedger>(`/finance/clients/${id}/ledger`, { ...period }),
+    enabled: !!id,
+    placeholderData: keepPreviousData,
+  });
 
 export const accountApi = {
   override: (itemId: number, input: { excluded?: boolean; description?: string | null; amount?: number | null }) =>

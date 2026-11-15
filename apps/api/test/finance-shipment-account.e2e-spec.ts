@@ -385,10 +385,55 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
     const egp = res.body.currencies.find(
       (c: { currency: string }) => c.currency === 'EGP',
     );
-    expect(egp.totals).toEqual({
-      debit: '11500',
-      credit: '12050',
+    // nothing approved yet: the balance counts approved documents only
+    expect(egp.summary.balance).toBe('0');
+    expect(egp.summary.pending).toMatchObject({
+      billed: '11500',
+      collected: '12050',
+    });
+    expect(egp.pending.length).toBe(egp.summary.pending.count);
+
+    // once approved, they make the balance, the statement and the shipments
+    await ctx.prisma.invoice.updateMany({
+      where: { shipment: { clientId: fx.ids.clientA } },
+      data: { approvalStatus: 'APPROVED' },
+    });
+    await ctx.prisma.collection.updateMany({
+      where: { clientId: fx.ids.clientA },
+      data: { approvalStatus: 'APPROVED' },
+    });
+    const after = (
+      await ctx
+        .api(relations)
+        .get(`/api/finance/clients/${fx.ids.clientA}/ledger`)
+        .expect(200)
+    ).body.currencies.find((c: { currency: string }) => c.currency === 'EGP');
+    expect(after.summary).toMatchObject({
+      billed: '11500',
+      collected: '12050',
       balance: '-550',
+    });
+    expect(after.statement).toMatchObject({ opening: '0', closing: '-550' });
+    expect(after.statement.lines.at(-1).balance).toBe('-550');
+    expect(after.shipments[0]).toMatchObject({
+      shipmentId,
+      remaining: '-550',
+      ageDays: null,
+    });
+    expect(after.aging.over90).toBe('0');
+    // a period after everything: all of it is the opening balance
+    const later = (
+      await ctx
+        .api(relations)
+        .get(
+          `/api/finance/clients/${fx.ids.clientA}/ledger?from=2099-01-01&to=2099-12-31`,
+        )
+        .expect(200)
+    ).body.currencies.find((c: { currency: string }) => c.currency === 'EGP');
+    expect(later.statement).toMatchObject({
+      opening: '-550',
+      lines: [],
+      closing: '-550',
     });
     const balances = await ctx
       .api(relations)
