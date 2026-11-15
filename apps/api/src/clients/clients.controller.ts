@@ -31,6 +31,7 @@ const CLIENT_PICKERS = [
 ] as const;
 import { ClientsService } from './clients.service';
 import {
+  ClientOptionsQueryDto,
   ClientsQueryDto,
   CreateClientDto,
   CreateFactoryDto,
@@ -45,8 +46,8 @@ export class ClientsController {
   /** Live clients for pickers (shipment registration), name order. */
   @Get('options')
   @RequireAnyPermission(...CLIENT_PICKERS)
-  options() {
-    return this.clients.options();
+  options(@CurrentUser() actor: AuthUser, @Query() q: ClientOptionsQueryDto) {
+    return this.clients.options(actor, q.direction);
   }
 
   @Get()

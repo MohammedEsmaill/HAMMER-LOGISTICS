@@ -1,5 +1,5 @@
 import { AR } from '@/lib/format';
-import { ArrowRight, Calculator, RefreshCw } from 'lucide-react';
+import { ArrowRight, Calculator, FileDown, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/auth/auth-context';
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
@@ -110,6 +110,13 @@ export default function ShipmentDetailPage() {
             <Calculator className="size-4" /> حساب الشحنة
           </Link>
         )}
+        <Link
+          to={`/print/shipments/${shipment.id}`}
+          target="_blank"
+          className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-2 text-sm hover:border-gold/60 hover:text-gold"
+        >
+          <FileDown className="size-4" /> طباعة بيانات الشحنة
+        </Link>
         <button
           type="button"
           onClick={() => refetch()}

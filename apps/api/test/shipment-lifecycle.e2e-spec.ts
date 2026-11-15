@@ -361,4 +361,48 @@ describe('Shipment lifecycle (e2e)', () => {
       expect(audits).toBe(5);
     });
   });
+
+  describe('registration by operation, and optional voyage and booking', () => {
+    it('voyage and booking numbers are optional, and an edit may clear them', async () => {
+      const s = await register({ voyageNo: undefined, bookingNo: undefined });
+      expect(s).toMatchObject({ voyageNo: null, bookingNo: null });
+      const withBoth = await register();
+      const res = await ctx
+        .api(fx.tokens.scan)
+        .patch(`/api/shipments/${withBoth.id}/basic`, {
+          version: withBoth.version,
+          voyageNo: null,
+          bookingNo: null,
+        })
+        .expect(200);
+      expect(res.body).toMatchObject({ voyageNo: null, bookingNo: null });
+    });
+
+    it('an operation employee picks and registers only their own clients', async () => {
+      const options = await ctx
+        .api(fx.tokens.opsA)
+        .get('/api/clients/options?direction=IMPORT')
+        .expect(200);
+      const ids = (options.body as { id: number }[]).map((c) => c.id);
+      expect(ids).toContain(fx.ids.clientA);
+      expect(ids).not.toContain(fx.ids.clientB);
+
+      const own = await ctx
+        .api(fx.tokens.opsA)
+        .post('/api/shipments', fx.seaImport())
+        .expect(201);
+      expect(own.body.operationEmployee.id).toBe(fx.employees.opsA);
+
+      await ctx
+        .api(fx.tokens.opsA)
+        .post(
+          '/api/shipments',
+          fx.seaImport({
+            clientId: fx.ids.clientB,
+            factoryId: fx.ids.factoryB,
+          }),
+        )
+        .expect(403);
+    });
+  });
 });

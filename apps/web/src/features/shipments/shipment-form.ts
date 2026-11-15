@@ -93,10 +93,6 @@ export function shipmentSchema(rules: TypeRules) {
     if (rules.reference && !/^[0-9]{19}$/.test(v.referenceNumber)) {
       fail(['referenceNumber'], `${rules.reference} لازم يكون 19 رقم`);
     }
-    if (rules.voyageAndBooking) {
-      if (!v.voyageNo) fail(['voyageNo'], 'اكتب رقم الرحلة');
-      if (!v.bookingNo) fail(['bookingNo'], 'اكتب رقم الحجز');
-    }
     if (rules.masterBill === 'required' && !v.mblNumber) fail(['mblNumber'], 'اكتب رقم الـ MB/L');
     if (rules.masterBill !== 'none' && v.hblNumber && !v.mblNumber) fail(['mblNumber'], 'لو فيه HB/L لازم يبقى فيه MB/L');
 
@@ -146,8 +142,8 @@ export function toShipmentInput(rules: TypeRules, v: ShipmentFormOut): ShipmentI
     referenceNumber: rules.reference ? v.referenceNumber : undefined,
     hblNumber: rules.masterBill === 'none' ? undefined : opt(v.hblNumber),
     mblNumber: rules.masterBill === 'none' ? undefined : opt(v.mblNumber),
-    voyageNo: rules.voyageAndBooking ? v.voyageNo : undefined,
-    bookingNo: rules.voyageAndBooking ? v.bookingNo : undefined,
+    voyageNo: rules.voyageAndBooking ? opt(v.voyageNo) : undefined,
+    bookingNo: rules.voyageAndBooking ? opt(v.bookingNo) : undefined,
     loadType: rules.containers ? v.loadType : undefined,
     containers: rules.containers
       ? v.containers.map((c) => ({ type: c.type, weight: c.weight!, containerNo: opt(c.containerNo) }))

@@ -67,6 +67,7 @@ const ROLES: {
     description: 'متابعة شحنات عملائه من التبليغ للصرف',
     permissions: [
       'shipments.view.own',
+      'shipments.create',
       'shipments.operation.update',
       'shipments.customs.update',
       ...SHIPMENT_STAGE_OPS,
@@ -242,6 +243,11 @@ const GRANTS: {
         'GENERAL_AUDITOR',
       ].map((role) => [role, ['clients.view']]),
     ),
+  },
+  {
+    // operation registers shipments too, for its own clients only
+    id: 'operation-registers-shipments',
+    roles: { OPERATION: ['shipments.create'] },
   },
 ];
 

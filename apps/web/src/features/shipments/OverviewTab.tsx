@@ -44,7 +44,12 @@ function EditBasicDrawer({ shipment, open, onClose }: { shipment: Shipment; open
       // the type never changes; vessel and ETA are the operation tab's
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { direction, mode, vesselName, eta, ...body } = toShipmentInput(rules, values);
-      return shipmentsApi.updateBasic(shipment.id, { ...body, version: shipment.version });
+      // an optional number left empty is cleared (null), not kept
+      const cleared = {
+        ...(rules.masterBill !== 'none' ? { hblNumber: body.hblNumber ?? null } : {}),
+        ...(rules.voyageAndBooking ? { voyageNo: body.voyageNo ?? null, bookingNo: body.bookingNo ?? null } : {}),
+      };
+      return shipmentsApi.updateBasic(shipment.id, { ...body, ...cleared, version: shipment.version });
     },
     'اتحفظت بيانات الشحنة',
   );

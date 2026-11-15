@@ -1,8 +1,10 @@
+import { Direction } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsEmail,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -161,3 +163,10 @@ export class UpdateClientDto {
 }
 
 export class ClientsQueryDto extends ListQueryDto {}
+
+export class ClientOptionsQueryDto {
+  /** Narrows an operation employee's clients to one direction (registration). */
+  @IsOptional()
+  @IsEnum(Direction)
+  direction?: Direction;
+}

@@ -69,7 +69,7 @@ export function BasicFields({ form, rules }: { form: ShipmentForm; rules: TypeRu
   const { register } = form;
   const labels = partyLabels(rules.direction);
   const clientId = useWatch({ control: form.control, name: 'clientId' });
-  const { data: clients = [] } = useClientOptions();
+  const { data: clients = [] } = useClientOptions(rules.direction);
   const { data: factories = [] } = useFactories(clientId ? Number(clientId) : undefined);
   const { data: clearers = [] } = useClearerOptions();
   const { data: countries = [] } = useCountries();

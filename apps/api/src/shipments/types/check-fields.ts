@@ -43,8 +43,11 @@ export function checkFields(
   need('dischargePortId', rules.route !== null);
   need('freeZoneId', rules.freeZone);
   need('referenceNumber', rules.reference !== null);
-  need('voyageNo', rules.voyageAndBooking);
-  need('bookingNo', rules.voyageAndBooking);
+  // voyage and booking numbers are optional; only where the type has them
+  if (!rules.voyageAndBooking) {
+    need('voyageNo', false);
+    need('bookingNo', false);
+  }
   if (rules.masterBill === 'required') need('mblNumber', true);
   if (rules.masterBill === 'none') {
     need('mblNumber', false);

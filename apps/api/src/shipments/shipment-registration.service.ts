@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, can } from '../auth/auth-user';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
@@ -33,6 +33,15 @@ export class ShipmentRegistrationService {
         rules,
         dto.clientId,
       );
+      // an operation employee who sees only their own shipments registers only those
+      if (
+        !can(actor, 'shipments.view.all') &&
+        operationEmployeeId !== actor.employeeId
+      ) {
+        throw new ForbiddenException(
+          'لا يمكنك تسجيل شحنة لعميل غير مسؤول عنه في هذا الاتجاه',
+        );
+      }
       await this.validator.assertNoDuplicates(tx, dto);
 
       const fileNo = await this.fileNumbers.next(tx);

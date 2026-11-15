@@ -202,8 +202,13 @@ export const useShipment = (id: number) =>
   useQuery({ queryKey: shipmentKeys.one(id), queryFn: () => api.get<Shipment>(`/shipments/${id}`) });
 
 // pickers for the registration form; short-lived cache (they change with the admin screens)
-export const useClientOptions = () =>
-  useQuery({ queryKey: ['clients', 'options'], queryFn: () => api.get<Named[]>('/clients/options'), staleTime: 5 * 60_000 });
+/** With a direction, an operation employee gets only their clients for it. */
+export const useClientOptions = (direction?: 'IMPORT' | 'EXPORT') =>
+  useQuery({
+    queryKey: ['clients', 'options', direction ?? 'all'],
+    queryFn: () => api.get<Named[]>('/clients/options', { direction }),
+    staleTime: 5 * 60_000,
+  });
 
 export const useFactories = (clientId: number | undefined) =>
   useQuery({
@@ -226,9 +231,15 @@ export const useClearerOptions = () =>
 
 const path = (id: number, rest = '') => `/shipments/${id}${rest}`;
 
+/** Optional numbers an edit may clear (null). */
+type Clearable = 'hblNumber' | 'voyageNo' | 'bookingNo';
+
 export const shipmentsApi = {
   create: (input: ShipmentInput) => api.post<Shipment>('/shipments', input),
-  updateBasic: (id: number, input: Partial<ShipmentInput> & { version: number }) =>
+  updateBasic: (
+    id: number,
+    input: Partial<Omit<ShipmentInput, Clearable>> & { version: number } & Partial<Record<Clearable, string | null>>,
+  ) =>
     api.patch<Shipment>(path(id, '/basic'), input),
   updateOperation: (id: number, input: { version: number; vesselName?: string | null; eta?: string | null }) =>
     api.patch<Shipment>(path(id, '/operation'), input),

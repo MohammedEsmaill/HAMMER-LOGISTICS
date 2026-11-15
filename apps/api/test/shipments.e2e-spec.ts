@@ -451,8 +451,8 @@ describe('Shipment registration (e2e)', () => {
       expect(list.body.total).toBeGreaterThan(0);
     });
 
-    it('only SCAN registers; search finds a shipment by container number', async () => {
-      await ctx.api(opsA.token).post('/api/shipments', seaImport()).expect(403);
+    it('operation registers only its own clients; search finds a shipment by container number', async () => {
+      await ctx.api(opsB.token).post('/api/shipments', seaImport()).expect(403);
       const res = await ctx
         .api(scan)
         .get('/api/shipments?search=tclu5965621')

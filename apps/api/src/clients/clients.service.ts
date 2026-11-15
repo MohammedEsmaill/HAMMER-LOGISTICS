@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Direction, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser, can } from '../auth/auth-user';
 import { Page, pageArgs } from '../common/dto/list-query.dto';
@@ -45,9 +45,19 @@ export class ClientsService {
     private readonly audit: AuditService,
   ) {}
 
-  options() {
+  /**
+   * An operation employee who sees only their own shipments picks only their own
+   * clients: the import ones, or the export ones (whose export falls back to import).
+   */
+  options(actor: AuthUser, direction?: Direction) {
+    const own =
+      !can(actor, 'shipments.view.all') &&
+      actor.accountType === 'EMPLOYEE' &&
+      actor.employeeId
+        ? operationClientWhere(actor.employeeId, direction)
+        : {};
     return this.prisma.client.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, ...own },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
@@ -370,4 +380,26 @@ export class ClientsService {
       );
     }
   }
+}
+
+/** The clients an operation employee is responsible for, in one direction or either. */
+export function operationClientWhere(
+  employeeId: number,
+  direction?: Direction,
+): Prisma.ClientWhereInput {
+  const imports: Prisma.ClientWhereInput = {
+    importOperationEmployeeId: employeeId,
+  };
+  const exports: Prisma.ClientWhereInput = {
+    OR: [
+      { exportOperationEmployeeId: employeeId },
+      {
+        exportOperationEmployeeId: null,
+        importOperationEmployeeId: employeeId,
+      },
+    ],
+  };
+  if (direction === 'IMPORT') return imports;
+  if (direction === 'EXPORT') return exports;
+  return { OR: [imports, exports] };
 }

@@ -40,6 +40,7 @@ const ShipmentAccountPage = lazy(() => import('@/features/finance/ShipmentAccoun
 const ReportPrintPage = lazy(() => import('@/features/finance/ReportPrintPage'));
 const AccountPage = lazy(() => import('@/features/finance/AccountPage'));
 const InvoicePrintPage = lazy(() => import('@/features/finance/InvoicePrintPage'));
+const ShipmentPrintPage = lazy(() => import('@/features/shipments/ShipmentPrintPage'));
 const ACCOUNT_VIEW = [
   'finance.shipment-account.view',
   'finance.statement.manage',
@@ -80,6 +81,19 @@ export const router = createBrowserRouter([
         <RequirePermission any={[...ACCOUNT_VIEW]}>
           <Suspense fallback={null}>
             <InvoicePrintPage />
+          </Suspense>
+        </RequirePermission>
+      </RequireAuth>
+    ),
+  },
+  {
+    // a shipment's data on paper, for whoever can see the shipment
+    path: '/print/shipments/:id',
+    element: (
+      <RequireAuth>
+        <RequirePermission any={[...SHIPMENT_VIEW]}>
+          <Suspense fallback={null}>
+            <ShipmentPrintPage />
           </Suspense>
         </RequirePermission>
       </RequireAuth>
