@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Building2, Factory as FactoryIcon, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -38,12 +38,16 @@ const factorySchema = z.object({
   address: z.string().trim().min(1, 'اكتب العنوان').max(255),
 });
 
+const optionalId = z.preprocess((v) => (v === '' || v === undefined ? null : v), z.coerce.number().int().nullable());
+
 const clientSchema = z.object({
   name: z.string().trim().min(2, 'اسم العميل حرفين على الأقل').max(150),
   mobile: egyptMobile,
   email: z.string().trim().email('الإيميل غير صحيح'),
   importOperationEmployeeId: requiredId,
-  exportOperationEmployeeId: z.preprocess((v) => (v === '' ? null : v), z.coerce.number().int().nullable()),
+  exportOperationEmployeeId: optionalId,
+  importReviewerEmployeeId: optionalId,
+  exportReviewerEmployeeId: optionalId,
   quoteFinalBase: money,
   quoteTemporaryBase: money,
   quoteImportExtraContainer: money,
@@ -70,6 +74,9 @@ function ClientFormDrawer({
     resolver: zodResolver(clientSchema),
   });
   const factories = useFieldArray({ control, name: 'factories' });
+  // a reviewer is someone other than the operation employee of the same side
+  const [importOps, exportOps] = useWatch({ control, name: ['importOperationEmployeeId', 'exportOperationEmployeeId'] });
+  const othersThan = (id: unknown) => opsOptions.filter((o) => String(o.value) !== String(id ?? ''));
   const errors = formState.errors;
   const save = useAction(
     ({ factories: newFactories, ...form }: ClientOut) => {
@@ -89,6 +96,8 @@ function ClientFormDrawer({
       email: client?.email ?? '',
       importOperationEmployeeId: client?.importOperationEmployee.id ?? '',
       exportOperationEmployeeId: client?.exportOperationEmployee?.id ?? '',
+      importReviewerEmployeeId: client?.importReviewerEmployee?.id ?? '',
+      exportReviewerEmployeeId: client?.exportReviewerEmployee?.id ?? '',
       ...Object.fromEntries(QUOTE_FIELDS.map((f) => [f.key, client?.[f.key] ?? ''])),
       factories: [],
     } as ClientForm);
@@ -128,6 +137,19 @@ function ClientFormDrawer({
             placeholder="نفس موظف الوارد"
             options={opsOptions}
             {...register('exportOperationEmployeeId')}
+          />
+          <SelectField
+            label="مراجع الوارد (اختياري)"
+            placeholder="بدون مراجع"
+            options={othersThan(importOps)}
+            {...register('importReviewerEmployeeId')}
+          />
+          <SelectField
+            label="مراجع الصادر (اختياري)"
+            placeholder={exportOps ? 'بدون مراجع' : 'نفس مراجع الوارد'}
+            disabled={!exportOps}
+            options={othersThan(exportOps)}
+            {...register('exportReviewerEmployeeId')}
           />
         </section>
 
@@ -277,6 +299,16 @@ function ClientDetailsDrawer({
               <div className="rounded-xl bg-surface-2 p-3">
                 <div className="text-xs text-muted">أوبريشن الصادر</div>
                 <div className="font-semibold">{client.exportOperationEmployee?.fullName ?? 'نفس موظف الوارد'}</div>
+              </div>
+              <div className="rounded-xl bg-surface-2 p-3">
+                <div className="text-xs text-muted">مراجع الوارد</div>
+                <div className="font-semibold">{client.importReviewerEmployee?.fullName ?? '—'}</div>
+              </div>
+              <div className="rounded-xl bg-surface-2 p-3">
+                <div className="text-xs text-muted">مراجع الصادر</div>
+                <div className="font-semibold">
+                  {client.exportOperationEmployee ? (client.exportReviewerEmployee?.fullName ?? '—') : (client.importReviewerEmployee?.fullName ?? '—')}
+                </div>
               </div>
             </div>
 

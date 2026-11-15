@@ -137,6 +137,10 @@ export class EmployeesService {
         select: this.select(actor),
       });
       if (leaving) await this.closeAccounts(tx, id);
+      // a reviewer who leaves or moves out of operation stops reviewing
+      if (leaving || employee.department !== 'OPERATION') {
+        await this.dropReviews(tx, id);
+      }
       await this.audit.log(
         {
           userId: actor.id,
@@ -164,6 +168,7 @@ export class EmployeesService {
           `الموظف مسؤول عن ${clients} عميل و${activeShipments} شحنة شغالة، انقلهم لموظف تاني الأول`,
         );
       }
+      await this.dropReviews(tx, id);
       const now = new Date();
       await tx.employee.update({
         where: { id },
@@ -195,6 +200,18 @@ export class EmployeesService {
     await tx.user.updateMany({
       where: { employeeId, deletedAt: null },
       data: { isActive: false, sessionId: null },
+    });
+  }
+
+  /** The reviewer is optional: removed from the clients they review. */
+  private async dropReviews(tx: Tx, employeeId: number) {
+    await tx.client.updateMany({
+      where: { importReviewerEmployeeId: employeeId },
+      data: { importReviewerEmployeeId: null },
+    });
+    await tx.client.updateMany({
+      where: { exportReviewerEmployeeId: employeeId },
+      data: { exportReviewerEmployeeId: null },
     });
   }
 

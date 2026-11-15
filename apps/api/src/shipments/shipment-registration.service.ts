@@ -28,15 +28,13 @@ export class ShipmentRegistrationService {
 
     const id = await this.prisma.$transaction(async (tx) => {
       await this.validator.assertReferences(tx, rules, dto);
-      const operationEmployeeId = await this.validator.operationEmployeeFor(
-        tx,
-        rules,
-        dto.clientId,
-      );
-      // an operation employee who sees only their own shipments registers only those
+      const team = await this.validator.teamFor(tx, rules, dto.clientId);
+      const operationEmployeeId = team.operation;
+      // who sees only their own shipments registers only for the clients they work on
       if (
         !can(actor, 'shipments.view.all') &&
-        operationEmployeeId !== actor.employeeId
+        actor.employeeId !== team.operation &&
+        actor.employeeId !== team.reviewer
       ) {
         throw new ForbiddenException(
           'لا يمكنك تسجيل شحنة لعميل غير مسؤول عنه في هذا الاتجاه',

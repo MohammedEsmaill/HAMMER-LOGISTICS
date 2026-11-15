@@ -11,6 +11,7 @@ import { Page, pageArgs } from '../common/dto/list-query.dto';
 import { toDecimal } from '../common/validation';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { activeShipmentWhere } from '../shipments/stages';
+import { ClientTeamIds, operationClientWhere } from './operation-team';
 import {
   ClientsQueryDto,
   CreateClientDto,
@@ -128,17 +129,18 @@ export class ClientsService {
 
   async create(actor: AuthUser, dto: CreateClientDto) {
     return this.prisma.$transaction(async (tx) => {
-      await this.assertOperationEmployee(tx, dto.importOperationEmployeeId);
-      if (dto.exportOperationEmployeeId) {
-        await this.assertOperationEmployee(tx, dto.exportOperationEmployeeId);
-      }
+      const team = await this.assertTeam(tx, {
+        importOperationEmployeeId: dto.importOperationEmployeeId,
+        exportOperationEmployeeId: dto.exportOperationEmployeeId ?? null,
+        importReviewerEmployeeId: dto.importReviewerEmployeeId ?? null,
+        exportReviewerEmployeeId: dto.exportReviewerEmployeeId ?? null,
+      });
       const created = await tx.client.create({
         data: {
           name: dto.name,
           mobile: dto.mobile,
           email: dto.email,
-          importOperationEmployeeId: dto.importOperationEmployeeId,
-          exportOperationEmployeeId: dto.exportOperationEmployeeId ?? null,
+          ...team,
           quoteFinalBase: toDecimal(dto.quoteFinalBase),
           quoteTemporaryBase: toDecimal(dto.quoteTemporaryBase),
           quoteImportExtraContainer: toDecimal(dto.quoteImportExtraContainer),
@@ -168,12 +170,28 @@ export class ClientsService {
   async update(actor: AuthUser, id: number, dto: UpdateClientDto) {
     return this.prisma.$transaction(async (tx) => {
       const before = await this.getIn(tx, actor, id);
-      if (dto.importOperationEmployeeId) {
-        await this.assertOperationEmployee(tx, dto.importOperationEmployeeId);
-      }
-      if (dto.exportOperationEmployeeId) {
-        await this.assertOperationEmployee(tx, dto.exportOperationEmployeeId);
-      }
+      const stored = await tx.client.findUniqueOrThrow({
+        where: { id },
+        select: {
+          importOperationEmployeeId: true,
+          exportOperationEmployeeId: true,
+          importReviewerEmployeeId: true,
+          exportReviewerEmployeeId: true,
+        },
+      });
+      // undefined = keep, null = remove
+      const pick = <K extends keyof typeof stored>(k: K) =>
+        dto[k] === undefined ? stored[k] : dto[k];
+      const team = await this.assertTeam(
+        tx,
+        {
+          importOperationEmployeeId: pick('importOperationEmployeeId'),
+          exportOperationEmployeeId: pick('exportOperationEmployeeId'),
+          importReviewerEmployeeId: pick('importReviewerEmployeeId'),
+          exportReviewerEmployeeId: pick('exportReviewerEmployeeId'),
+        },
+        stored,
+      );
       // Shipments keep the operation employee they were registered with (spec section 4).
       await tx.client.update({
         where: { id },
@@ -181,8 +199,7 @@ export class ClientsService {
           name: dto.name,
           mobile: dto.mobile,
           email: dto.email,
-          importOperationEmployeeId: dto.importOperationEmployeeId,
-          exportOperationEmployeeId: dto.exportOperationEmployeeId,
+          ...team,
           ...this.quoteData(dto),
         },
       });
@@ -312,6 +329,8 @@ export class ClientsService {
       email: true,
       importOperationEmployee: OPERATION_EMPLOYEE,
       exportOperationEmployee: OPERATION_EMPLOYEE,
+      importReviewerEmployee: OPERATION_EMPLOYEE,
+      exportReviewerEmployee: OPERATION_EMPLOYEE,
       quoteFinalBase: quote,
       quoteTemporaryBase: quote,
       quoteImportExtraContainer: quote,
@@ -364,6 +383,41 @@ export class ClientsService {
     return factory;
   }
 
+  /**
+   * Checks the operation team: active OPERATION employees, a reviewer other than the
+   * operation employee, and an export reviewer only with an export operation employee
+   * (dropping the export operation employee drops its reviewer). Only the employees
+   * newly put on the team are checked, so a stored one who left does not block an edit.
+   */
+  private async assertTeam(
+    tx: Tx,
+    team: ClientTeamIds,
+    stored?: ClientTeamIds,
+  ): Promise<ClientTeamIds> {
+    const result = { ...team };
+    if (!result.exportOperationEmployeeId)
+      result.exportReviewerEmployeeId = null;
+    if (result.importReviewerEmployeeId === result.importOperationEmployeeId) {
+      throw new BadRequestException(
+        'مراجع الوارد لازم يكون موظف غير المسؤول الأساسي',
+      );
+    }
+    if (
+      result.exportReviewerEmployeeId &&
+      result.exportReviewerEmployeeId === result.exportOperationEmployeeId
+    ) {
+      throw new BadRequestException(
+        'مراجع الصادر لازم يكون موظف غير المسؤول الأساسي',
+      );
+    }
+    for (const key of Object.keys(result) as (keyof ClientTeamIds)[]) {
+      const id = result[key];
+      if (id && id !== stored?.[key])
+        await this.assertOperationEmployee(tx, id);
+    }
+    return result;
+  }
+
   private async assertOperationEmployee(tx: Tx, employeeId: number) {
     const employee = await tx.employee.findFirst({
       where: {
@@ -376,30 +430,8 @@ export class ClientsService {
     });
     if (!employee) {
       throw new BadRequestException(
-        'موظف الأوبريشن لازم يكون موظف شغال في قسم OPERATION',
+        'موظف الأوبريشن والمراجع لازم يكونوا موظفين شغالين في قسم OPERATION',
       );
     }
   }
-}
-
-/** The clients an operation employee is responsible for, in one direction or either. */
-export function operationClientWhere(
-  employeeId: number,
-  direction?: Direction,
-): Prisma.ClientWhereInput {
-  const imports: Prisma.ClientWhereInput = {
-    importOperationEmployeeId: employeeId,
-  };
-  const exports: Prisma.ClientWhereInput = {
-    OR: [
-      { exportOperationEmployeeId: employeeId },
-      {
-        exportOperationEmployeeId: null,
-        importOperationEmployeeId: employeeId,
-      },
-    ],
-  };
-  if (direction === 'IMPORT') return imports;
-  if (direction === 'EXPORT') return exports;
-  return { OR: [imports, exports] };
 }

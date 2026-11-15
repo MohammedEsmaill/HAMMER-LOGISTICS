@@ -4,6 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Direction, Prisma, ShipmentMode } from '@prisma/client';
+import { teamFor } from '../clients/operation-team';
 import { Tx } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { shipmentKind } from './stages';
@@ -137,19 +138,23 @@ export class ShipmentValidator {
     rules: ShipmentTypeRules,
     clientId: number,
   ): Promise<number> {
+    return (await this.teamFor(tx, rules, clientId)).operation;
+  }
+
+  /** The client's operation employee (must be active) and reviewer for the direction. */
+  async teamFor(tx: Tx, rules: ShipmentTypeRules, clientId: number) {
     const client = await tx.client.findUniqueOrThrow({
       where: { id: clientId },
       select: {
         importOperationEmployeeId: true,
         exportOperationEmployeeId: true,
+        importReviewerEmployeeId: true,
+        exportReviewerEmployeeId: true,
       },
     });
-    const id =
-      rules.direction === 'EXPORT'
-        ? (client.exportOperationEmployeeId ?? client.importOperationEmployeeId)
-        : client.importOperationEmployeeId;
+    const team = teamFor(client, rules.direction);
     const employee = await tx.employee.findFirst({
-      where: { id, deletedAt: null, status: 'ACTIVE' },
+      where: { id: team.operation, deletedAt: null, status: 'ACTIVE' },
       select: { id: true },
     });
     if (!employee) {
@@ -157,7 +162,7 @@ export class ShipmentValidator {
         'موظف الأوبريشن المسؤول عن العميل مش شغال، حدّث بيانات العميل الأول',
       );
     }
-    return id;
+    return team;
   }
 
   /**

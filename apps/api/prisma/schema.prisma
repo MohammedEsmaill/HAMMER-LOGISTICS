@@ -241,6 +241,8 @@ model Employee {
   attendanceLogs    AttendanceLog[]
   importClients     Client[]          @relation("ClientImportOperation")
   exportClients     Client[]          @relation("ClientExportOperation")
+  importReviews     Client[]          @relation("ClientImportReviewer")
+  exportReviews     Client[]          @relation("ClientExportReviewer")
   operatedShipments Shipment[]        @relation("ShipmentOperation")
   salaryPayments    SalaryPayment[]
   advances          EmployeeAdvance[]
@@ -402,6 +404,10 @@ model Client {
   email                     String
   importOperationEmployeeId Int       @map("import_operation_employee_id")
   exportOperationEmployeeId Int?      @map("export_operation_employee_id")
+  /// optional second operation employee who follows and works on the client's shipments
+  importReviewerEmployeeId  Int?      @map("import_reviewer_employee_id")
+  /// only with an export operation employee (otherwise export follows the import pair)
+  exportReviewerEmployeeId  Int?      @map("export_reviewer_employee_id")
   // CLEARANCE quotation
   quoteFinalBase            Decimal   @map("quote_final_base") @db.Decimal(14, 2)
   quoteTemporaryBase        Decimal   @map("quote_temporary_base") @db.Decimal(14, 2)
@@ -415,6 +421,8 @@ model Client {
 
   importOperationEmployee Employee     @relation("ClientImportOperation", fields: [importOperationEmployeeId], references: [id], onDelete: Restrict)
   exportOperationEmployee Employee?    @relation("ClientExportOperation", fields: [exportOperationEmployeeId], references: [id], onDelete: Restrict)
+  importReviewerEmployee  Employee?    @relation("ClientImportReviewer", fields: [importReviewerEmployeeId], references: [id], onDelete: Restrict)
+  exportReviewerEmployee  Employee?    @relation("ClientExportReviewer", fields: [exportReviewerEmployeeId], references: [id], onDelete: Restrict)
   deletedBy               User?        @relation("ClientDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   factories               Factory[]
   shipments               Shipment[]

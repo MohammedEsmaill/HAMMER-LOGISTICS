@@ -405,4 +405,77 @@ describe('Shipment lifecycle (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('the client reviewer', () => {
+    const setReviewer = (body: object) =>
+      ctx.api(ctx.ceoToken).patch(`/api/clients/${fx.ids.clientA}`, body);
+
+    it('is an operation employee other than the client operation employee', async () => {
+      await setReviewer({ importReviewerEmployeeId: fx.employees.opsA }).expect(
+        400,
+      );
+      await setReviewer({ importReviewerEmployeeId: fx.employees.scan }).expect(
+        400,
+      );
+      // no export operation employee: no export reviewer
+      const res = await setReviewer({
+        importReviewerEmployeeId: fx.employees.opsB,
+        exportReviewerEmployeeId: fx.employees.opsB,
+      }).expect(200);
+      expect(res.body.importReviewerEmployee.id).toBe(fx.employees.opsB);
+      expect(res.body.exportReviewerEmployee).toBeNull();
+    });
+
+    it('sees, works on and registers the client shipments; they stay on the operation employee', async () => {
+      const s = await register();
+      const seen = await ctx
+        .api(fx.tokens.opsB)
+        .get(`/api/shipments/${s.id}`)
+        .expect(200);
+      expect(seen.body.operationEmployee.id).toBe(fx.employees.opsA);
+      await ctx
+        .api(fx.tokens.opsB)
+        .patch(`/api/shipments/${s.id}/operation`, {
+          version: s.version,
+          vesselName: 'REVIEWED',
+        })
+        .expect(200);
+
+      const options = await ctx
+        .api(fx.tokens.opsB)
+        .get('/api/clients/options?direction=IMPORT')
+        .expect(200);
+      expect((options.body as { id: number }[]).map((c) => c.id)).toEqual(
+        expect.arrayContaining([fx.ids.clientA, fx.ids.clientB]),
+      );
+      const registered = await ctx
+        .api(fx.tokens.opsB)
+        .post('/api/shipments', fx.seaImport())
+        .expect(201);
+      expect(registered.body.operationEmployee.id).toBe(fx.employees.opsA);
+
+      // the reviewer does not reach the import side of other clients, nor clientB's
+      // shipments reach opsA
+      const list = await ctx
+        .api(fx.tokens.opsA)
+        .get('/api/shipments?pageSize=200')
+        .expect(200);
+      expect(
+        (list.body.items as { client: { id: number } }[]).every(
+          (x) => x.client.id === fx.ids.clientA,
+        ),
+      ).toBe(true);
+    });
+
+    it('loses access once removed', async () => {
+      const s = await register();
+      await ctx.api(fx.tokens.opsB).get(`/api/shipments/${s.id}`).expect(200);
+      await setReviewer({ importReviewerEmployeeId: null }).expect(200);
+      await ctx.api(fx.tokens.opsB).get(`/api/shipments/${s.id}`).expect(404);
+      await ctx
+        .api(fx.tokens.opsB)
+        .post('/api/shipments', fx.seaImport())
+        .expect(403);
+    });
+  });
 });

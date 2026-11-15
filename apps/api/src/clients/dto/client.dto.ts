@@ -89,6 +89,18 @@ export class CreateClientDto {
   @Min(1)
   exportOperationEmployeeId?: number | null;
 
+  /** Optional reviewer of the import shipments (OPERATION department). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  importReviewerEmployeeId?: number | null;
+
+  /** Optional reviewer of the export shipments; needs an export operation employee. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  exportReviewerEmployeeId?: number | null;
+
   @Money()
   quoteFinalBase!: number;
 
@@ -140,6 +152,18 @@ export class UpdateClientDto {
   @IsInt()
   @Min(1)
   exportOperationEmployeeId?: number | null;
+
+  /** null removes the reviewer. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  importReviewerEmployeeId?: number | null;
+
+  /** null removes the reviewer. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  exportReviewerEmployeeId?: number | null;
 
   @IsOptional()
   @Money()
