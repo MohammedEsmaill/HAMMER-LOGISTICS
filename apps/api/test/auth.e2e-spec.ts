@@ -170,6 +170,50 @@ describe('Auth & permissions (e2e)', () => {
       );
       expect(res.body.message).toContain('مقفول');
     });
+
+    it('locks longer the next time, counts only attempts within 15 minutes, and opens by unlock', async () => {
+      const user = await createUser('112', 'relock@hammerline.com', 'SCAN');
+      // four wrong passwords long ago do not add to new ones
+      for (let i = 0; i < 4; i++)
+        await login('relock@hammerline.com', 'wrong').expect(401);
+      await prisma.user.update({
+        where: { id: user.userId },
+        data: { lastFailedAt: new Date(Date.now() - 20 * 60_000) },
+      });
+      for (let i = 0; i < 4; i++)
+        await login('relock@hammerline.com', 'wrong').expect(401);
+      await login('relock@hammerline.com', user.password).expect(200);
+
+      // first lock: 15 minutes
+      for (let i = 0; i < 5; i++)
+        await login('relock@hammerline.com', 'wrong').expect(401);
+      let row = await prisma.user.findUniqueOrThrow({
+        where: { id: user.userId },
+      });
+      expect(row.lockedUntil!.getTime() - Date.now()).toBeLessThan(16 * 60_000);
+      // its time passes, five more: an hour
+      await prisma.user.update({
+        where: { id: user.userId },
+        data: { lockedUntil: new Date(Date.now() - 1000) },
+      });
+      for (let i = 0; i < 5; i++)
+        await login('relock@hammerline.com', 'wrong').expect(401);
+      row = await prisma.user.findUniqueOrThrow({ where: { id: user.userId } });
+      expect(row.lockedUntil!.getTime() - Date.now()).toBeGreaterThan(
+        55 * 60_000,
+      );
+      expect(row.lockCount).toBe(2);
+
+      await request(app.getHttpServer())
+        .post(`/api/users/${user.userId}/unlock`)
+        .set('Authorization', `Bearer ${ceoToken}`)
+        .expect(204);
+      await login('relock@hammerline.com', user.password).expect(200);
+      const logged = await prisma.auditLog.count({
+        where: { entityId: String(user.userId), action: 'LOGIN_LOCKED' },
+      });
+      expect(logged).toBe(2);
+    });
   });
 
   describe('permissions', () => {

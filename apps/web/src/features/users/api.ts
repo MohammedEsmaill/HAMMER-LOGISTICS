@@ -57,6 +57,7 @@ export const usersApi = {
   update: (id: number, changes: UserChanges) => api.patch<User>(`/users/${id}`, changes),
   resetPassword: (id: number, password: string) =>
     api.post(`/users/${id}/reset-password`, { password }),
+  unlock: (id: number) => api.post(`/users/${id}/unlock`),
   remove: (id: number) => api.delete(`/users/${id}`),
 };
 

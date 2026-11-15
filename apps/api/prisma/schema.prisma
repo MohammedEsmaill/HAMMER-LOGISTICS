@@ -294,6 +294,10 @@ model User {
   clearerId      Int?        @map("clearer_id")
   failedAttempts Int         @default(0) @map("failed_attempts")
   lockedUntil    DateTime?   @map("locked_until")
+  /// the last wrong password: attempts count within 15 minutes of each other
+  lastFailedAt   DateTime?   @map("last_failed_at")
+  /// locks in a row (15 min, 1 hour, 4 hours, a day); reset by a good login or an unlock
+  lockCount      Int         @default(0) @map("lock_count")
   sessionId      String?     @map("session_id") // one active session; a new login replaces it
   lastLoginAt    DateTime?   @map("last_login_at")
   createdAt      DateTime    @default(now()) @map("created_at")

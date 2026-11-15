@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { KeyRound, Lock, Mail, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
+import { KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -255,6 +255,7 @@ export default function UsersPage() {
     invalidate: [userKeys.all, ['users', 'candidates']],
   });
 
+  const unlock = useAction((id: number) => usersApi.unlock(id), { success: 'اتفك قفل الحساب', invalidate: [userKeys.all] });
   const q = search.toLowerCase();
   const rows = users?.filter(
     (u) => !q || u.email.includes(q) || ownerName(u).toLowerCase().includes(q) || u.role.name.toLowerCase().includes(q),
@@ -290,6 +291,11 @@ export default function UsersPage() {
             onChange={(isActive) => setActive.mutateAsync({ id: u.id, isActive }).catch(toastError)}
           />
           <span className={`text-xs ${u.isActive ? 'text-success' : 'text-muted'}`}>{u.isActive ? 'شغال' : 'موقوف'}</span>
+          {u.lockedUntil && new Date(u.lockedUntil) > new Date() && (
+            <span title={`مقفول لحد ${new Date(u.lockedUntil).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' })}`}>
+              <Badge tone="danger">مقفول (كلمة سر غلط)</Badge>
+            </span>
+          )}
         </div>
       ),
     },
@@ -302,6 +308,11 @@ export default function UsersPage() {
             <IconButton label="تعديل" onClick={() => setEditing(u)}>
               <Pencil className="size-4" />
             </IconButton>
+            {u.lockedUntil && new Date(u.lockedUntil) > new Date() && (
+              <IconButton label="فك القفل" onClick={() => unlock.mutateAsync(u.id).catch(toastError)}>
+                <LockOpen className="size-4" />
+              </IconButton>
+            )}
             <IconButton label="كلمة سر جديدة" onClick={() => setResetting(u)}>
               <KeyRound className="size-4" />
             </IconButton>

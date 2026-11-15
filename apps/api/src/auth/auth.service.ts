@@ -11,7 +11,10 @@ import { SessionService, USER_WITH_OWNER } from './session.service';
 import { TokenService } from './token.service';
 
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_MINUTES = 15;
+/** Wrong passwords count when within this long of each other. */
+const FAILURE_WINDOW_MS = 15 * 60_000;
+/** Each lock in a row lasts longer: 15 minutes, an hour, 4 hours, then a day. */
+const LOCK_STEPS_MINUTES = [15, 60, 240, 1440];
 
 export interface IssuedTokens {
   accessToken: string;
@@ -57,7 +60,7 @@ export class AuthService {
       password,
     );
     if (!user || !valid) {
-      if (user) await this.recordFailure(user.id, user.failedAttempts);
+      if (user) await this.recordFailure(user, ip);
       throw new UnauthorizedException('الإيميل أو كلمة السر غير صحيحة');
     }
     this.sessions.assertUsable(user);
@@ -65,7 +68,13 @@ export class AuthService {
     const sessionId = await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: user.id },
-        data: { failedAttempts: 0, lockedUntil: null, lastLoginAt: new Date() },
+        data: {
+          failedAttempts: 0,
+          lockedUntil: null,
+          lockCount: 0,
+          lastFailedAt: null,
+          lastLoginAt: new Date(),
+        },
       });
       const sid = await this.sessions.open(user.id, tx);
       await this.audit.log(
@@ -162,17 +171,49 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  private async recordFailure(userId: number, previous: number): Promise<void> {
-    const attempts = previous + 1;
+  /** A wrong password: 5 within 15 minutes lock the account, longer each time. */
+  private async recordFailure(
+    user: {
+      id: number;
+      failedAttempts: number;
+      lastFailedAt: Date | null;
+      lockCount: number;
+    },
+    ip?: string,
+  ): Promise<void> {
+    const now = new Date();
+    const recent =
+      user.lastFailedAt &&
+      now.getTime() - user.lastFailedAt.getTime() < FAILURE_WINDOW_MS;
+    const attempts = (recent ? user.failedAttempts : 0) + 1;
     const lock = attempts >= MAX_FAILED_ATTEMPTS;
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: lock
-        ? {
-            failedAttempts: 0,
-            lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000),
-          }
-        : { failedAttempts: { increment: 1 } },
+    const minutes =
+      LOCK_STEPS_MINUTES[
+        Math.min(user.lockCount, LOCK_STEPS_MINUTES.length - 1)
+      ];
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: lock
+          ? {
+              failedAttempts: 0,
+              lastFailedAt: now,
+              lockCount: { increment: 1 },
+              lockedUntil: new Date(now.getTime() + minutes * 60_000),
+            }
+          : { failedAttempts: attempts, lastFailedAt: now },
+      });
+      await this.audit.log(
+        {
+          userId: user.id,
+          action: lock ? 'LOGIN_LOCKED' : 'LOGIN_FAILED',
+          entity: 'user',
+          entityId: user.id,
+          ip,
+          after: lock ? { lockedMinutes: minutes } : { attempts },
+        },
+        tx,
+      );
     });
   }
 

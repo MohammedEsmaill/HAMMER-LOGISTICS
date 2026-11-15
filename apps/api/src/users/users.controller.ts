@@ -61,6 +61,16 @@ export class UsersController {
     return this.users.resetPassword(actor, id, dto.password);
   }
 
+  /** Opens an account locked by wrong passwords. */
+  @Post(':id/unlock')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unlock(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.users.unlock(actor, id);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(

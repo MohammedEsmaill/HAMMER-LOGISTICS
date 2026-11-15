@@ -126,6 +126,25 @@ export class UsersService {
     });
   }
 
+  async unlock(actor: AuthUser, id: number) {
+    await this.findManageable(actor, id);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: {
+          failedAttempts: 0,
+          lockedUntil: null,
+          lockCount: 0,
+          lastFailedAt: null,
+        },
+      });
+      await this.audit.log(
+        { userId: actor.id, action: 'UNLOCK', entity: 'user', entityId: id },
+        tx,
+      );
+    });
+  }
+
   async resetPassword(actor: AuthUser, id: number, password: string) {
     await this.findManageable(actor, id);
     const passwordHash = await this.passwords.hash(password);
@@ -137,6 +156,8 @@ export class UsersService {
           sessionId: null,
           failedAttempts: 0,
           lockedUntil: null,
+          lockCount: 0,
+          lastFailedAt: null,
         },
       });
       await this.audit.log(
