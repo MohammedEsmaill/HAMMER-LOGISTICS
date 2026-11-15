@@ -9,6 +9,7 @@ import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton, PageHeader } from '@/components/ui/misc';
 import { api } from '@/lib/api-client';
 import { toastError, useAction } from '@/lib/mutations';
+import { IntegrityCard } from './IntegrityCard';
 
 type Kind = 'AUTO' | 'MANUAL' | 'PRE_RESTORE' | 'UPLOADED';
 
@@ -172,6 +173,8 @@ export default function BackupsPage() {
       )}
 
       <DataTable columns={columns} rows={data?.backups} rowKey={(b) => b.name} loading={isLoading} empty="لا توجد نسخ احتياطية بعد" />
+
+      <IntegrityCard />
 
       <ConfirmDialog
         open={!!restoring}

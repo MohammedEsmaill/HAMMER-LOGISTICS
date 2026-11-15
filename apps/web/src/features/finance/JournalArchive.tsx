@@ -103,10 +103,10 @@ function DayDrawer({ date, search, onClose, onOpen }: { date: string | null; sea
 }
 
 /** سجل اليوميات: every day with operations, newest first; a file number or a party narrows them. */
-export function JournalArchive({ onOpen }: { onOpen: (d: OpenDocument) => void }) {
+export function JournalArchive({ onOpen, initialDay = null }: { onOpen: (d: OpenDocument) => void; initialDay?: string | null }) {
   const [q, setQ] = useState<JournalDaysQuery>({ page: 1, search: '' });
   const { data, isLoading, error } = useJournalDays(q);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(initialDay && /^\d{4}-\d{2}-\d{2}$/.test(initialDay) ? initialDay : null);
   const set = (patch: Partial<JournalDaysQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
   const filtered = !!(q.from || q.to || q.search);
 

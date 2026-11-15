@@ -1,5 +1,6 @@
 import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, FileBarChart, HandCoins, Plus, Receipt, RotateCcw, Wallet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import type { Permission } from '@/auth/permissions';
 import { Button } from '@/components/ui/Button';
@@ -114,7 +115,9 @@ export function JournalTable({
 export default function JournalPage() {
   const { can, canAny } = useAuth();
   const salaryData = canAny('finance.payroll.manage', 'finance.approve');
-  const [view, setView] = useState<'today' | 'archive'>('today');
+  // a link may open a closed day: /journal?tab=archive&day=2026-11-14
+  const [params] = useSearchParams();
+  const [view, setView] = useState<'today' | 'archive'>(params.get('tab') === 'archive' ? 'archive' : 'today');
   const [q, setQ] = useState<JournalQuery>(EMPTY);
   const day = today();
   // today's journal: only what happened today
@@ -166,7 +169,7 @@ export default function JournalPage() {
       </div>
 
       {view === 'archive' ? (
-        <JournalArchive onOpen={setOpen} />
+        <JournalArchive onOpen={setOpen} initialDay={params.get('day')} />
       ) : (
         <>
       <div className="card mb-4 flex flex-wrap items-center gap-3 p-4">
