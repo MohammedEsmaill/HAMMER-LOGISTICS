@@ -45,7 +45,8 @@ export type Permission =
   | 'finance.journal.view'
   | 'finance.prices.manage'
   | 'settings.manage'
-  | 'notifications.manage';
+  | 'notifications.manage'
+  | 'backups.manage';
 
 export interface Profile {
   id: number;

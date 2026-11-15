@@ -26,6 +26,8 @@ interface RequestOptions {
   query?: Query;
   form?: FormData;
   signal?: AbortSignal;
+  /** The body as a file (downloads). */
+  blob?: boolean;
 }
 
 /**
@@ -93,6 +95,7 @@ async function request<T>(
   }
 
   if (res.status === 204) return undefined as T;
+  if (options.blob && res.ok) return (await res.blob()) as T;
   const body: unknown = await res.json().catch(() => undefined);
   if (!res.ok) throw ApiError.fromBody(res.status, body);
   return body as T;
@@ -105,4 +108,5 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, { body }),
   delete: <T>(path: string, query?: Query) => request<T>('DELETE', path, { query }),
   upload: <T>(path: string, form: FormData) => request<T>('POST', path, { form }),
+  download: (path: string) => request<Blob>('GET', path, { blob: true }),
 };

@@ -10,6 +10,7 @@ import {
   Landmark,
   Building2,
   Container,
+  DatabaseBackup,
   HardHat,
   LayoutDashboard,
   ListTree,
@@ -148,4 +149,5 @@ export const NAV: NavItem[] = [
     group: 'admin',
     any: ['notifications.manage'],
   },
+  { to: '/backups', label: 'النسخ الاحتياطي', icon: DatabaseBackup, group: 'admin', any: ['backups.manage'] },
 ];

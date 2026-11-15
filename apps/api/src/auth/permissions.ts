@@ -47,6 +47,7 @@ export const PERMISSIONS = {
   'finance.prices.manage': 'تعديل أسعار أتعاب المستخلص وبنود التصفية',
   'settings.manage': 'إعدادات الشركة (بيانات الفواتير)',
   'notifications.manage': 'ربط واتساب وإدارة إشعارات مجموعة الموظفين',
+  'backups.manage': 'النسخ الاحتياطي واسترجاع البيانات',
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -63,6 +64,7 @@ export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'finance.fees.adjust',
   'finance.prices.manage',
   'notifications.manage',
+  'backups.manage',
 ]);
 
 export function isPermission(value: string): value is Permission {

@@ -4,6 +4,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BackupsModule } from './backups/backups.module';
 import { ClearersModule } from './clearers/clearers.module';
 import { ClientsModule } from './clients/clients.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module';
     FinanceModule,
     SettingsModule,
     NotificationsModule,
+    BackupsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: PrismaExceptionFilter }],

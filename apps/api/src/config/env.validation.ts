@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import {
   IsBooleanString,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -63,6 +64,32 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   WA_AUTH_DIR: string = 'whatsapp-auth';
+
+  /** Where the database backups are kept. */
+  @IsOptional()
+  @IsString()
+  BACKUP_DIR: string = 'backups';
+
+  /** How many backups to keep. */
+  @IsOptional()
+  @IsInt()
+  @Min(3)
+  BACKUP_KEEP: number = 30;
+
+  /** A second folder every backup is copied to (a USB stick, OneDrive...). */
+  @IsOptional()
+  @IsString()
+  BACKUP_COPY_DIR?: string;
+
+  /** How pg_dump runs: on this machine, inside the docker database, or whichever works. */
+  @IsOptional()
+  @IsIn(['auto', 'local', 'docker'])
+  BACKUP_PG: 'auto' | 'local' | 'docker' = 'auto';
+
+  /** The docker compose file of the database (docker mode). */
+  @IsOptional()
+  @IsString()
+  BACKUP_COMPOSE_FILE?: string;
 }
 
 export type AppConfig = EnvironmentVariables;
