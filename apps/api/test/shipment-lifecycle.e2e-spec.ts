@@ -502,4 +502,51 @@ describe('Shipment lifecycle (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('the quick search', () => {
+    type Hit = { group: string; title: string; link: string };
+    const find = async (token: string, q: string) =>
+      (
+        await ctx
+          .api(token)
+          .get(`/api/search?q=${encodeURIComponent(q)}`)
+          .expect(200)
+      ).body as Hit[];
+
+    it('finds a shipment by its file, container and bill numbers', async () => {
+      const s = await register();
+      const full = (
+        await ctx.api(fx.tokens.scan).get(`/api/shipments/${s.id}`).expect(200)
+      ).body;
+      for (const q of [full.fileNo, 'mklu 4022447', full.mblNumber]) {
+        const hits = await find(fx.tokens.scan, q);
+        expect(hits.some((h) => h.link === `/shipments/${s.id}`)).toBe(true);
+      }
+    });
+
+    it('finds only what the user may see', async () => {
+      const s = await register();
+      const full = (
+        await ctx.api(fx.tokens.scan).get(`/api/shipments/${s.id}`).expect(200)
+      ).body;
+      // client A belongs to opsA, not opsB
+      expect(
+        (await find(fx.tokens.opsB, full.fileNo)).some(
+          (h) => h.link === `/shipments/${s.id}`,
+        ),
+      ).toBe(false);
+      expect(
+        (await find(fx.tokens.opsA, full.fileNo)).some(
+          (h) => h.link === `/shipments/${s.id}`,
+        ),
+      ).toBe(true);
+      // no finance permissions: no invoices, custodies or client accounts
+      expect(
+        (await find(fx.tokens.opsA, 'Fixture')).every(
+          (h) => h.group === 'shipments',
+        ),
+      ).toBe(true);
+      expect(await find(fx.tokens.scan, 'a')).toEqual([]);
+    });
+  });
 });

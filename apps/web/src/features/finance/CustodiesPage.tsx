@@ -1,5 +1,6 @@
 import { Briefcase, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -14,7 +15,9 @@ import { CustodyDrawer, IssueCustodyDrawer } from './CustodyDrawers';
 
 export default function CustodiesPage() {
   const { can } = useAuth();
-  const [q, setQ] = useState<CustodiesQuery>({ page: 1, status: '', holderType: '' });
+  // the quick search links here with ?search=CU26-0001
+  const [params] = useSearchParams();
+  const [q, setQ] = useState<CustodiesQuery>({ page: 1, status: '', holderType: '', search: params.get('search') ?? undefined });
   const { data, isLoading, error } = useCustodies(q);
   const [openId, setOpenId] = useState<number | null>(null);
   const [issuing, setIssuing] = useState(false);

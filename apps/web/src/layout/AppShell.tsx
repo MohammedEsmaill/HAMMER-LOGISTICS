@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { NavLink, useLocation, useOutlet } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import { Bell } from '@/features/inbox/Bell';
+import { QuickSearch } from '@/features/search/QuickSearch';
 import { Spinner } from '@/components/ui/Spinner';
 import { useTheme } from '@/lib/use-theme';
 import { NAV, NAV_GROUPS, type NavGroup, type NavItem } from './nav';
@@ -185,6 +186,7 @@ export function AppShell() {
           </button>
           <h1 className="text-lg font-semibold">{current?.label ?? ''}</h1>
           <div className="ms-auto flex items-center gap-2">
+            <QuickSearch />
             <Bell />
             <button
               onClick={toggle}

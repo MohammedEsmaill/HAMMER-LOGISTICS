@@ -8,6 +8,7 @@ import { BackupsModule } from './backups/backups.module';
 import { IntegrityModule } from './integrity/integrity.module';
 import { InboxModule } from './inbox/inbox.module';
 import { PartyDocumentsModule } from './party-documents/party-documents.module';
+import { SearchModule } from './search/search.module';
 import { ClearersModule } from './clearers/clearers.module';
 import { ClientsModule } from './clients/clients.module';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
@@ -46,6 +47,7 @@ import { UsersModule } from './users/users.module';
     IntegrityModule,
     InboxModule,
     PartyDocumentsModule,
+    SearchModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_FILTER, useClass: PrismaExceptionFilter }],
