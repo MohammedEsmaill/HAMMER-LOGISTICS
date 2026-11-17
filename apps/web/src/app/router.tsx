@@ -32,6 +32,7 @@ const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/settings': lazy(() => import('@/features/settings/SettingsPage')),
   '/notifications': lazy(() => import('@/features/notifications/NotificationsPage')),
   '/backups': lazy(() => import('@/features/backups/BackupsPage')),
+  '/audit': lazy(() => import('@/features/audit/AuditLogPage')),
   '/documents': lazy(() => import('@/features/documents/DocumentsCenterPage')),
 };
 

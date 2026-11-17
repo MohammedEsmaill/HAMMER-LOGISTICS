@@ -15,6 +15,7 @@ import {
   HardHat,
   LayoutDashboard,
   ListTree,
+  ScrollText,
   MessageCircle,
   NotebookPen,
   FileBarChart,
@@ -157,5 +158,6 @@ export const NAV: NavItem[] = [
     group: 'admin',
     any: ['notifications.manage'],
   },
+  { to: '/audit', label: 'سجل العمليات', icon: ScrollText, group: 'admin', any: ['audit.view'] },
   { to: '/backups', label: 'النسخ الاحتياطي والفحص', icon: DatabaseBackup, group: 'admin', any: ['backups.manage'] },
 ];

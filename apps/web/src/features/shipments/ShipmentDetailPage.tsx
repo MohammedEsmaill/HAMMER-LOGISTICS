@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/misc';
 import { Spinner } from '@/components/ui/Spinner';
 import NotFoundPage from '@/pages/NotFoundPage';
 import { ApiError } from '@/lib/api-error';
+import { ShipmentAuditTab } from '../audit/ShipmentAuditTab';
 import { useShipment, type Shipment } from './api';
 import { CustomsTab } from './CustomsTab';
 import { DocumentsTab } from './DocumentsTab';
@@ -20,7 +21,7 @@ import { OverviewTab } from './OverviewTab';
 import { SHIPMENT_TYPES, STAGE_LABELS } from './rules';
 import { StageSelect } from './StagePanel';
 
-type Tab = 'overview' | 'customs' | 'documents' | 'history';
+type Tab = 'overview' | 'customs' | 'documents' | 'history' | 'audit';
 
 const dateTime = (iso: string) => new Intl.DateTimeFormat(AR, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
@@ -58,7 +59,7 @@ export default function ShipmentDetailPage() {
   const id = Number(useParams().id);
   const { data: shipment, isLoading, error, refetch, isFetching } = useShipment(id);
   const [tab, setTab] = useState<Tab>('overview');
-  const { canAny } = useAuth();
+  const { can, canAny } = useAuth();
 
   if (!Number.isInteger(id) || id < 1 || (error instanceof ApiError && error.status === 404)) {
     return <NotFoundPage message="الشحنة دي مش موجودة أو مش من الشحنات اللي تقدر تشوفها." />;
@@ -80,6 +81,7 @@ export default function ShipmentDetailPage() {
     { key: 'customs', label: 'النافذة', count: shipment.inspections.length || undefined },
     { key: 'documents', label: 'المستندات', count: shipment.documents.length },
     { key: 'history', label: 'سجل المراحل' },
+    ...(can('audit.view') ? [{ key: 'audit' as const, label: 'السجل' }] : []),
   ];
 
   return (
@@ -148,6 +150,7 @@ export default function ShipmentDetailPage() {
             )}
             {tab === 'documents' && <DocumentsTab shipment={shipment} />}
             {tab === 'history' && <HistoryTab shipment={shipment} />}
+            {tab === 'audit' && <ShipmentAuditTab shipmentId={shipment.id} />}
           </motion.div>
         </AnimatePresence>
       </div>

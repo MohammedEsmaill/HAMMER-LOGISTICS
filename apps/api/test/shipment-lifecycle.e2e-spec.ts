@@ -478,4 +478,28 @@ describe('Shipment lifecycle (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('the shipment history', () => {
+    it('lists what was done to the shipment, for the CEO only', async () => {
+      const s = await register();
+      await ctx
+        .api(fx.tokens.opsA)
+        .patch(`/api/shipments/${s.id}/operation`, {
+          version: s.version,
+          vesselName: 'HISTORY',
+        })
+        .expect(200);
+      const res = await ctx
+        .api(ctx.ceoToken)
+        .get(`/api/audit/shipments/${s.id}`)
+        .expect(200);
+      expect(res.body.map((r: { action: string }) => r.action)).toEqual(
+        expect.arrayContaining(['CREATE', 'UPDATE_OPERATION']),
+      );
+      await ctx
+        .api(fx.tokens.opsA)
+        .get(`/api/audit/shipments/${s.id}`)
+        .expect(403);
+    });
+  });
 });
