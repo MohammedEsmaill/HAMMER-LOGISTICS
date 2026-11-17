@@ -16,6 +16,7 @@ import {
   shipmentKind,
   stageLabel,
 } from '../shipments/stages';
+import { InboxService } from '../inbox/inbox.service';
 import { WhatsappService } from './whatsapp.service';
 
 type Tx = Prisma.TransactionClient;
@@ -145,6 +146,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly whatsapp: WhatsappService,
     private readonly audit: AuditService,
+    private readonly inbox: InboxService,
   ) {}
 
   onModuleInit() {
@@ -174,7 +176,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Called in the registration transaction: queued only if the shipment is saved. */
-  async newShipment(tx: Tx, shipmentId: number) {
+  async newShipment(tx: Tx, shipmentId: number, actorId?: number) {
     const s = await tx.shipment.findUniqueOrThrow({
       where: { id: shipmentId },
       select: SHIPMENT_INFO,
@@ -185,6 +187,13 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       ...(s.eta ? [`تاريخ الوصول المتوقع: ${dmy(s.eta)}`] : []),
     ].join('\n');
     await this.enqueue(tx, 'NEW_SHIPMENT', `NEW:${s.id}`, text, s.id);
+    await this.inbox.forShipment(tx, s.id, {
+      kind: 'SHIPMENT_NEW',
+      key: `NEW:${s.id}`,
+      title: `شحنة جديدة ${s.fileNo}`,
+      body: `${s.client.name}${s.eta ? ` · الوصول المتوقع ${dmy(s.eta)}` : ''}`,
+      exceptUserId: actorId,
+    });
   }
 
   // ---- the morning alerts ----
@@ -217,6 +226,12 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     });
     let queued = 0;
     for (const s of due) {
+      await this.inbox.forShipment(this.prisma, s.id, {
+        kind: 'SHIPMENT_ETA',
+        key: `ETA:${s.id}:${day(tomorrow)}`,
+        title: `وصول متوقع غدًا ${s.fileNo}`,
+        body: `${s.client.name}${s.vesselName ? ` · ${s.vesselName}` : ''} · ${dmy(tomorrow)}`,
+      });
       const text = [
         '🚢 *وصول متوقع غدًا*',
         ...header(s),
@@ -266,6 +281,14 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       )
       .sort((a, b) => a.since.getTime() - b.since.getTime());
 
+    for (const { s, since } of late) {
+      await this.inbox.forShipment(this.prisma, s.id, {
+        kind: 'SHIPMENT_STUCK',
+        key: `STUCK:${s.id}:${s.currentStage}:${today}`,
+        title: `شحنة متأخرة ${s.fileNo}`,
+        body: `${s.client.name} · ${stageLabel(shipmentKind(s.direction, s.mode), s.currentStage)} منذ ${duration(now.getTime() - since.getTime())}`,
+      });
+    }
     if (late.length) {
       const blocks = late.map(({ s, since }) =>
         [

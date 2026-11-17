@@ -190,4 +190,91 @@ describe('WhatsApp group alerts (e2e)', () => {
     expect(res.body.items.length).toBeGreaterThan(0);
     expect(res.body.total).toBeGreaterThan(0);
   });
+
+  describe('the bell', () => {
+    const inbox = (token: string) =>
+      ctx
+        .api(token)
+        .get('/api/inbox')
+        .expect(200)
+        .then(
+          (r) =>
+            r.body as {
+              unread: number;
+              items: {
+                id: number;
+                kind: string;
+                title: string;
+                link: string;
+                readAt: string | null;
+              }[];
+              waiting: { type: string; status: string; count: number }[];
+            },
+        );
+
+    it('tells the operation team of a new shipment, not who registered it', async () => {
+      const s = await register();
+      const mine = await inbox(fx.tokens.opsA);
+      const item = mine.items.find((i) => i.link === `/shipments/${s.id}`);
+      expect(item).toMatchObject({ kind: 'SHIPMENT_NEW' });
+      expect(item!.title).toContain(s.fileNo);
+      expect(
+        (await inbox(fx.tokens.scan)).items.some(
+          (i) => i.link === `/shipments/${s.id}`,
+        ),
+      ).toBe(false);
+      expect(
+        (await inbox(fx.tokens.opsB)).items.some(
+          (i) => i.link === `/shipments/${s.id}`,
+        ),
+      ).toBe(false);
+    });
+
+    it('marks one or all as read', async () => {
+      const before = await inbox(fx.tokens.opsA);
+      expect(before.unread).toBeGreaterThan(0);
+      await ctx
+        .api(fx.tokens.opsA)
+        .post(`/api/inbox/${before.items[0].id}/read`)
+        .expect(204);
+      expect((await inbox(fx.tokens.opsA)).unread).toBe(before.unread - 1);
+      // someone else's alert is not theirs to read
+      await ctx
+        .api(fx.tokens.opsB)
+        .post(`/api/inbox/${before.items[1].id}/read`)
+        .expect(404);
+      await ctx.api(fx.tokens.opsA).post('/api/inbox/read-all').expect(204);
+      expect((await inbox(fx.tokens.opsA)).unread).toBe(0);
+    });
+
+    it('counts what waits for the user approval step, not their own documents', async () => {
+      const treasury = (
+        await ctx.userWithRole('971', 'TREASURY_MANAGER', 'ACCOUNTS')
+      ).token;
+      const accountant = (
+        await ctx.userWithRole('972', 'ACCOUNTANT', 'ACCOUNTS')
+      ).token;
+      const cash = await ctx.prisma.moneyAccount.findFirstOrThrow({
+        where: { type: 'CASH', currency: 'EGP' },
+      });
+      const before =
+        (await inbox(accountant)).waiting.find((w) => w.type === 'OTHER')
+          ?.count ?? 0;
+      await ctx
+        .api(treasury)
+        .post('/api/finance/other-movements', {
+          accountId: cash.id,
+          kind: 'FUNDING',
+          amount: 100,
+          reason: 'تمويل للجرس',
+        })
+        .expect(201);
+      const after = (await inbox(accountant)).waiting.find(
+        (w) => w.type === 'OTHER',
+      );
+      expect(after).toMatchObject({ status: 'PENDING', count: before + 1 });
+      // the operation employee has no approval step
+      expect((await inbox(fx.tokens.opsA)).waiting).toEqual([]);
+    });
+  });
 });

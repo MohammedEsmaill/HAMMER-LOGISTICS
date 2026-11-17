@@ -311,6 +311,7 @@ model User {
   deletedBy User?     @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
 
   deletedUsers      User[]             @relation("UserDeletedBy")
+  inboxItems        InboxItem[]
   deletedEmployees  Employee[]         @relation("EmployeeDeletedBy")
   deletedClearers   Clearer[]          @relation("ClearerDeletedBy")
   deletedClients    Client[]           @relation("ClientDeletedBy")
@@ -614,6 +615,7 @@ model Shipment {
   collections     Collection[]
 
   notifications Notification[]
+  inboxItems    InboxItem[]
 
   @@index([clientId])
   @@index([operationEmployeeId])
@@ -1520,4 +1522,31 @@ model Notification {
 
   @@index([status, id])
   @@map("notifications")
+}
+
+enum InboxKind {
+  SHIPMENT_NEW
+  SHIPMENT_ETA
+  SHIPMENT_STUCK
+}
+
+/// The bell: one alert for one user, once per event (dedupe key), read or not.
+model InboxItem {
+  id         Int       @id @default(autoincrement())
+  userId     Int       @map("user_id")
+  kind       InboxKind
+  title      String
+  body       String
+  link       String
+  dedupeKey  String    @map("dedupe_key")
+  shipmentId Int?      @map("shipment_id")
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shipment Shipment? @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, id])
+  @@map("inbox_items")
 }

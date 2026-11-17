@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
@@ -108,7 +109,18 @@ export default function ApprovalsPage() {
   const approver = canAny('finance.review', 'finance.manager_approve', 'finance.approve', 'finance.approved.edit');
   const salaryData = canAny('finance.payroll.manage', 'finance.approve');
   const queryClient = useQueryClient();
-  const [q, setQ] = useState<ApprovalsQuery>({ page: 1, status: approver ? 'PENDING' : '', type: '' });
+  // the bell links here with ?status=…&type=… (what waits for this user)
+  const [params] = useSearchParams();
+  const fromLink = (): ApprovalsQuery => ({
+    page: 1,
+    status: (params.get('status') as ApprovalStatus | null) ?? (approver ? 'PENDING' : ''),
+    type: (params.get('type') as ApprovalsQuery['type'] | null) ?? '',
+  });
+  const [q, setQ] = useState<ApprovalsQuery>(fromLink);
+  useEffect(() => {
+    if (params.has('status') || params.has('type')) setQ(fromLink());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow a new link only
+  }, [params]);
   const { data, isLoading, error } = useApprovals(q);
   const [busy, setBusy] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<Operation | null>(null);

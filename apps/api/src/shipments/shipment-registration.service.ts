@@ -90,7 +90,7 @@ export class ShipmentRegistrationService {
         },
         tx,
       );
-      await this.notifications.newShipment(tx, shipment.id);
+      await this.notifications.newShipment(tx, shipment.id, actor.id);
       return shipment.id;
     });
     return this.shipments.get(actor, id);

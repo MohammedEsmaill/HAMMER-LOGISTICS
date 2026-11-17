@@ -296,6 +296,37 @@ export class ApprovalService {
     };
   }
 
+  /** What waits for this user's step, per document type (not their own documents). */
+  async waiting(actor: AuthUser) {
+    const turns: Prisma.Sql[] = [];
+    for (const type of Object.keys(APPROVABLE) as ApprovableType[]) {
+      if (RESTRICTED_TYPES.includes(type) && !canSeeRestricted(actor)) continue;
+      for (const [status, permission] of Object.entries(
+        TURNS[APPROVABLE[type].flow],
+      )) {
+        if (can(actor, permission)) {
+          turns.push(
+            Prisma.sql`("type" = ${type} AND "approval_status" = ${status})`,
+          );
+        }
+      }
+    }
+    if (!turns.length) return [];
+    const rows = await this.prisma.$queryRaw<
+      { type: ApprovableType; status: ApprovalStatus; n: bigint }[]
+    >`
+      SELECT "type", "approval_status" AS status, count(*) AS n
+        FROM "financial_operations_v"
+       WHERE "created_by" <> ${actor.id} AND (${Prisma.join(turns, ' OR ')})
+       GROUP BY "type", "approval_status"`;
+    return rows.map((r) => ({
+      type: r.type,
+      label: APPROVABLE[r.type].label,
+      status: r.status,
+      count: Number(r.n),
+    }));
+  }
+
   private async find(tx: Tx, table: string, id: number): Promise<DocumentRow> {
     const [doc] = await tx.$queryRaw<DocumentRow[]>`
       SELECT "id", "approval_status", "created_by", "version"
