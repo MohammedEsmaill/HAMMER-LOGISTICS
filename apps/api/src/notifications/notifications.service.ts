@@ -205,6 +205,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.etaTomorrow(now);
       await this.stuck(now);
+      await this.documentsDue(now);
     } catch (error) {
       this.logger.error(`Notification scan failed: ${String(error)}`);
     } finally {
@@ -310,6 +311,104 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       create: { key: STUCK_SCAN_KEY, value: today },
     });
     return late.length;
+  }
+
+  /**
+   * Client and factory papers: 30 days, 7 days and one day before they expire, and on
+   * the day. Each step once per expiry date (a renewal starts over), to the client's
+   * operation team and to Nafeza, in the bell and in the group.
+   */
+  async documentsDue(now = new Date()): Promise<number> {
+    const today = todayCairo(now);
+    const docs = await this.prisma.partyDocument.findMany({
+      where: {
+        expiryDate: {
+          lte: new Date(today.getTime() + 30 * DAY_MS),
+          gte: today,
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        number: true,
+        expiryDate: true,
+        clientId: true,
+        factoryId: true,
+        type: { select: { name: true } },
+        factory: { select: { name: true } },
+        client: {
+          select: {
+            name: true,
+            importOperationEmployeeId: true,
+            exportOperationEmployeeId: true,
+            importReviewerEmployeeId: true,
+            exportReviewerEmployeeId: true,
+          },
+        },
+      },
+    });
+    if (!docs.length) return 0;
+    const nafeza = await this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        role: { isSystem: false, permissions: { has: 'documents.view.all' } },
+      },
+      select: { id: true },
+    });
+    let sent = 0;
+    for (const d of docs) {
+      const left = Math.round(
+        (d.expiryDate.getTime() - today.getTime()) / DAY_MS,
+      );
+      const step = left <= 0 ? 0 : left <= 1 ? 1 : left <= 7 ? 7 : 30;
+      const when =
+        step === 0
+          ? 'ينتهي النهارده'
+          : step === 1
+            ? 'ينتهي بكرة'
+            : `ينتهي خلال ${left} يوم`;
+      const name = d.title || d.type.name;
+      const owner = d.factory
+        ? `${d.factory.name} — ${d.client.name}`
+        : d.client.name;
+      const key = `DOC:${d.id}:${day(d.expiryDate)}:${step}`;
+      const c = d.client;
+      const team = await this.prisma.user.findMany({
+        where: {
+          deletedAt: null,
+          isActive: true,
+          employeeId: {
+            in: [
+              c.importOperationEmployeeId,
+              c.exportOperationEmployeeId,
+              c.importReviewerEmployeeId,
+              c.exportReviewerEmployeeId,
+            ].filter((x): x is number => x !== null),
+          },
+        },
+        select: { id: true },
+      });
+      await this.inbox.forUsers(
+        this.prisma,
+        [...team, ...nafeza].map((u) => u.id),
+        {
+          kind: 'DOCUMENT_EXPIRY',
+          key,
+          title: `${name} ${when}`,
+          body: `${owner} · ينتهي ${dmy(d.expiryDate)}`,
+          link: `/documents?client=${d.clientId}${d.factoryId ? `&factory=${d.factoryId}` : ''}`,
+        },
+      );
+      const text = [
+        `📄 *${name} ${when}*`,
+        `العميل: ${owner}`,
+        ...(d.number ? [`الرقم: ${d.number}`] : []),
+        `تاريخ الانتهاء: ${dmy(d.expiryDate)}`,
+      ].join('\n');
+      if (await this.enqueue(this.prisma, 'DOCUMENT_EXPIRY', key, text)) sent++;
+    }
+    return sent;
   }
 
   // ---- sending ----

@@ -22,6 +22,7 @@ export const SIMPLE_LOOKUPS = [
   'free-zones',
   'storage-yards',
   'inspection-authorities',
+  'document-types',
 ] as const;
 export type SimpleLookup = (typeof SIMPLE_LOOKUPS)[number];
 
@@ -94,6 +95,11 @@ export class LookupsService {
         return this.prisma.freeZone.findMany({ where: { name }, orderBy });
       case 'inspection-authorities':
         return this.prisma.inspectionAuthority.findMany({
+          where: { name },
+          orderBy,
+        });
+      case 'document-types':
+        return this.prisma.partyDocumentType.findMany({
           where: { name },
           orderBy,
         });
@@ -215,6 +221,8 @@ export class LookupsService {
         return tx.freeZone.create({ data: { name } });
       case 'inspection-authorities':
         return tx.inspectionAuthority.create({ data: { name } });
+      case 'document-types':
+        return tx.partyDocumentType.create({ data: { name } });
     }
   }
 
@@ -227,7 +235,9 @@ export class LookupsService {
           ? await tx.storageYard.findUnique(where)
           : lookup === 'free-zones'
             ? await tx.freeZone.findUnique(where)
-            : await tx.inspectionAuthority.findUnique(where);
+            : lookup === 'document-types'
+              ? await tx.partyDocumentType.findUnique(where)
+              : await tx.inspectionAuthority.findUnique(where);
     if (!row) throw new NotFoundException('غير موجود');
     return row;
   }
@@ -255,6 +265,8 @@ export class LookupsService {
         return tx.freeZone.update({ where, data: { name } });
       case 'inspection-authorities':
         return tx.inspectionAuthority.update({ where, data: { name } });
+      case 'document-types':
+        return tx.partyDocumentType.update({ where, data: { name } });
     }
   }
 
@@ -269,6 +281,8 @@ export class LookupsService {
         return tx.freeZone.delete(args);
       case 'inspection-authorities':
         return tx.inspectionAuthority.delete(args);
+      case 'document-types':
+        return tx.partyDocumentType.delete(args);
     }
   }
 

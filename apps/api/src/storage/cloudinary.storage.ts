@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { AppConfig } from '../config/env.validation';
-import { FileStorage, StoredFile } from './file-storage';
+import { FileExt, FileStorage, StoredFile } from './file-storage';
 
 /**
  * Cloudinary, configured from CLOUDINARY_URL (cloudinary://key:secret@cloud_name).
@@ -33,7 +33,7 @@ export class CloudinaryStorage implements FileStorage {
 
   async upload(
     file: Buffer,
-    options: { folder: string; fileName: string },
+    options: { folder: string; fileName: string; ext?: FileExt },
   ): Promise<StoredFile> {
     this.assertConfigured();
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
@@ -41,7 +41,11 @@ export class CloudinaryStorage implements FileStorage {
         {
           folder: options.folder,
           resource_type: 'raw',
-          public_id: options.fileName,
+          // raw files keep their type in the name; PDFs were stored without it
+          public_id:
+            options.ext && options.ext !== 'pdf'
+              ? `${options.fileName}.${options.ext}`
+              : options.fileName,
           use_filename: false,
           unique_filename: true,
         },

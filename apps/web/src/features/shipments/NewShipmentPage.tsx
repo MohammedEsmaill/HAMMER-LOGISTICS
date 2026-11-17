@@ -15,6 +15,7 @@ import { MODE_ICONS } from './mode-icons';
 import { KIND_LIST, SHIPMENT_TYPES, type ShipmentKind } from './rules';
 import { EMPTY_FORM, errorsByTab, focusFirstInvalid, shipmentSchema, toShipmentInput, type ShipmentFormIn, type ShipmentFormOut } from './shipment-form';
 import { BasicFields, ContainerFields, ShippingFields, type FormTab } from './ShipmentFields';
+import { DocWarnings } from './DocWarnings';
 import { FormTabs } from './FormTabs';
 
 function TypePicker({ onPick }: { onPick: (kind: ShipmentKind) => void }) {
@@ -109,6 +110,8 @@ function RegistrationForm({ kind, onBack }: { kind: ShipmentKind; onBack: () => 
           تغيير النوع
         </Button>
       </div>
+
+      <DocWarnings control={form.control} />
 
       <FormTabs tabs={tabs} active={tab} onChange={setTab} errorCounts={errorCounts} layoutId="new-shipment-tab" />
 

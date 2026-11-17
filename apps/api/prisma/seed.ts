@@ -68,6 +68,8 @@ const ROLES: {
     permissions: [
       'shipments.view.own',
       'shipments.create',
+      'documents.view.own',
+      'documents.manage',
       'shipments.operation.update',
       'shipments.customs.update',
       ...SHIPMENT_STAGE_OPS,
@@ -83,6 +85,8 @@ const ROLES: {
       'shipments.customs.update',
       'shipments.stage.customs',
       'shipments.documents.upload',
+      'documents.view.all',
+      'documents.manage',
     ],
   },
   {
@@ -249,6 +253,14 @@ const GRANTS: {
     id: 'operation-registers-shipments',
     roles: { OPERATION: ['shipments.create'] },
   },
+  {
+    // the documents center: operation for its own clients, Nafeza for all
+    id: 'documents-center',
+    roles: {
+      OPERATION: ['documents.view.own', 'documents.manage'],
+      NAFEZA: ['documents.view.all', 'documents.manage'],
+    },
+  },
 ];
 
 /** The price lists the office started with; the CEO changes them later. */
@@ -256,6 +268,21 @@ const FEE_RATES = [
   { regime: 'TEMPORARY', firstContainer: 2600, extraContainer: 700 },
   { regime: 'FINAL', firstContainer: 3000, extraContainer: 700 },
 ] as const;
+
+/** The kinds of client and factory papers the documents center starts with. */
+const DOCUMENT_TYPES = [
+  'السجل التجاري',
+  'البطاقة الضريبية',
+  'بطاقة قيد مستوردين',
+  'سجل المصدرين',
+  'شهادة ضريبة القيمة المضافة',
+  'التوكيل الجمركي',
+  'السجل الصناعي / رخصة التشغيل',
+  'ترخيص المنطقة الحرة',
+  'خطاب تحديث وضمان',
+  'شهادة استيراد',
+  'أخرى',
+];
 
 const SETTLEMENT_ITEMS: {
   name: string;
@@ -384,6 +411,12 @@ async function main() {
       where: { regime: rate.regime },
       update: {},
       create: rate,
+    });
+  }
+  if ((await prisma.partyDocumentType.count()) === 0) {
+    await prisma.partyDocumentType.createMany({
+      data: DOCUMENT_TYPES.map((name) => ({ name })),
+      skipDuplicates: true,
     });
   }
   if ((await prisma.settlementItem.count()) === 0) {

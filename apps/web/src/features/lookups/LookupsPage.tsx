@@ -42,6 +42,7 @@ const TABS: { key: Tab; label: string; kinded?: boolean }[] = [
   { key: 'storage-yards', label: 'الساحات والمخازن', kinded: true },
   { key: 'free-zones', label: 'المناطق الحرة' },
   { key: 'inspection-authorities', label: 'جهات الفحص' },
+  { key: 'document-types', label: 'أنواع المستندات' },
   { key: 'countries', label: 'الدول' },
   { key: 'fee-rates', label: 'أتعاب المستخلص' },
   { key: 'settlement-items', label: 'بنود التصفية' },
@@ -53,6 +54,7 @@ const SINGULAR: Record<LookupTab, string> = {
   'storage-yards': 'ساحة / مخزن',
   'free-zones': 'منطقة حرة',
   'inspection-authorities': 'جهة فحص',
+  'document-types': 'نوع مستند',
 };
 
 const KIND_OPTIONS = Object.entries(KINDS).map(([value, label]) => ({ value, label }));
@@ -302,6 +304,7 @@ export default function LookupsPage() {
     'storage-yards': [name, kindCol, { header: 'الميناء / المطار', cell: (r) => (r as LookupRow).port?.name ?? '—' }, actions],
     'free-zones': [name, actions],
     'inspection-authorities': [name, actions],
+    'document-types': [name, actions],
   };
   const countryColumns: Column<Country>[] = [
     { header: 'الكود', className: 'w-0', cell: (c) => <span dir="ltr">{c.code}</span> },

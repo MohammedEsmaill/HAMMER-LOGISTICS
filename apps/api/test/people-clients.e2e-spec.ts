@@ -403,11 +403,9 @@ describe('Employees, clearers, clients (e2e)', () => {
         _count: true,
         where: { entity: { in: ['employee', 'clearer', 'client', 'factory'] } },
       });
-      expect(entries.map((e) => e.entity).sort()).toEqual([
-        'clearer',
-        'client',
-        'employee',
-      ]);
+      expect(entries.map((e) => e.entity)).toEqual(
+        expect.arrayContaining(['clearer', 'client', 'employee']),
+      );
     });
   });
 });

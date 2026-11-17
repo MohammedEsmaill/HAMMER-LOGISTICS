@@ -312,6 +312,8 @@ model User {
 
   deletedUsers      User[]             @relation("UserDeletedBy")
   inboxItems        InboxItem[]
+  partyDocsCreated  PartyDocument[]    @relation("PartyDocumentCreatedBy")
+  partyDocsUpdated  PartyDocument[]    @relation("PartyDocumentUpdatedBy")
   deletedEmployees  Employee[]         @relation("EmployeeDeletedBy")
   deletedClearers   Clearer[]          @relation("ClearerDeletedBy")
   deletedClients    Client[]           @relation("ClientDeletedBy")
@@ -424,14 +426,15 @@ model Client {
   deletedAt                 DateTime? @map("deleted_at")
   deletedById               Int?      @map("deleted_by")
 
-  importOperationEmployee Employee     @relation("ClientImportOperation", fields: [importOperationEmployeeId], references: [id], onDelete: Restrict)
-  exportOperationEmployee Employee?    @relation("ClientExportOperation", fields: [exportOperationEmployeeId], references: [id], onDelete: Restrict)
-  importReviewerEmployee  Employee?    @relation("ClientImportReviewer", fields: [importReviewerEmployeeId], references: [id], onDelete: Restrict)
-  exportReviewerEmployee  Employee?    @relation("ClientExportReviewer", fields: [exportReviewerEmployeeId], references: [id], onDelete: Restrict)
-  deletedBy               User?        @relation("ClientDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  importOperationEmployee Employee        @relation("ClientImportOperation", fields: [importOperationEmployeeId], references: [id], onDelete: Restrict)
+  exportOperationEmployee Employee?       @relation("ClientExportOperation", fields: [exportOperationEmployeeId], references: [id], onDelete: Restrict)
+  importReviewerEmployee  Employee?       @relation("ClientImportReviewer", fields: [importReviewerEmployeeId], references: [id], onDelete: Restrict)
+  exportReviewerEmployee  Employee?       @relation("ClientExportReviewer", fields: [exportReviewerEmployeeId], references: [id], onDelete: Restrict)
+  deletedBy               User?           @relation("ClientDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   factories               Factory[]
   shipments               Shipment[]
   collections             Collection[]
+  documents               PartyDocument[]
 
   @@map("clients")
 }
@@ -448,9 +451,10 @@ model Factory {
   deletedAt          DateTime? @map("deleted_at")
   deletedById        Int?      @map("deleted_by")
 
-  client    Client     @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  deletedBy User?      @relation("FactoryDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  client    Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  deletedBy User?           @relation("FactoryDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   shipments Shipment[]
+  documents PartyDocument[]
 
   @@unique([id, clientId]) // target of the composite FK that ties a shipment's factory to its client
   @@index([clientId])
@@ -1494,6 +1498,7 @@ enum NotificationKind {
   NEW_SHIPMENT
   ETA_TOMORROW
   STUCK
+  DOCUMENT_EXPIRY
   TEST
 }
 
@@ -1528,6 +1533,7 @@ enum InboxKind {
   SHIPMENT_NEW
   SHIPMENT_ETA
   SHIPMENT_STUCK
+  DOCUMENT_EXPIRY
 }
 
 /// The bell: one alert for one user, once per event (dedupe key), read or not.
@@ -1549,4 +1555,48 @@ model InboxItem {
   @@unique([userId, dedupeKey])
   @@index([userId, id])
   @@map("inbox_items")
+}
+
+/// The kinds of client and factory papers (a list the CEO can add to).
+model PartyDocumentType {
+  id        Int             @id @default(autoincrement())
+  name      String          @unique
+  documents PartyDocument[]
+
+  @@map("party_document_types")
+}
+
+/// A client's or a factory's paper, with its validity. Renewing replaces the file
+/// and the dates; the old file is not kept.
+model PartyDocument {
+  id          Int      @id @default(autoincrement())
+  clientId    Int      @map("client_id")
+  /// null: the client's own paper
+  factoryId   Int?     @map("factory_id")
+  typeId      Int      @map("type_id")
+  /// required for the type «أخرى»
+  title       String?
+  number      String?
+  issueDate   DateTime @map("issue_date") @db.Date
+  expiryDate  DateTime @map("expiry_date") @db.Date
+  notes       String?
+  fileName    String   @map("file_name")
+  url         String
+  publicId    String   @map("public_id")
+  mimeType    String   @map("mime_type")
+  size        Int
+  createdById Int      @map("created_by")
+  updatedById Int?     @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  factory   Factory?          @relation(fields: [factoryId, clientId], references: [id, clientId], onDelete: Restrict)
+  type      PartyDocumentType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  createdBy User              @relation("PartyDocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?             @relation("PartyDocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([clientId])
+  @@index([expiryDate])
+  @@map("party_documents")
 }

@@ -83,14 +83,18 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
     return users.map((u) => u.id);
   }
 
-  async forShipment(
+  async forShipment(db: Tx | PrismaService, shipmentId: number, alert: ShipmentAlert) {
+    const users = await this.teamUsers(db, shipmentId);
+    await this.forUsers(db, users, { ...alert, link: `/shipments/${shipmentId}`, shipmentId });
+  }
+
+  /** One alert to each of these users, once per key. */
+  async forUsers(
     db: Tx | PrismaService,
-    shipmentId: number,
-    alert: ShipmentAlert,
+    userIds: number[],
+    alert: ShipmentAlert & { link: string; shipmentId?: number },
   ) {
-    const users = (await this.teamUsers(db, shipmentId)).filter(
-      (u) => u !== alert.exceptUserId,
-    );
+    const users = [...new Set(userIds)].filter((u) => u !== alert.exceptUserId);
     if (!users.length) return;
     await db.inboxItem.createMany({
       data: users.map((userId) => ({
@@ -98,9 +102,9 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
         kind: alert.kind,
         title: alert.title,
         body: alert.body,
-        link: `/shipments/${shipmentId}`,
+        link: alert.link,
         dedupeKey: alert.key,
-        shipmentId,
+        shipmentId: alert.shipmentId,
       })),
       skipDuplicates: true,
     });

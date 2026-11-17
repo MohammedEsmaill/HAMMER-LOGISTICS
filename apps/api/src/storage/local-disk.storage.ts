@@ -4,10 +4,10 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { AppConfig } from '../config/env.validation';
-import { FileStorage, StoredFile } from './file-storage';
+import { FileExt, FileStorage, StoredFile } from './file-storage';
 
 /** A stored file's key: a random UUID and its extension, nothing a path can escape with. */
-export const LOCAL_FILE_KEY = /^[0-9a-f-]{36}\.pdf$/;
+export const LOCAL_FILE_KEY = /^[0-9a-f-]{36}\.(pdf|jpg|png)$/;
 
 /**
  * Files on this server's disk, used when Cloudinary is not configured (running on the
@@ -24,9 +24,9 @@ export class LocalDiskStorage implements FileStorage {
     this.root = isAbsolute(dir) ? dir : resolve(process.cwd(), dir);
   }
 
-  async upload(file: Buffer): Promise<StoredFile> {
+  async upload(file: Buffer, options?: { ext?: FileExt }): Promise<StoredFile> {
     await mkdir(this.root, { recursive: true });
-    const key = `${randomUUID()}.pdf`;
+    const key = `${randomUUID()}.${options?.ext ?? 'pdf'}`;
     await writeFile(join(this.root, key), file);
     return { url: `/api/files/${key}`, publicId: `local:${key}` };
   }

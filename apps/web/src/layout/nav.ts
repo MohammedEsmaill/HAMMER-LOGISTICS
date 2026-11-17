@@ -11,6 +11,7 @@ import {
   Building2,
   Container,
   DatabaseBackup,
+  FolderOpen,
   HardHat,
   LayoutDashboard,
   ListTree,
@@ -52,6 +53,13 @@ export const NAV: NavItem[] = [
     icon: Container,
     group: 'operations',
     any: ['shipments.view.all', 'shipments.view.own'],
+  },
+  {
+    to: '/documents',
+    label: 'مركز المستندات',
+    icon: FolderOpen,
+    group: 'operations',
+    any: ['documents.view.all', 'documents.view.own'],
   },
   {
     to: '/journal',

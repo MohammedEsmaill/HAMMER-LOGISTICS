@@ -107,6 +107,6 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, { body }),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, { body }),
   delete: <T>(path: string, query?: Query) => request<T>('DELETE', path, { query }),
-  upload: <T>(path: string, form: FormData) => request<T>('POST', path, { form }),
+  upload: <T>(path: string, form: FormData, method: 'POST' | 'PATCH' = 'POST') => request<T>(method, path, { form }),
   download: (path: string) => request<Blob>('GET', path, { blob: true }),
 };

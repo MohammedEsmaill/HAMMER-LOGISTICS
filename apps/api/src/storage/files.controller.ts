@@ -18,7 +18,12 @@ export class FilesController {
     const path = this.disk.path(key);
     if (!path || !existsSync(path))
       throw new NotFoundException('الملف غير موجود');
-    res.setHeader('Content-Type', 'application/pdf');
+    const type = key.endsWith('.png')
+      ? 'image/png'
+      : key.endsWith('.jpg')
+        ? 'image/jpeg'
+        : 'application/pdf';
+    res.setHeader('Content-Type', type);
     res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Cache-Control', 'private, max-age=86400');
     res.setHeader('X-Content-Type-Options', 'nosniff');
