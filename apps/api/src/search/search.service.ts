@@ -73,6 +73,8 @@ export class SearchService {
             OR: [
               { fileNo: { contains: up } },
               { referenceNumber: { contains: q } },
+              // the certificate (form 46) number from the Nafeza tab
+              { certificateNo: { contains: q, mode: 'insensitive' } },
               { mblNumber: { contains: up, mode: 'insensitive' } },
               { hblNumber: { contains: up, mode: 'insensitive' } },
               {

@@ -182,7 +182,7 @@ export function QuickSearch() {
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={onKey}
-                    placeholder="رقم ملف، بوليصة، حاوية، ACID، فاتورة، عهدة، عميل أو صفحة"
+                    placeholder="رقم ملف، بوليصة، حاوية، ACID، رقم 46، فاتورة، عهدة، عميل أو صفحة"
                     className="h-14 flex-1 bg-transparent text-base outline-none"
                     aria-label="ابحث"
                   />

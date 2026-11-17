@@ -513,15 +513,32 @@ describe('Shipment lifecycle (e2e)', () => {
           .expect(200)
       ).body as Hit[];
 
-    it('finds a shipment by its file, container and bill numbers', async () => {
+    it('finds a shipment by file, container, bill and certificate (form 46) numbers', async () => {
       const s = await register();
       const full = (
         await ctx.api(fx.tokens.scan).get(`/api/shipments/${s.id}`).expect(200)
       ).body;
-      for (const q of [full.fileNo, 'mklu 4022447', full.mblNumber]) {
+      await ctx
+        .api(fx.tokens.nafeza)
+        .patch(`/api/shipments/${s.id}/customs`, {
+          version: full.version,
+          certificateNo: '4677821',
+        })
+        .expect(200);
+      for (const q of [
+        full.fileNo,
+        'mklu 4022447',
+        full.mblNumber,
+        '4677821',
+      ]) {
         const hits = await find(fx.tokens.scan, q);
         expect(hits.some((h) => h.link === `/shipments/${s.id}`)).toBe(true);
       }
+      const list = await ctx
+        .api(fx.tokens.scan)
+        .get('/api/shipments?search=4677821')
+        .expect(200);
+      expect(list.body.items.map((i: { id: number }) => i.id)).toContain(s.id);
     });
 
     it('finds only what the user may see', async () => {

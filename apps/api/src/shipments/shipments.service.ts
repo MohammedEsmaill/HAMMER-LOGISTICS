@@ -76,6 +76,7 @@ export class ShipmentsService {
               OR: [
                 { fileNo: { contains: search } },
                 { referenceNumber: { contains: search } },
+                { certificateNo: { contains: search, mode: 'insensitive' } },
                 { hblNumber: { contains: search } },
                 { mblNumber: { contains: search } },
                 { containers: { some: { containerNo: { contains: search } } } },

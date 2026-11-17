@@ -86,7 +86,7 @@ export default function ShipmentsPage() {
           <SearchInput
             value={q.search}
             onChange={(search) => set({ search })}
-            placeholder="رقم الملف، البوليصة، الرقم التعريفي، الحاوية أو العميل"
+            placeholder="رقم الملف، البوليصة، الرقم التعريفي، رقم 46، الحاوية أو العميل"
           />
         </div>
         <div className="w-44">
