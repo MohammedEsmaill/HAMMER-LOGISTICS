@@ -1,3 +1,8 @@
+import {
+  PartiesController,
+  PartyMovementsController,
+} from './parties.controller';
+import { PartiesService } from './parties.service';
 import { Module } from '@nestjs/common';
 import { ApprovalService } from './approvals/approval.service';
 import { ApprovalsController } from './approvals/approvals.controller';
@@ -58,6 +63,8 @@ import { JournalDaysService } from './journal-days.service';
     ClientLedgerController,
     JournalController,
     PricesController,
+    PartiesController,
+    PartyMovementsController,
   ],
   providers: [
     LedgerService,
@@ -78,6 +85,7 @@ import { JournalDaysService } from './journal-days.service';
     ReportsService,
     PricesService,
     JournalDaysService,
+    PartiesService,
   ],
   exports: [
     LedgerService,

@@ -1,6 +1,6 @@
 /**
  * How a document type is approved:
- * TWO_LEVELS: the accounts manager reviews, the general auditor approves (every type
+ * TWO_LEVELS: the general auditor reviews, the accounts manager approves (every type
  * since the roles were set in Nov 2026).
  * THREE_LEVELS / FINAL_ONLY: the earlier flows, kept for documents still on them.
  */
@@ -69,6 +69,12 @@ export const APPROVABLE = {
   COLLECTION: {
     table: 'collections',
     label: 'تحصيل',
+    flow: 'TWO_LEVELS',
+    restricted: false,
+  },
+  PARTY: {
+    table: 'party_movements',
+    label: 'حركة حساب داخلي',
     flow: 'TWO_LEVELS',
     restricted: false,
   },

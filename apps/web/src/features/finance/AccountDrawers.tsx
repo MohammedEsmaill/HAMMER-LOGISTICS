@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowDownLeft, ArrowUpRight, Undo2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -14,6 +14,7 @@ import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
 import { useAction } from '@/lib/mutations';
 import { money as moneyField } from '@/lib/schemas';
+import { usePartyOptions } from './parties-api';
 import { CURRENCIES, financeApi, financeKeys, money, OTHER_KINDS, useLedger, type LedgerLine, type MoneyAccount } from './api';
 
 const accountNumber = z
@@ -27,6 +28,8 @@ const bankSchema = z.object({
   accountNumber,
   currency: z.enum(['EGP', 'USD']),
   openingBalance: moneyField,
+  ownership: z.enum(['COMPANY', 'PERSONAL']),
+  ownerPartyId: z.preprocess((v) => (v === '' || v === undefined ? undefined : v), z.coerce.number().int().optional()),
 });
 /** A cash box has no bank and no account number. */
 const cashSchema = bankSchema.extend({ bankName: z.string().optional(), accountNumber: z.string().optional() });
@@ -36,13 +39,27 @@ type BankOut = z.output<typeof bankSchema>;
 /** CEO: a new bank account, or an edit of any account (cash boxes: name and opening balance). */
 export function AccountDrawer({ account, open, onClose }: { account: MoneyAccount | null; open: boolean; onClose: () => void }) {
   const isCash = account?.type === 'CASH';
-  const { register, handleSubmit, reset, formState } = useForm<BankIn, unknown, BankOut>({
+  const { register, handleSubmit, reset, control, setError, setValue, formState } = useForm<BankIn, unknown, BankOut>({
     resolver: zodResolver(isCash ? cashSchema : bankSchema) as never,
   });
+  const ownership = useWatch({ control, name: 'ownership' });
+  const personal = (account?.ownership ?? ownership) === 'PERSONAL';
+  const { data: parties = [] } = usePartyOptions(open && !account);
+  const owners = parties.filter((p) => p.kind === 'OWNER');
+  // a personal account has no opening balance: the hidden field holds 0
+  useEffect(() => {
+    if (personal) setValue('openingBalance', 0 as unknown as BankIn['openingBalance']);
+  }, [personal, setValue]);
   const [active, setActive] = useState(true);
   const save = useAction(
     (f: BankOut) => {
-      if (!account) return financeApi.createBank(f);
+      if (!account) {
+        return financeApi.createBank({
+          ...f,
+          openingBalance: f.ownership === 'PERSONAL' ? 0 : f.openingBalance,
+          ownerPartyId: f.ownership === 'PERSONAL' ? f.ownerPartyId : undefined,
+        });
+      }
       const opening = Number(f.openingBalance) !== Number(account.openingBalance) ? f.openingBalance : undefined;
       return financeApi.updateAccount(account.id, {
         name: f.name,
@@ -64,7 +81,9 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
       accountNumber: account?.accountNumber ?? '',
       currency: account?.currency ?? 'EGP',
       openingBalance: account?.openingBalance ?? '',
-    });
+      ownership: account?.ownership ?? 'COMPANY',
+      ownerPartyId: account?.ownerParty?.id ?? '',
+    } as unknown as BankIn);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when the drawer opens
   }, [open, account]);
 
@@ -73,7 +92,7 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
     <Drawer
       open={open}
       onClose={onClose}
-      title={account ? `تعديل ${account.name}` : 'حساب بنكي جديد'}
+      title={account ? `تعديل ${account.name}` : personal ? 'حساب شخصي لمالك' : 'حساب بنكي جديد'}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -85,7 +104,39 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
         </div>
       }
     >
-      <form id="account-form" noValidate className="space-y-4" onSubmit={handleSubmit((f) => save.mutateAsync(f).then(onClose, () => undefined))}>
+      <form
+        id="account-form"
+        noValidate
+        className="space-y-4"
+        onSubmit={handleSubmit((f) => {
+          if (!account && f.ownership === 'PERSONAL' && !f.ownerPartyId) return setError('ownerPartyId', { message: 'اختار المالك' });
+          return save.mutateAsync(f).then(onClose, () => undefined);
+        })}
+      >
+        {!account && (
+          <>
+            <SelectField
+              label="نوع الحساب"
+              options={[
+                { value: 'COMPANY', label: 'حساب الشركة' },
+                { value: 'PERSONAL', label: 'حساب شخصي لمالك (قناة دفع)' },
+              ]}
+              {...register('ownership')}
+            />
+            {personal && (
+              <>
+                <SelectField
+                  label="المالك"
+                  placeholder={owners.length ? 'اختار...' : 'ضيف المالك الأول من الحسابات الداخلية'}
+                  options={owners.map((p) => ({ value: p.id, label: p.name }))}
+                  error={e.ownerPartyId?.message}
+                  {...register('ownerPartyId')}
+                />
+                <p className="-mt-2 text-xs text-muted">الحساب الشخصي بيظهر فيه الداخل والخارج بس، ملوش رصيد ومش داخل في إجمالي الخزن.</p>
+              </>
+            )}
+          </>
+        )}
         <TextField label="اسم الحساب" placeholder="البنك الأهلي - جنيه" error={e.name?.message} {...register('name')} />
         {!isCash && (
           <>
@@ -100,15 +151,17 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
             />
           </>
         )}
-        <TextField
-          label="الرصيد الافتتاحي"
-          type="number"
-          step="0.01"
-          min={0}
-          dir="ltr"
-          error={e.openingBalance?.message}
-          {...register('openingBalance')}
-        />
+        {!personal && (
+          <TextField
+            label="الرصيد الافتتاحي"
+            type="number"
+            step="0.01"
+            min={0}
+            dir="ltr"
+            error={e.openingBalance?.message}
+            {...register('openingBalance')}
+          />
+        )}
         {account && !isCash && (
           <div className="flex items-center justify-between rounded-xl border border-line p-3">
             <div>
@@ -134,6 +187,7 @@ function describe(l: LedgerLine): string {
   if (l.custody) return `${l.custody.custodyNo} · ملف ${l.custody.shipment.fileNo}`;
   if (l.collection) return `${l.collection.client.name} · ملف ${l.collection.shipment.fileNo}`;
   if (l.feePayment) return `أتعاب ${l.feePayment.fee.clearer.fullName} · ملف ${l.feePayment.fee.shipment.fileNo}`;
+  if (l.partyMovement) return `${l.partyMovement.party.name}${l.partyMovement.payee ? ` · ${l.partyMovement.payee}` : ''}`;
   if (l.expense) return `${l.expense.expenseType.name} · ${l.expense.payee} · إيصال ${l.expense.receiptNo}`;
   return l.sourceLabel;
 }
@@ -141,7 +195,7 @@ function describe(l: LedgerLine): string {
 /** The document a statement line came from. */
 export const lineDocument = (l: LedgerLine) => ({
   type: l.source,
-  id: (l.transfer?.id ?? l.otherMovement?.id ?? l.salary?.id ?? l.advance?.id ?? l.expense?.id ?? l.custody?.id ?? l.feePayment?.id ?? l.collection?.id)!,
+  id: (l.transfer?.id ?? l.otherMovement?.id ?? l.salary?.id ?? l.advance?.id ?? l.expense?.id ?? l.custody?.id ?? l.feePayment?.id ?? l.collection?.id ?? l.partyMovement?.id)!,
 });
 
 /** The account statement: every line with its running balance, by period, page by page. */
@@ -177,7 +231,8 @@ export function AccountStatement({ account, onOpenLine }: { account: MoneyAccoun
     },
     { header: 'وارد', cell: (l) => (l.direction === 'IN' ? <span className="text-success" dir="ltr">{money(l.amount)}</span> : '') },
     { header: 'منصرف', cell: (l) => (l.direction === 'OUT' ? <span className="text-danger" dir="ltr">{money(l.amount)}</span> : '') },
-    { header: 'الرصيد', cell: (l) => <b dir="ltr">{money(l.balanceAfter)}</b> },
+    // a personal account is a payment channel: no running balance
+    ...(account.ownership === 'PERSONAL' ? [] : [{ header: 'الرصيد', cell: (l: LedgerLine) => <b dir="ltr">{money(l.balanceAfter)}</b> }]),
   ];
 
   return (

@@ -77,6 +77,13 @@ export const NAV: NavItem[] = [
     any: ['finance.balances.view', 'finance.accounts.manage'],
   },
   {
+    to: '/internal-accounts',
+    label: 'الحسابات الداخلية',
+    icon: Building2,
+    group: 'finance',
+    any: ['finance.parties.view', 'finance.parties.record', 'finance.parties.manage'],
+  },
+  {
     to: '/approvals',
     label: 'اعتماد المعاملات المالية',
     icon: BadgeCheck,

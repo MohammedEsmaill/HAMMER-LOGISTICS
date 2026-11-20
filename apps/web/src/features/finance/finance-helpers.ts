@@ -13,5 +13,9 @@ export function useEditable(doc: Approval | null, recordPermission: Permission =
 export const accountOptions = (accounts: MoneyAccount[], keep?: number) =>
   accounts
     .filter((a) => a.isActive || a.id === keep)
-    .map((a) => ({ value: a.id, label: `${a.name} · ${money(a.balance, a.currency)}` }));
+    .map((a) => ({
+      value: a.id,
+      // a personal account is a payment channel: its owner, not a balance
+      label: a.ownership === 'PERSONAL' ? `${a.name} · شخصي (${a.ownerParty?.name ?? ''}) · ${a.currency}` : `${a.name} · ${money(a.balance, a.currency)}`,
+    }));
 

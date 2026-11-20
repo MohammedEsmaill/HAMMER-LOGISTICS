@@ -20,6 +20,7 @@ const PAGES: Record<string, LazyExoticComponent<ComponentType>> = {
   '/clients': lazy(() => import('@/features/clients/ClientsPage')),
   '/lookups': lazy(() => import('@/features/lookups/LookupsPage')),
   '/treasury': lazy(() => import('@/features/finance/TreasuryPage')),
+  '/internal-accounts': lazy(() => import('@/features/finance/InternalAccountsPage')),
   '/journal': lazy(() => import('@/features/finance/JournalPage')),
   '/reports': lazy(() => import('@/features/finance/ReportsPage')),
   '/approvals': lazy(() => import('@/features/finance/ApprovalsPage')),
@@ -42,6 +43,7 @@ const SHIPMENT_VIEW = ['shipments.view.all', 'shipments.view.own'] as const;
 const ShipmentAccountPage = lazy(() => import('@/features/finance/ShipmentAccountPage'));
 const ReportPrintPage = lazy(() => import('@/features/finance/ReportPrintPage'));
 const AccountPage = lazy(() => import('@/features/finance/AccountPage'));
+const PartyPage = lazy(() => import('@/features/finance/PartyPage'));
 const InvoicePrintPage = lazy(() => import('@/features/finance/InvoicePrintPage'));
 const ShipmentPrintPage = lazy(() => import('@/features/shipments/ShipmentPrintPage'));
 const ClientLedgerPage = lazy(() => import('@/features/finance/ClientLedgerPage'));
@@ -161,6 +163,14 @@ export const router = createBrowserRouter([
         element: (
           <RequirePermission any={['finance.client-ledger.view']}>
             <ClientLedgerPage />
+          </RequirePermission>
+        ),
+      },
+      {
+        path: 'internal-accounts/:id',
+        element: (
+          <RequirePermission any={['finance.parties.view', 'finance.parties.record', 'finance.parties.manage']}>
+            <PartyPage />
           </RequirePermission>
         ),
       },

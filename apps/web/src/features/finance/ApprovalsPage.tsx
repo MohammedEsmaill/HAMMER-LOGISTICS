@@ -57,6 +57,7 @@ const TYPE_OPTIONS = [
   { value: 'FEE_ADJUSTMENT', label: 'تسويات الأتعاب' },
   { value: 'INVOICE', label: 'الفواتير' },
   { value: 'COLLECTION', label: 'التحصيل' },
+  { value: 'PARTY', label: 'الحسابات الداخلية' },
 ];
 
 function RejectDrawer({ op, onClose, onDone }: { op: Operation | null; onClose: () => void; onDone: () => void }) {

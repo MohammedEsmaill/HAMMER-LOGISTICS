@@ -6,7 +6,7 @@ export type Currency = 'EGP' | 'USD';
 export type ApprovalStatus = 'PENDING' | 'REVIEWED' | 'MANAGER_APPROVED' | 'APPROVED' | 'REJECTED';
 export type OtherKind = 'FUNDING' | 'BANK_CHARGES' | 'ADJUSTMENT';
 export type Direction = 'IN' | 'OUT';
-export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_ADJUSTMENT' | 'FEE_PAYMENT' | 'INVOICE' | 'COLLECTION';
+export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_ADJUSTMENT' | 'FEE_PAYMENT' | 'INVOICE' | 'COLLECTION' | 'PARTY';
 
 export const CURRENCIES: Record<Currency, { label: string; symbol: string }> = {
   EGP: { label: 'جنيه', symbol: 'ج' },
@@ -38,6 +38,9 @@ export interface MoneyAccount {
   balance: string;
   isActive: boolean;
   createdAt: string;
+  /** PERSONAL: an owner's own account, a payment channel with no balance of its own. */
+  ownership: 'COMPANY' | 'PERSONAL';
+  ownerParty: { id: number; name: string } | null;
 }
 
 interface AccountRef {
@@ -107,6 +110,7 @@ export interface LedgerLine {
   custody: { id: number; custodyNo: string; holderType: string; shipment: { fileNo: string } } | null;
   feePayment: { id: number; fee: { clearer: { fullName: string }; shipment: { fileNo: string } } } | null;
   collection: { id: number; client: { name: string }; shipment: { fileNo: string } } | null;
+  partyMovement: { id: number; kind: 'FUNDING' | 'PAYMENT' | 'SHARED_DEBT'; payee: string | null; party: { id: number; name: string } } | null;
 }
 
 export interface Ledger extends Page<LedgerLine> {
@@ -202,6 +206,7 @@ const DOC_PATH: Record<DocType, string> = {
   FEE_PAYMENT: '/finance/clearer-fees/payments',
   INVOICE: '/finance/invoices',
   COLLECTION: '/finance/collections',
+  PARTY: '/finance/party-movements',
 };
 
 /** One financial document in full (with its approval trail), for its drawer. */
@@ -233,7 +238,15 @@ export interface OtherInput {
 export type ApprovalAction = 'review' | 'manager-approve' | 'approve' | 'reject';
 
 export const financeApi = {
-  createBank: (input: { name: string; bankName: string; accountNumber: string; currency: Currency; openingBalance: number }) =>
+  createBank: (input: {
+    name: string;
+    bankName: string;
+    accountNumber: string;
+    currency: Currency;
+    openingBalance: number;
+    ownership?: 'COMPANY' | 'PERSONAL';
+    ownerPartyId?: number;
+  }) =>
     api.post<MoneyAccount>('/finance/accounts', input),
   updateAccount: (id: number, input: Partial<{ name: string; bankName: string; accountNumber: string; openingBalance: number; isActive: boolean }>) =>
     api.patch<MoneyAccount>(`/finance/accounts/${id}`, input),

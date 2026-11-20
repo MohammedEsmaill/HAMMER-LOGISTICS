@@ -30,6 +30,7 @@ const SOURCE_COLUMN: Record<
   | 'custodyId'
   | 'feePaymentId'
   | 'collectionId'
+  | 'partyMovementId'
 > = {
   TRANSFER: 'transferId',
   OTHER: 'otherMovementId',
@@ -39,6 +40,7 @@ const SOURCE_COLUMN: Record<
   CUSTODY: 'custodyId',
   FEE_PAYMENT: 'feePaymentId',
   COLLECTION: 'collectionId',
+  PARTY: 'partyMovementId',
 };
 
 interface LockedAccount {
@@ -47,11 +49,12 @@ interface LockedAccount {
   currency: string;
   balance: Prisma.Decimal;
   is_active: boolean;
+  ownership: 'COMPANY' | 'PERSONAL';
 }
 
 /**
- * The only way money moves: each line locks its account, refuses a balance below
- * zero with the amount available, updates the balance and appends one ledger line.
+ * The only way money moves: each line locks its account, refuses a company account
+ * balance below zero with the amount available, updates the balance and appends one ledger line.
  * Lines are never changed; a correction appends a reversal.
  */
 @Injectable()
@@ -66,7 +69,8 @@ export class LedgerService {
   ): Promise<Map<number, LockedAccount>> {
     const ids = [...new Set(accountIds)].sort((a, b) => a - b);
     const rows = await tx.$queryRaw<LockedAccount[]>`
-      SELECT "id", "name", "currency"::text AS "currency", "balance", "is_active"
+      SELECT "id", "name", "currency"::text AS "currency", "balance", "is_active",
+             "ownership"::text AS "ownership"
         FROM "money_accounts" WHERE "id" IN (${Prisma.join(ids)})
        ORDER BY "id" FOR UPDATE`;
     return new Map(rows.map((r) => [r.id, r]));
@@ -80,7 +84,8 @@ export class LedgerService {
     }
     const delta = line.direction === 'IN' ? line.amount : line.amount.negated();
     const balance = new Prisma.Decimal(account.balance).plus(delta);
-    if (balance.isNegative()) {
+    // an owner's personal account is a payment channel: it may go below zero
+    if (balance.isNegative() && account.ownership === 'COMPANY') {
       throw new BadRequestException(
         `رصيد ${account.name} مش كفاية: المتاح ${formatAmount(account.balance)} ${account.currency} والمطلوب ${formatAmount(line.amount)}`,
       );

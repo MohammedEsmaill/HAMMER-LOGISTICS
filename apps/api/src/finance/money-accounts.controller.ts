@@ -31,6 +31,7 @@ export class MoneyAccountsController {
     'finance.balances.view',
     'finance.movements.create',
     'finance.accounts.manage',
+    'finance.parties.record',
   )
   list() {
     return this.accounts.list();

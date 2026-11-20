@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, FileBarChart, HandCoins, Plus, Receipt, RotateCcw, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, Building2, FileBarChart, HandCoins, Plus, Receipt, RotateCcw, Wallet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
@@ -16,6 +16,7 @@ import { CURRENCIES, money, STATUS, today, useAccounts, type ApprovalStatus, typ
 import { IssueCustodyDrawer } from './CustodyDrawers';
 import { DocumentDrawers, type OpenDocument } from './DocumentDrawers';
 import { ExpenseDrawer } from './ExpensesPage';
+import { PartyMovementDrawer } from './PartyDrawers';
 import {
   FLOWS,
   JOURNAL_PAGE_SIZE,
@@ -33,7 +34,7 @@ import { FormTabs } from '../shipments/FormTabs';
 import { OtherDrawer, TransferDrawer } from './MovementDrawers';
 import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
 
-type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANCE';
+type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANCE' | 'PARTY';
 
 /** What can be recorded from the journal, each by who may record it. */
 const NEW_KINDS: { kind: NewKind; label: string; icon: LucideIcon; permission: Permission }[] = [
@@ -43,6 +44,7 @@ const NEW_KINDS: { kind: NewKind; label: string; icon: LucideIcon; permission: P
   { kind: 'CUSTODY', label: 'عهدة', icon: Briefcase, permission: 'finance.custody.manage' },
   { kind: 'SALARY', label: 'مرتب', icon: Wallet, permission: 'finance.payroll.manage' },
   { kind: 'ADVANCE', label: 'سلفة', icon: HandCoins, permission: 'finance.payroll.manage' },
+  { kind: 'PARTY', label: 'حساب داخلي', icon: Building2, permission: 'finance.parties.record' },
 ];
 
 const EMPTY: JournalQuery = { page: 1, types: [], accountId: '', currency: '', status: '', flow: '', createdBy: '', search: '' };
@@ -298,6 +300,7 @@ export default function JournalPage() {
       <IssueCustodyDrawer open={creating === 'CUSTODY'} onClose={() => setCreating(null)} />
       <SalaryDrawer salary={null} open={creating === 'SALARY'} onClose={() => setCreating(null)} />
       <AdvanceDrawer advance={null} open={creating === 'ADVANCE'} onClose={() => setCreating(null)} />
+      <PartyMovementDrawer movement={null} open={creating === 'PARTY'} onClose={() => setCreating(null)} />
       <DocumentDrawers open={open} onClose={() => setOpen(null)} />
     </>
   );

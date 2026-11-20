@@ -15,6 +15,10 @@ import {
 } from './dto/account.dto';
 import { decimal } from './money';
 
+const OWNER = {
+  ownerParty: { select: { id: true, name: true } },
+} as const;
+
 const SOURCE_LABELS = {
   TRANSFER: 'تحويل',
   OTHER: 'معاملة أخرى',
@@ -24,6 +28,7 @@ const SOURCE_LABELS = {
   CUSTODY: 'عهدة',
   FEE_PAYMENT: 'صرف أتعاب',
   COLLECTION: 'تحصيل من عميل',
+  PARTY: 'حساب داخلي',
 } as const;
 
 @Injectable()
@@ -33,24 +38,56 @@ export class MoneyAccountsService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Cash boxes first, then banks; each with its balance. */
+  /** Cash boxes first, then company banks, then owners' personal accounts. */
   list() {
     return this.prisma.moneyAccount.findMany({
-      orderBy: [{ type: 'asc' }, { currency: 'asc' }, { name: 'asc' }],
+      orderBy: [
+        { type: 'asc' },
+        { ownership: 'asc' },
+        { currency: 'asc' },
+        { name: 'asc' },
+      ],
+      include: OWNER,
     });
   }
 
   async createBank(actor: AuthUser, dto: CreateBankAccountDto) {
+    const { ownership = 'COMPANY', ownerPartyId, ...fields } = dto;
+    const personal = ownership === 'PERSONAL';
+    if (personal && !ownerPartyId) {
+      throw new BadRequestException('الحساب الشخصي لازم يتربط بمالك');
+    }
+    if (!personal && ownerPartyId) {
+      throw new BadRequestException('حساب الشركة مالوش مالك');
+    }
+    if (personal && dto.openingBalance !== 0) {
+      throw new BadRequestException(
+        'الحساب الشخصي قناة دفع بس، ملوش رصيد افتتاحي',
+      );
+    }
     return this.prisma.$transaction(async (tx) => {
+      if (personal) {
+        const owner = await tx.internalParty.findUnique({
+          where: { id: ownerPartyId },
+        });
+        if (!owner || owner.kind !== 'OWNER' || !owner.isActive) {
+          throw new BadRequestException(
+            'المالك لازم يكون جهة من نوع «مالك» ومش موقوفة',
+          );
+        }
+      }
       const opening = decimal(dto.openingBalance);
       const account = await tx.moneyAccount.create({
         data: {
-          ...dto,
+          ...fields,
           accountNumber: dto.accountNumber.toUpperCase(),
           type: 'BANK',
           openingBalance: opening,
           balance: opening,
+          ownership,
+          ownerPartyId: personal ? ownerPartyId : null,
         },
+        include: OWNER,
       });
       await this.audit.log(
         {
@@ -89,6 +126,15 @@ export class MoneyAccountsService {
         accountNumber: dto.accountNumber?.toUpperCase(),
         isActive: dto.isActive,
       };
+      if (
+        dto.openingBalance !== undefined &&
+        account.ownership === 'PERSONAL' &&
+        dto.openingBalance !== 0
+      ) {
+        throw new BadRequestException(
+          'الحساب الشخصي قناة دفع بس، ملوش رصيد افتتاحي',
+        );
+      }
       if (dto.openingBalance !== undefined) {
         const used = await tx.moneyMovement.count({ where: { accountId: id } });
         if (used) {
@@ -163,6 +209,14 @@ export class MoneyAccountsService {
               custodyNo: true,
               holderType: true,
               shipment: { select: { fileNo: true } },
+            },
+          },
+          partyMovement: {
+            select: {
+              id: true,
+              kind: true,
+              payee: true,
+              party: { select: { id: true, name: true } },
             },
           },
           collection: {

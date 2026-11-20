@@ -59,16 +59,20 @@ export default function AccountPage() {
           <div className="min-w-0 flex-1">
             <h2 className="text-xl font-bold">{account.name}</h2>
             <div className="mt-1 flex flex-wrap gap-2">
-              <Badge tone="muted">{account.type === 'CASH' ? 'خزنة' : 'حساب بنكي'}</Badge>
+              <Badge tone="muted">{account.type === 'CASH' ? 'خزنة' : account.ownership === 'PERSONAL' ? `حساب شخصي · ${account.ownerParty?.name ?? ''}` : 'حساب بنكي'}</Badge>
               <Badge tone={account.isActive ? 'success' : 'muted'}>{account.isActive ? 'شغال' : 'موقوف'}</Badge>
             </div>
           </div>
-          <div className="text-end">
-            <div className="text-xs text-muted">الرصيد الحالي</div>
-            <div className="text-3xl font-bold text-gold" dir="ltr">
-              {money(account.balance, account.currency)}
+          {account.ownership === 'PERSONAL' ? (
+            <div className="max-w-56 text-end text-sm text-muted">قناة دفع بس: الحساب ملوش رصيد، والكشف بيوضّح الداخل والخارج.</div>
+          ) : (
+            <div className="text-end">
+              <div className="text-xs text-muted">الرصيد الحالي</div>
+              <div className="text-3xl font-bold text-gold" dir="ltr">
+                {money(account.balance, account.currency)}
+              </div>
             </div>
-          </div>
+          )}
           {manage && (
             <Button variant="ghost" icon={<Pencil className="size-4" />} onClick={() => setEditing(true)}>
               تعديل

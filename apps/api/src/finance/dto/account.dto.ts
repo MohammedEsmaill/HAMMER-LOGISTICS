@@ -1,13 +1,15 @@
-import { Currency } from '@prisma/client';
+import { AccountOwnership, Currency } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
@@ -38,6 +40,17 @@ export class CreateBankAccountDto {
 
   @Money()
   openingBalance!: number;
+
+  /** PERSONAL: an owner's own account, a payment channel (no balance, opening 0). */
+  @IsOptional()
+  @IsEnum(AccountOwnership)
+  ownership?: AccountOwnership;
+
+  /** The owner of a personal account (an internal party of kind OWNER). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  ownerPartyId?: number;
 }
 
 export class UpdateAccountDto {

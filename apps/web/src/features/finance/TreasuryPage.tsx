@@ -41,9 +41,15 @@ function AccountCard({ account, onOpen, onEdit, index }: { account: MoneyAccount
           </IconButton>
         )}
       </div>
-      <div className="text-2xl font-bold tracking-tight" dir="ltr" style={{ textAlign: 'right' }}>
-        {money(account.balance, account.currency)}
-      </div>
+      {account.ownership === 'PERSONAL' ? (
+        <div className="text-sm text-muted">
+          حساب شخصي لـ <b className="text-ink">{account.ownerParty?.name}</b> · قناة دفع بس، ملوش رصيد
+        </div>
+      ) : (
+        <div className="text-2xl font-bold tracking-tight" dir="ltr" style={{ textAlign: 'right' }}>
+          {money(account.balance, account.currency)}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -60,8 +66,10 @@ export default function TreasuryPage() {
   const [accountOpen, setAccountOpen] = useState(false);
   const manage = can('finance.accounts.manage');
 
+  // owners' personal accounts are payment channels: apart, and out of the totals
+  const personal = accounts.filter((a) => a.ownership === 'PERSONAL');
   const byCurrency = (['EGP', 'USD'] as Currency[]).map((c) => {
-    const list = accounts.filter((a) => a.currency === c);
+    const list = accounts.filter((a) => a.currency === c && a.ownership !== 'PERSONAL');
     const total = list.reduce((s, a) => s + Number(a.balance), 0);
     return { currency: c, list, total };
   });
@@ -119,6 +127,32 @@ export default function TreasuryPage() {
             </div>
           </section>
         ))}
+        {personal.length > 0 && (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-lg font-bold">حسابات شخصية للملاك</h2>
+              <p className="text-sm text-muted">قنوات دفع بس: بيظهر فيها الداخل والخارج، ومش داخلة في إجمالي الخزن والبنوك.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {personal.map((a, i) => (
+                <AccountCard
+                  key={a.id}
+                  account={a}
+                  index={i}
+                  onOpen={() => navigate(`/treasury/${a.id}`)}
+                  onEdit={
+                    manage
+                      ? () => {
+                          setEditing(a);
+                          setAccountOpen(true);
+                        }
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <AccountDrawer account={editing} open={accountOpen} onClose={() => setAccountOpen(false)} />

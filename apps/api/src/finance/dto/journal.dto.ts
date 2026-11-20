@@ -11,6 +11,7 @@ export const JOURNAL_TYPES = [
   'CUSTODY',
   'FEE_PAYMENT',
   'COLLECTION',
+  'PARTY',
 ] as const;
 export type JournalType = (typeof JOURNAL_TYPES)[number];
 

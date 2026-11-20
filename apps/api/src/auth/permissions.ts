@@ -52,6 +52,9 @@ export const PERMISSIONS = {
   'finance.client-ledger.view': 'كشوف حساب العملاء',
   'finance.journal.view': 'عرض اليوميات والتقارير المالية',
   'finance.prices.manage': 'تعديل أسعار أتعاب المستخلص وبنود التصفية',
+  'finance.parties.view': 'عرض الحسابات الداخلية (الشركات الشقيقة والملاك)',
+  'finance.parties.record': 'تسجيل حركة الحسابات الداخلية',
+  'finance.parties.manage': 'إضافة وتعديل جهات الحسابات الداخلية',
   'settings.manage': 'إعدادات الشركة (بيانات الفواتير)',
   'notifications.manage': 'ربط واتساب وإدارة إشعارات مجموعة الموظفين',
   'backups.manage': 'النسخ الاحتياطي واسترجاع البيانات',
@@ -70,6 +73,7 @@ export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'finance.approved.edit',
   'finance.fees.adjust',
   'finance.prices.manage',
+  'finance.parties.manage',
   'notifications.manage',
   'backups.manage',
 ]);

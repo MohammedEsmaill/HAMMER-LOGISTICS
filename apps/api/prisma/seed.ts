@@ -115,6 +115,8 @@ const ROLES: {
       'finance.ledgers.view',
       'finance.client-ledger.view',
       'finance.journal.view',
+      'finance.parties.view',
+      'finance.parties.record',
     ],
   },
   {
@@ -124,6 +126,8 @@ const ROLES: {
       'shipments.view.all',
       'finance.custody.settle',
       'finance.shipment-account.view',
+      'finance.parties.view',
+      'finance.parties.record',
     ],
   },
   {
@@ -139,6 +143,7 @@ const ROLES: {
       'finance.shipment-account.view',
       'finance.client-ledger.view',
       'finance.journal.view',
+      'finance.parties.view',
     ],
   },
   {
@@ -174,6 +179,7 @@ const ROLES: {
       'audit.view',
       'finance.review',
       'finance.journal.view',
+      'finance.parties.view',
     ],
   },
 ];
@@ -296,6 +302,16 @@ const GRANTS: {
     revoke: {
       GENERAL_AUDITOR: ['finance.approve'],
       ACCOUNTS_MANAGER: ['finance.review'],
+    },
+  },
+  {
+    // the internal accounts: sister companies and owners
+    id: 'internal-parties',
+    roles: {
+      TREASURY_MANAGER: ['finance.parties.view', 'finance.parties.record'],
+      ACCOUNTANT: ['finance.parties.view', 'finance.parties.record'],
+      GENERAL_AUDITOR: ['finance.parties.view'],
+      ACCOUNTS_MANAGER: ['finance.parties.view'],
     },
   },
   {

@@ -89,6 +89,7 @@ enum MovementSource {
   CUSTODY
   FEE_PAYMENT
   COLLECTION
+  PARTY
 }
 
 /// Who holds a custody: an agents-department employee, WAY OUT, the shipment's clearer, or no one (a direct bank payment).
@@ -158,6 +159,27 @@ enum ExpenseScope {
 }
 
 /// Funding from management (in), bank charges (out), corrections (either way).
+/// An internal account: a sister company (transport, fumigation) or an owner.
+enum InternalPartyKind {
+  SISTER_COMPANY
+  OWNER
+}
+
+/// FUNDING: money from the party into our cash box or bank (reduces what they owe).
+/// PAYMENT: money from us to the party. SHARED_DEBT: a debt paid on the party's behalf
+/// (سداد مديونيات مشتركة), not a company expense. Both add to what they owe.
+enum PartyMovementKind {
+  FUNDING
+  PAYMENT
+  SHARED_DEBT
+}
+
+/// A company account, or an owner's personal one used as a payment channel only.
+enum AccountOwnership {
+  COMPANY
+  PERSONAL
+}
+
 enum OtherMovementKind {
   FUNDING
   BANK_CHARGES
@@ -381,6 +403,11 @@ model User {
   managedCollections     Collection[]           @relation("CollectionManagerBy")
   approvedCollections    Collection[]           @relation("CollectionApprovedBy")
   rejectedCollections    Collection[]           @relation("CollectionRejectedBy")
+  createdPartyMovements  PartyMovement[]        @relation("PartyMovementCreatedBy")
+  reviewedPartyMovements PartyMovement[]        @relation("PartyMovementReviewedBy")
+  managedPartyMovements  PartyMovement[]        @relation("PartyMovementManagerBy")
+  approvedPartyMovements PartyMovement[]        @relation("PartyMovementApprovedBy")
+  rejectedPartyMovements PartyMovement[]        @relation("PartyMovementRejectedBy")
   finishedAccounts       ShipmentAccount[]      @relation("AccountFinishedBy")
   statementOverrides     StatementOverride[]    @relation("OverrideBy")
   statementExtras        StatementExtraLine[]   @relation("ExtraLineBy")
@@ -740,8 +767,11 @@ model MoneyAccount {
   bankName       String?          @map("bank_name")
   accountNumber  String?          @map("account_number")
   openingBalance Decimal          @default(0) @map("opening_balance") @db.Decimal(14, 2)
-  balance        Decimal          @default(0) @db.Decimal(14, 2) // opening + movements; CHECK >= 0
+  balance        Decimal          @default(0) @db.Decimal(14, 2) // opening + movements; CHECK >= 0 on company accounts
   isActive       Boolean          @default(true) @map("is_active")
+  /// A personal account belongs to an owner and is a payment channel: it may go below zero.
+  ownership      AccountOwnership @default(COMPANY)
+  ownerPartyId   Int?             @map("owner_party_id")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
@@ -756,6 +786,8 @@ model MoneyAccount {
   feePayments        ClearerFeePayment[]
   collections        Collection[]
   journalDayAccounts JournalDayAccount[]
+  partyMovements     PartyMovement[]
+  ownerParty         InternalParty?      @relation(fields: [ownerPartyId], references: [id], onDelete: Restrict)
 
   @@unique([id, currency]) // target of the composite FKs that lock a document's currency
   @@map("money_accounts")
@@ -778,6 +810,7 @@ model MoneyMovement {
   custodyId       Int?           @map("custody_id")
   feePaymentId    Int?           @map("fee_payment_id")
   collectionId    Int?           @map("collection_id")
+  partyMovementId Int?           @map("party_movement_id")
   reversalOfId    BigInt?        @unique @map("reversal_of_id")
   createdById     Int            @map("created_by")
   createdAt       DateTime       @default(now()) @map("created_at")
@@ -791,6 +824,7 @@ model MoneyMovement {
   custody       Custody?           @relation(fields: [custodyId], references: [id], onDelete: Restrict)
   feePayment    ClearerFeePayment? @relation(fields: [feePaymentId], references: [id], onDelete: Restrict)
   collection    Collection?        @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+  partyMovement PartyMovement?     @relation(fields: [partyMovementId], references: [id], onDelete: Restrict)
   reversalOf    MoneyMovement?     @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
   reversedBy    MoneyMovement?     @relation("MovementReversal")
   createdBy     User               @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -804,6 +838,7 @@ model MoneyMovement {
   @@index([custodyId])
   @@index([feePaymentId])
   @@index([collectionId])
+  @@index([partyMovementId])
   @@map("money_movements")
 }
 
@@ -1618,4 +1653,68 @@ model UserRole {
   @@id([userId, roleId])
   @@index([roleId])
   @@map("user_extra_roles")
+}
+
+// ───────────────────────── Finance: internal accounts ─────────────────────────
+// Sister companies and owners: money from them (funding) and to them (payments, shared
+// debts paid on their behalf), each through a cash box or a bank account, per currency.
+
+/// A sister company or an owner, added by the CEO.
+model InternalParty {
+  id        Int               @id @default(autoincrement())
+  name      String            @unique
+  kind      InternalPartyKind
+  notes     String?
+  isActive  Boolean           @default(true) @map("is_active")
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  movements        PartyMovement[]
+  personalAccounts MoneyAccount[]
+
+  @@map("internal_parties")
+}
+
+/// One movement between the office and a party; posts one ledger line on its account.
+model PartyMovement {
+  id           Int               @id @default(autoincrement())
+  partyId      Int               @map("party_id")
+  accountId    Int               @map("account_id")
+  currency     Currency
+  kind         PartyMovementKind
+  direction    MoneyDirection
+  amount       Decimal           @db.Decimal(14, 2)
+  movementDate DateTime          @map("movement_date") @db.Date
+  /// SHARED_DEBT: who was paid.
+  payee        String?
+  reference    String?
+  notes        String?
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  party      InternalParty   @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  account    MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  movements  MoneyMovement[]
+  createdBy  User            @relation("PartyMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy User?           @relation("PartyMovementReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy  User?           @relation("PartyMovementManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy User?           @relation("PartyMovementApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy User?           @relation("PartyMovementRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@index([partyId, movementDate])
+  @@index([approvalStatus])
+  @@map("party_movements")
 }
