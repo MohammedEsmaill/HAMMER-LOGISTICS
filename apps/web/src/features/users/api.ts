@@ -12,6 +12,8 @@ export interface User {
   lockedUntil: string | null;
   createdAt: string;
   role: { id: number; name: string; isSystem: boolean };
+  /** More roles beside the main one; their permissions add up. */
+  extraRoles: { role: { id: number; name: string } }[];
   employee: { id: number; fullName: string; department: string } | null;
   clearer: { id: number; fullName: string } | null;
 }
@@ -29,11 +31,13 @@ export interface NewUser {
   email: string;
   password: string;
   roleId: number;
+  extraRoleIds: number[];
 }
 
 export interface UserChanges {
   email?: string;
   roleId?: number;
+  extraRoleIds?: number[];
   isActive?: boolean;
 }
 

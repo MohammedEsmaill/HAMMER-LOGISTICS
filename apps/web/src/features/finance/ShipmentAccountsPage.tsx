@@ -7,10 +7,12 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { SelectField } from '@/components/ui/SelectField';
 import { PAYMENT_STATUS, useShipmentAccounts, type AccountRow } from './account-api';
 import { money } from './api';
+import { useEmployeeOptions } from '../employees/api';
 
 export default function ShipmentAccountsPage() {
   const navigate = useNavigate();
-  const [q, setQ] = useState({ search: '', status: '', paymentStatus: '', page: 1 });
+  const [q, setQ] = useState({ search: '', status: '', paymentStatus: '', accountantId: '', page: 1 });
+  const { data: accountants = [] } = useEmployeeOptions('ACCOUNTS');
   const { data, isLoading, error } = useShipmentAccounts(q);
   const set = (patch: Partial<typeof q>) => setQ((p) => ({ ...p, page: 1, ...patch }));
 
@@ -23,6 +25,7 @@ export default function ShipmentAccountsPage() {
             {r.fileNo}
           </div>
           <div className="text-xs text-muted">{r.client.name}</div>
+          {r.client.accountantEmployee && <div className="text-xs text-muted">المحاسب: {r.client.accountantEmployee.fullName}</div>}
         </div>
       ),
     },
@@ -84,6 +87,15 @@ export default function ShipmentAccountsPage() {
             options={Object.entries(PAYMENT_STATUS).map(([value, s]) => ({ value, label: s.label }))}
             value={q.paymentStatus}
             onChange={(e) => set({ paymentStatus: e.target.value })}
+          />
+        </div>
+        <div className="w-48">
+          <SelectField
+            label="محاسب العميل"
+            placeholder="الكل"
+            options={accountants.map((e) => ({ value: e.id, label: e.fullName }))}
+            value={q.accountantId}
+            onChange={(e) => set({ accountantId: e.target.value })}
           />
         </div>
       </div>

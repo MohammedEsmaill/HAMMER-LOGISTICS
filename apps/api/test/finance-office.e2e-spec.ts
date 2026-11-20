@@ -7,6 +7,7 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
   let hr: string;
   let scan: string;
   let auditor: string;
+  let manager: string;
   let cashEgp: number;
   let cashUsd: number;
   let employeeId: number;
@@ -33,6 +34,8 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
     hr = (await ctx.userWithRole('913', 'HR', 'MANAGEMENT')).token;
     scan = (await ctx.userWithRole('914', 'SCAN')).token;
     auditor = (await ctx.userWithRole('916', 'GENERAL_AUDITOR', 'ACCOUNTS'))
+      .token;
+    manager = (await ctx.userWithRole('918', 'ACCOUNTS_MANAGER', 'ACCOUNTS'))
       .token;
     const boxes = await ctx.prisma.moneyAccount.findMany({
       where: { type: 'CASH' },
@@ -320,54 +323,48 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
       await ctx.api(accountant).get('/api/finance/expenses/report').expect(403);
     });
 
-    it('the accountant reviews expenses but never sees salaries or advances', async () => {
-      const res = await ctx
+    it('the accountant has no approvals list', async () => {
+      await ctx
         .api(accountant)
+        .get('/api/finance/approvals?status=PENDING')
+        .expect(403);
+    });
+
+    it('the accounts manager reviews, then the general auditor approves', async () => {
+      const res = await ctx
+        .api(manager)
         .get('/api/finance/approvals?status=PENDING&pageSize=200')
         .expect(200);
-      const types = new Set(
-        res.body.items.map((i: { type: string }) => i.type),
-      );
-      expect(types.has('EXPENSE')).toBe(true);
-      expect(types.has('SALARY')).toBe(false);
-      expect(types.has('ADVANCE')).toBe(false);
       const expense = res.body.items.find(
         (i: { type: string }) => i.type === 'EXPENSE',
       );
+      const salary = res.body.items.find(
+        (i: { type: string }) => i.type === 'SALARY',
+      );
+      expect(salary).toMatchObject({ flow: 'TWO_LEVELS', canAct: true });
       await ctx
-        .api(accountant)
+        .api(manager)
         .post(`/api/finance/approvals/EXPENSE/${expense.id}/review`, {
           version: expense.version,
         })
         .expect(201);
-      const salary = await ctx.prisma.salaryPayment.findFirstOrThrow({
-        where: { employeeId },
-      });
+      // the auditor can't approve before the review
       await ctx
-        .api(accountant)
-        .post(`/api/finance/approvals/SALARY/${salary.id}/review`, {
-          version: salary.version,
-        })
-        .expect(404);
-    });
-
-    it('the general auditor approves salaries and advances directly', async () => {
-      const res = await ctx
-        .api(auditor)
-        .get('/api/finance/approvals?type=SALARY&status=PENDING')
-        .expect(200);
-      const salary = res.body.items[0];
-      expect(salary).toMatchObject({ flow: 'FINAL_ONLY', canAct: true });
-      await ctx
-        .api(auditor)
-        .post(`/api/finance/approvals/SALARY/${salary.id}/review`, {
-          version: salary.version,
-        })
-        .expect(400);
-      const approved = await ctx
         .api(auditor)
         .post(`/api/finance/approvals/SALARY/${salary.id}/approve`, {
           version: salary.version,
+        })
+        .expect(400);
+      const reviewed = await ctx
+        .api(manager)
+        .post(`/api/finance/approvals/SALARY/${salary.id}/review`, {
+          version: salary.version,
+        })
+        .expect(201);
+      const approved = await ctx
+        .api(auditor)
+        .post(`/api/finance/approvals/SALARY/${salary.id}/approve`, {
+          version: reviewed.body.version,
         })
         .expect(201);
       expect(approved.body.approvalStatus).toBe('APPROVED');

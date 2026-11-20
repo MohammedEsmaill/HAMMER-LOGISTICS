@@ -25,7 +25,7 @@ export type ApprovalAction =
   'review' | 'manager-approve' | 'approve' | 'reject';
 
 interface Step {
-  from: ApprovalStatus;
+  from: ApprovalStatus | ApprovalStatus[];
   to: ApprovalStatus;
   permission: Permission;
   by: string;
@@ -66,7 +66,27 @@ const FINAL_ONLY_STEPS: Partial<
   },
 };
 
+/** Review by the accounts manager, then the general auditor's approval. */
+const TWO_LEVEL_STEPS: Partial<
+  Record<Exclude<ApprovalAction, 'reject'>, Step>
+> = {
+  review: {
+    from: 'PENDING',
+    to: 'REVIEWED',
+    permission: 'finance.review',
+    by: 'reviewed',
+  },
+  approve: {
+    // documents the accounts manager approved under the old flow go on to approval too
+    from: ['REVIEWED', 'MANAGER_APPROVED'],
+    to: 'APPROVED',
+    permission: 'finance.approve',
+    by: 'approved',
+  },
+};
+
 const STEPS: Record<ApprovalFlow, typeof THREE_LEVEL_STEPS> = {
+  TWO_LEVELS: TWO_LEVEL_STEPS,
   THREE_LEVELS: THREE_LEVEL_STEPS,
   FINAL_ONLY: FINAL_ONLY_STEPS,
 };
@@ -76,6 +96,11 @@ const TURNS: Record<
   ApprovalFlow,
   Partial<Record<ApprovalStatus, Permission>>
 > = {
+  TWO_LEVELS: {
+    PENDING: 'finance.review',
+    REVIEWED: 'finance.approve',
+    MANAGER_APPROVED: 'finance.approve',
+  },
   THREE_LEVELS: {
     PENDING: 'finance.review',
     REVIEWED: 'finance.manager_approve',
@@ -204,7 +229,7 @@ export class ApprovalService {
         if (!can(actor, step.permission)) {
           throw new ForbiddenException('ليس لديك صلاحية لهذا الإجراء');
         }
-        if (doc.approval_status !== step.from) {
+        if (![step.from].flat().includes(doc.approval_status)) {
           throw new BadRequestException(
             `الحركة مش في المرحلة دي (حالتها: ${STATUS_LABELS[doc.approval_status]})`,
           );

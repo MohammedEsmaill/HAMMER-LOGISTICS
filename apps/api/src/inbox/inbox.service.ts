@@ -83,9 +83,17 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
     return users.map((u) => u.id);
   }
 
-  async forShipment(db: Tx | PrismaService, shipmentId: number, alert: ShipmentAlert) {
+  async forShipment(
+    db: Tx | PrismaService,
+    shipmentId: number,
+    alert: ShipmentAlert,
+  ) {
     const users = await this.teamUsers(db, shipmentId);
-    await this.forUsers(db, users, { ...alert, link: `/shipments/${shipmentId}`, shipmentId });
+    await this.forUsers(db, users, {
+      ...alert,
+      link: `/shipments/${shipmentId}`,
+      shipmentId,
+    });
   }
 
   /** One alert to each of these users, once per key. */

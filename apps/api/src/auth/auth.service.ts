@@ -27,6 +27,8 @@ export interface Profile {
   name: string;
   accountType: AuthUser['accountType'];
   role: { id: number; name: string };
+  /** All the role names, the main one first. */
+  roles: string[];
   permissions: string[];
 }
 
@@ -230,6 +232,7 @@ export class AuthService {
       name: record.employee?.fullName ?? record.clearer?.fullName ?? user.email,
       accountType: user.accountType,
       role: { id: user.role.id, name: user.role.name },
+      roles: user.roles,
       permissions: [...user.permissions],
     };
   }

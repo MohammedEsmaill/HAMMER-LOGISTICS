@@ -6,6 +6,7 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
   let fx: ShipmentFixtures;
   let treasury: string;
   let accountant: string;
+  let settler: string;
   let relations: string;
   let shipmentId: number;
   let fileNo: string;
@@ -26,8 +27,10 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
     fx = await shipmentFixtures(ctx, '0');
     treasury = (await ctx.userWithRole('931', 'TREASURY_MANAGER', 'ACCOUNTS'))
       .token;
-    accountant = (await ctx.userWithRole('932', 'ACCOUNTANT', 'ACCOUNTS'))
-      .token;
+    accountant = (
+      await ctx.userWithRole('932', 'CLIENT_ACCOUNTANT', 'ACCOUNTS')
+    ).token;
+    settler = (await ctx.userWithRole('935', 'ACCOUNTANT', 'ACCOUNTS')).token;
     relations = (
       await ctx.userWithRole('933', 'FINANCIAL_RELATIONS', 'ACCOUNTS')
     ).token;
@@ -97,7 +100,7 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
       })
       .expect(201);
     await ctx
-      .api(treasury)
+      .api(settler)
       .post(`/api/finance/custodies/${agent.body.id}/settlement`, {
         version: agent.body.version,
         items: [
@@ -122,7 +125,7 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
       })
       .expect(201);
     await ctx
-      .api(treasury)
+      .api(settler)
       .post(`/api/finance/custodies/${wayOut.body.id}/settlement`, {
         version: wayOut.body.version,
         items: [{ expenseType: 'صرف', amount: 800, receiptNo: '00663-26' }],
@@ -151,7 +154,7 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
       })
       .expect(201);
     await ctx
-      .api(treasury)
+      .api(settler)
       .post(`/api/finance/custodies/${c.body.id}/settlement`, {
         version: c.body.version,
         items: [{ expenseType: 'أرضيات', amount: 100, receiptNo: 'A-12' }],
@@ -204,7 +207,7 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
       where: { shipmentId, status: 'OPEN' },
     });
     await ctx
-      .api(treasury)
+      .api(settler)
       .post(`/api/finance/custodies/${open.id}/settlement`, {
         version: await custodyVersion(open.id),
         items: [{ expenseType: 'أرضيات', amount: 100, receiptNo: '9407' }],

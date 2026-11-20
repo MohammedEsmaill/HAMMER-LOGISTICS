@@ -96,7 +96,10 @@ export class RolesService {
   async remove(actor: AuthUser, id: number) {
     const before = await this.findEditable(id);
     const users = await this.prisma.user.count({
-      where: { roleId: id, deletedAt: null },
+      where: {
+        deletedAt: null,
+        OR: [{ roleId: id }, { extraRoles: { some: { roleId: id } } }],
+      },
     });
     if (users > 0) {
       throw new ConflictException(

@@ -135,12 +135,15 @@ export class ClientsService {
         importReviewerEmployeeId: dto.importReviewerEmployeeId ?? null,
         exportReviewerEmployeeId: dto.exportReviewerEmployeeId ?? null,
       });
+      if (dto.accountantEmployeeId)
+        await this.assertAccountant(tx, dto.accountantEmployeeId);
       const created = await tx.client.create({
         data: {
           name: dto.name,
           mobile: dto.mobile,
           email: dto.email,
           ...team,
+          accountantEmployeeId: dto.accountantEmployeeId ?? null,
           quoteFinalBase: toDecimal(dto.quoteFinalBase),
           quoteTemporaryBase: toDecimal(dto.quoteTemporaryBase),
           quoteImportExtraContainer: toDecimal(dto.quoteImportExtraContainer),
@@ -177,8 +180,15 @@ export class ClientsService {
           exportOperationEmployeeId: true,
           importReviewerEmployeeId: true,
           exportReviewerEmployeeId: true,
+          accountantEmployeeId: true,
         },
       });
+      if (
+        dto.accountantEmployeeId &&
+        dto.accountantEmployeeId !== stored.accountantEmployeeId
+      ) {
+        await this.assertAccountant(tx, dto.accountantEmployeeId);
+      }
       // undefined = keep, null = remove
       const pick = <K extends keyof typeof stored>(k: K) =>
         dto[k] === undefined ? stored[k] : dto[k];
@@ -200,6 +210,7 @@ export class ClientsService {
           mobile: dto.mobile,
           email: dto.email,
           ...team,
+          accountantEmployeeId: dto.accountantEmployeeId,
           ...this.quoteData(dto),
         },
       });
@@ -331,6 +342,7 @@ export class ClientsService {
       exportOperationEmployee: OPERATION_EMPLOYEE,
       importReviewerEmployee: OPERATION_EMPLOYEE,
       exportReviewerEmployee: OPERATION_EMPLOYEE,
+      accountantEmployee: OPERATION_EMPLOYEE,
       quoteFinalBase: quote,
       quoteTemporaryBase: quote,
       quoteImportExtraContainer: quote,
@@ -416,6 +428,24 @@ export class ClientsService {
         await this.assertOperationEmployee(tx, id);
     }
     return result;
+  }
+
+  /** The client's accountant: an active employee of the accounts department. */
+  private async assertAccountant(tx: Tx, employeeId: number) {
+    const employee = await tx.employee.findFirst({
+      where: {
+        id: employeeId,
+        deletedAt: null,
+        status: 'ACTIVE',
+        department: 'ACCOUNTS',
+      },
+      select: { id: true },
+    });
+    if (!employee) {
+      throw new BadRequestException(
+        'المحاسب لازم يكون موظف شغال في قسم الحسابات',
+      );
+    }
   }
 
   private async assertOperationEmployee(tx: Tx, employeeId: number) {

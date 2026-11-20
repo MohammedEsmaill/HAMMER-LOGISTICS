@@ -120,7 +120,7 @@ export function ClearerFeesPanel({ clearerId }: { clearerId: number }) {
           <div className={Number(f.remaining) > 0 ? 'text-warning' : 'text-muted'}>
             الباقي <b dir="ltr">{money(f.remaining)}</b>
           </div>
-          {can('finance.custody.manage') && Number(f.remaining) > 0 && (
+          {can('finance.fees.pay') && Number(f.remaining) > 0 && (
             <Button className="h-9 px-3 text-sm" icon={<HandCoins className="size-4" />} onClick={() => setPaying(f)}>
               صرف
             </Button>
@@ -140,7 +140,7 @@ export function ClearerFeesPanel({ clearerId }: { clearerId: number }) {
 
 /** Pay a fee installment, or view / edit one (from the approvals screen). */
 export function FeePaymentDrawer({ fee, payment, open, onClose }: { fee: Fee | null; payment: FeePayment | null; open: boolean; onClose: () => void }) {
-  const editable = useEditable(payment, 'finance.custody.manage');
+  const editable = useEditable(payment, 'finance.fees.pay');
   const { data: accounts = [] } = useAccounts();
   const box = accounts.find((a) => a.type === 'CASH' && a.currency === 'EGP');
   const sources = accounts.filter((a) => a.currency === 'EGP' && (a.isActive || a.id === payment?.account.id));

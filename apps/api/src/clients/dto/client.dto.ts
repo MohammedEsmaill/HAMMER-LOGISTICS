@@ -101,6 +101,12 @@ export class CreateClientDto {
   @Min(1)
   exportReviewerEmployeeId?: number | null;
 
+  /** The accountant who handles the client's account (accounts department); null removes. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  accountantEmployeeId?: number | null;
+
   @Money()
   quoteFinalBase!: number;
 
@@ -164,6 +170,12 @@ export class UpdateClientDto {
   @IsInt()
   @Min(1)
   exportReviewerEmployeeId?: number | null;
+
+  /** The accountant who handles the client's account (accounts department); null removes. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  accountantEmployeeId?: number | null;
 
   @IsOptional()
   @Money()

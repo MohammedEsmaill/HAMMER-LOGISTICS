@@ -28,16 +28,22 @@ import {
 } from './api';
 import { DocumentDrawers } from './DocumentDrawers';
 
-/** The step that moves a document on from each status, with its button. */
-const NEXT: Partial<Record<ApprovalStatus, { action: ApprovalAction; label: string }>> = {
-  PENDING: { action: 'review', label: 'مراجعة' },
-  REVIEWED: { action: 'manager-approve', label: 'موافقة' },
-  MANAGER_APPROVED: { action: 'approve', label: 'اعتماد' },
-};
+type Next = Partial<Record<ApprovalStatus, { action: ApprovalAction; label: string }>>;
 
-/** Salaries and advances: the general auditor approves them in one step. */
-const FINAL_ONLY_NEXT: Partial<Record<ApprovalStatus, { action: ApprovalAction; label: string }>> = {
-  PENDING: { action: 'approve', label: 'اعتماد' },
+/** The step that moves a document on from each status, with its button, per flow. */
+const NEXT: Record<Operation['flow'], Next> = {
+  // the accounts manager reviews, then the general auditor approves
+  TWO_LEVELS: {
+    PENDING: { action: 'review', label: 'مراجعة' },
+    REVIEWED: { action: 'approve', label: 'اعتماد' },
+    MANAGER_APPROVED: { action: 'approve', label: 'اعتماد' },
+  },
+  THREE_LEVELS: {
+    PENDING: { action: 'review', label: 'مراجعة' },
+    REVIEWED: { action: 'manager-approve', label: 'موافقة' },
+    MANAGER_APPROVED: { action: 'approve', label: 'اعتماد' },
+  },
+  FINAL_ONLY: { PENDING: { action: 'approve', label: 'اعتماد' } },
 };
 
 const TYPE_OPTIONS = [
@@ -169,7 +175,7 @@ export default function ApprovalsPage() {
       header: '',
       className: 'w-0 whitespace-nowrap',
       cell: (o) => {
-        const next = o.flow === 'FINAL_ONLY' ? FINAL_ONLY_NEXT[o.approvalStatus] : NEXT[o.approvalStatus];
+        const next = NEXT[o.flow][o.approvalStatus];
         if (!o.canAct || !next) return null;
         return (
           <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>

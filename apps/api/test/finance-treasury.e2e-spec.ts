@@ -334,8 +334,9 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
           version: await version(),
         })
         .expect(400);
+      // the accountant no longer reviews
       await ctx
-        .api(manager)
+        .api(accountant)
         .post(`/api/finance/approvals/TRANSFER/${id}/review`, {
           version: await version(),
         })
@@ -368,13 +369,13 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
 
     it('rejection needs a reason and the author edit sends it back to review', async () => {
       await ctx
-        .api(accountant)
+        .api(manager)
         .post(`/api/finance/approvals/TRANSFER/${id}/reject`, {
           version: await version(),
         })
         .expect(400);
       await ctx
-        .api(accountant)
+        .api(manager)
         .post(`/api/finance/approvals/TRANSFER/${id}/reject`, {
           version: await version(),
           reason: 'المبلغ مش مطابق للإيصال',
@@ -400,16 +401,10 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
       expect(res.body.rejectionReason).toBeNull();
     });
 
-    it('review → manager → final approval', async () => {
-      await ctx
-        .api(accountant)
-        .post(`/api/finance/approvals/TRANSFER/${id}/review`, {
-          version: await version(),
-        })
-        .expect(201);
+    it('the accounts manager reviews, then the general auditor approves', async () => {
       await ctx
         .api(manager)
-        .post(`/api/finance/approvals/TRANSFER/${id}/manager-approve`, {
+        .post(`/api/finance/approvals/TRANSFER/${id}/review`, {
           version: await version(),
         })
         .expect(201);
@@ -443,7 +438,7 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
 
     it('lists every document for approvers, with what each may do', async () => {
       const res = await ctx
-        .api(accountant)
+        .api(manager)
         .get('/api/finance/approvals?status=PENDING')
         .expect(200);
       expect(res.body.total).toBeGreaterThan(0);

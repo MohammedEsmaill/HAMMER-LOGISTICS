@@ -70,7 +70,7 @@ export interface AuditQuery {
 }
 
 const canSeePay = (actor: AuthUser) =>
-  actor.role.isSystem || PAY_ROLES.has(actor.role.name);
+  actor.role.isSystem || actor.roles.some((r) => PAY_ROLES.has(r));
 
 /** A short name for what a record is about, from its own data. */
 function refOf(row: {

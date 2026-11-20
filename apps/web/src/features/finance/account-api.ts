@@ -105,7 +105,7 @@ export interface AccountRow {
   direction: string;
   mode: string;
   certificateNo: string | null;
-  client: { id: number; name: string };
+  client: { id: number; name: string; accountantEmployee: { id: number; fullName: string } | null };
   status: 'OPEN' | 'FINISHED';
   paymentStatus: PaymentStatus;
   openCustodies: number;
@@ -196,7 +196,7 @@ export const accountKeys = {
   ledger: (id: number, period: LedgerPeriod = {}) => ['finance', 'client-ledger', id, period] as const,
 };
 
-export const useShipmentAccounts = (q: { search?: string; status?: string; paymentStatus?: string; page: number }) =>
+export const useShipmentAccounts = (q: { search?: string; status?: string; paymentStatus?: string; accountantId?: string; page: number }) =>
   useQuery({
     queryKey: accountKeys.list(q),
     queryFn: () => api.get<Page<AccountRow>>('/finance/shipment-accounts', { ...q, pageSize: 25 }),

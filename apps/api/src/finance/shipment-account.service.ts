@@ -122,6 +122,9 @@ export class ShipmentAccountService {
   async list(q: AccountsQueryDto) {
     const where: Prisma.ShipmentWhereInput = {
       clientId: q.clientId,
+      ...(q.accountantId
+        ? { client: { accountantEmployeeId: q.accountantId } }
+        : {}),
       ...(q.status === 'FINISHED' ? { account: { status: 'FINISHED' } } : {}),
       ...(q.status === 'OPEN'
         ? { OR: [{ account: null }, { account: { status: 'OPEN' } }] }
@@ -161,7 +164,13 @@ export class ShipmentAccountService {
           direction: true,
           mode: true,
           certificateNo: true,
-          client: { select: { id: true, name: true } },
+          client: {
+            select: {
+              id: true,
+              name: true,
+              accountantEmployee: { select: { id: true, fullName: true } },
+            },
+          },
           account: true,
           custodies: {
             select: { status: true, currency: true, spentAmount: true },

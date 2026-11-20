@@ -22,7 +22,7 @@ const ICONS: Record<Kind, typeof Package> = { SHIPMENT_NEW: Package, SHIPMENT_ET
 /** Whose step each status waits for, in words. */
 const STEP: Record<string, string> = {
   PENDING: 'مستنية المراجعة',
-  REVIEWED: 'مستنية موافقة مدير الحسابات',
+  REVIEWED: 'مستنية الاعتماد',
   MANAGER_APPROVED: 'مستنية الاعتماد',
 };
 

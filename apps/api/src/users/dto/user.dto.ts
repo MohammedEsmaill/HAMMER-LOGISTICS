@@ -1,6 +1,8 @@
 import { AccountType } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -38,6 +40,13 @@ export class CreateUserDto {
   @IsInt()
   @Min(1)
   roleId!: number;
+
+  /** More roles: their permissions add to the main role's. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsInt({ each: true })
+  extraRoleIds?: number[];
 }
 
 export class UpdateUserDto {
@@ -51,6 +60,13 @@ export class UpdateUserDto {
   @IsInt()
   @Min(1)
   roleId?: number;
+
+  /** Replaces the extra roles ([] removes them). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsInt({ each: true })
+  extraRoleIds?: number[];
 
   @IsOptional()
   @IsBoolean()

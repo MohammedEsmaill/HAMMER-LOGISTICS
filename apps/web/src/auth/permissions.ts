@@ -38,6 +38,8 @@ export type Permission =
   | 'finance.expenses.manage'
   | 'finance.expenses.report'
   | 'finance.custody.manage'
+  | 'finance.custody.settle'
+  | 'finance.fees.pay'
   | 'finance.fees.adjust'
   | 'finance.ledgers.view'
   | 'finance.ledger.own'
@@ -57,5 +59,7 @@ export interface Profile {
   name: string;
   accountType: 'EMPLOYEE' | 'CLEARER';
   role: { id: number; name: string };
+  /** Every role's name: the main one first, then the extra ones. */
+  roles: string[];
   permissions: Permission[];
 }

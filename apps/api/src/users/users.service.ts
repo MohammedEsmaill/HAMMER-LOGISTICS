@@ -21,6 +21,7 @@ const LIST_SELECT = {
   lockedUntil: true,
   createdAt: true,
   role: { select: { id: true, name: true, isSystem: true } },
+  extraRoles: { select: { role: { select: { id: true, name: true } } } },
   employee: { select: { id: true, fullName: true, department: true } },
   clearer: { select: { id: true, fullName: true } },
 } satisfies Prisma.UserSelect;
@@ -59,6 +60,7 @@ export class UsersService {
 
   async create(actor: AuthUser, dto: CreateUserDto) {
     await this.assertRoleAssignable(actor, dto.roleId);
+    const extra = await this.extraRoles(actor, dto.roleId, dto.extraRoleIds);
     const passwordHash = await this.passwords.hash(dto.password);
 
     return this.prisma.$transaction(async (tx) => {
@@ -71,6 +73,7 @@ export class UsersService {
           accountType: dto.accountType,
           employeeId: dto.accountType === 'EMPLOYEE' ? dto.ownerId : null,
           clearerId: dto.accountType === 'CLEARER' ? dto.ownerId : null,
+          extraRoles: { create: extra.map((roleId) => ({ roleId })) },
         },
         select: LIST_SELECT,
       });
@@ -92,12 +95,22 @@ export class UsersService {
     const before = await this.findManageable(actor, id);
     if (
       id === actor.id &&
-      (dto.roleId !== undefined || dto.isActive === false)
+      (dto.roleId !== undefined ||
+        dto.extraRoleIds !== undefined ||
+        dto.isActive === false)
     ) {
       throw new ForbiddenException('مينفعش تغيّر دورك أو توقف حسابك بنفسك');
     }
     if (dto.roleId !== undefined)
       await this.assertRoleAssignable(actor, dto.roleId);
+    const extra =
+      dto.extraRoleIds === undefined
+        ? undefined
+        : await this.extraRoles(
+            actor,
+            dto.roleId ?? before.role.id,
+            dto.extraRoleIds,
+          );
 
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
@@ -105,6 +118,14 @@ export class UsersService {
         data: {
           email: dto.email,
           roleId: dto.roleId,
+          ...(extra
+            ? {
+                extraRoles: {
+                  deleteMany: {},
+                  create: extra.map((roleId) => ({ roleId })),
+                },
+              }
+            : {}),
           isActive: dto.isActive,
           // a deactivated account is logged out at once
           ...(dto.isActive === false ? { sessionId: null } : {}),
@@ -210,6 +231,17 @@ export class UsersService {
       throw new ForbiddenException('حسابات الـ CEO يعدلها الـ CEO بس');
     }
     return user;
+  }
+
+  /** The extra roles: each assignable, the main role left out, no repeats. */
+  private async extraRoles(
+    actor: AuthUser,
+    mainRoleId: number,
+    ids: number[] = [],
+  ) {
+    const unique = [...new Set(ids)].filter((id) => id !== mainRoleId);
+    for (const id of unique) await this.assertRoleAssignable(actor, id);
+    return unique;
   }
 
   private async assertRoleAssignable(actor: AuthUser, roleId: number) {

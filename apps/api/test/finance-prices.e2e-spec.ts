@@ -26,6 +26,7 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
   let ctx: TestContext;
   let fx: ShipmentFixtures;
   let treasury: string;
+  let accountant: string;
   let items: Item[];
   let shipmentId: number;
 
@@ -50,6 +51,8 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
     ctx = await createTestContext();
     fx = await shipmentFixtures(ctx, '3', '96');
     treasury = (await ctx.userWithRole('951', 'TREASURY_MANAGER', 'ACCOUNTS'))
+      .token;
+    accountant = (await ctx.userWithRole('953', 'ACCOUNTANT', 'ACCOUNTS'))
       .token;
     const cash = await ctx.prisma.moneyAccount.findFirstOrThrow({
       where: { type: 'CASH', currency: 'EGP' },
@@ -158,7 +161,7 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
   it('settles a clearer custody with fixed items at their price, per container where so', async () => {
     const id = await issue('CLEARER');
     const res = await ctx
-      .api(treasury)
+      .api(accountant)
       .post(`/api/finance/custodies/${id}/settlement`, {
         version: await version(id),
         items: [
@@ -192,7 +195,7 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
   it('an item is used once per shipment, and on clearer custodies only', async () => {
     const second = await issue('CLEARER');
     const again = await ctx
-      .api(treasury)
+      .api(accountant)
       .post(`/api/finance/custodies/${second}/settlement`, {
         version: await version(second),
         items: [{ settlementItemId: item('الزراعة').id, receiptNo: '503' }],
@@ -200,7 +203,7 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
       .expect(400);
     expect(again.body.message).toContain('اتسجل على الشحنة دي قبل كده');
     const twice = await ctx
-      .api(treasury)
+      .api(accountant)
       .post(`/api/finance/custodies/${second}/settlement`, {
         version: await version(second),
         items: [
@@ -224,7 +227,7 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
     });
     const agent = await issue('AGENT', { agentEmployeeId: employee.id });
     const refused = await ctx
-      .api(treasury)
+      .api(accountant)
       .post(`/api/finance/custodies/${agent}/settlement`, {
         version: await version(agent),
         items: [{ settlementItemId: item('أمن عام').id, receiptNo: '506' }],

@@ -7,6 +7,7 @@ import { ALL_PERMISSIONS, isPermission } from './permissions';
 
 export const USER_WITH_OWNER = {
   role: true,
+  extraRoles: { select: { role: true } },
   employee: { select: { fullName: true, status: true, deletedAt: true } },
   clearer: { select: { fullName: true, isActive: true, deletedAt: true } },
 } satisfies Prisma.UserInclude;
@@ -77,9 +78,12 @@ export class SessionService {
   }
 
   toAuthUser(user: UserWithOwner): AuthUser {
-    const permissions = user.role.isSystem
+    // the main role and any extra roles: their permissions add up
+    const roles = [user.role, ...user.extraRoles.map((r) => r.role)];
+    const isSystem = roles.some((r) => r.isSystem);
+    const permissions = isSystem
       ? ALL_PERMISSIONS
-      : user.role.permissions.filter(isPermission);
+      : [...new Set(roles.flatMap((r) => r.permissions))].filter(isPermission);
     return {
       id: user.id,
       email: user.email,
@@ -89,8 +93,9 @@ export class SessionService {
       role: {
         id: user.role.id,
         name: user.role.name,
-        isSystem: user.role.isSystem,
+        isSystem,
       },
+      roles: roles.map((r) => r.name),
       permissions: new Set(permissions),
     };
   }

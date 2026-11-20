@@ -27,7 +27,8 @@ import { AppConfig } from '../config/env.validation';
 import { PrismaService } from '../prisma/prisma.service';
 import { dump, pgTarget, PgTarget, restore, run } from './pg-tools';
 
-export type BackupKind = 'AUTO' | 'MANUAL' | 'PRE_RESTORE' | 'PRE_UPDATE' | 'UPLOADED';
+export type BackupKind =
+  'AUTO' | 'MANUAL' | 'PRE_RESTORE' | 'PRE_UPDATE' | 'UPLOADED';
 
 export interface BackupInfo {
   name: string;

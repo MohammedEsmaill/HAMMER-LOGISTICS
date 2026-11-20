@@ -40,9 +40,11 @@ describe('Finance: journal and reports (e2e)', () => {
       .token;
     scan = (await ctx.userWithRole('946', 'SCAN')).token;
     hr = (await ctx.userWithRole('947', 'HR', 'MANAGEMENT')).token;
-    cashEgp = (await ctx.prisma.moneyAccount.findFirstOrThrow({
-      where: { type: 'CASH', currency: 'EGP' },
-    }))!.id;
+    cashEgp = (
+      await ctx.prisma.moneyAccount.findFirstOrThrow({
+        where: { type: 'CASH', currency: 'EGP' },
+      })
+    ).id;
 
     fundingId = (
       await ctx

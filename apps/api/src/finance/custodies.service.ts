@@ -347,7 +347,7 @@ export class CustodiesService {
             approvalStatus: before.approvalStatus,
           })
         : { resetApproval: true };
-      if (!resettle) this.assertAuthor(actor, before);
+      // a first settlement: any accountant (the route checks the permission)
 
       const items = await this.resolveItems(tx, before, dto.items);
       const spent = items.reduce((s, i) => s.plus(i.amount), ZERO);

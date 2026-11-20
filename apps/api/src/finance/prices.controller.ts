@@ -31,6 +31,7 @@ export class PricesController {
     'lookups.add',
     'lookups.manage',
     'finance.custody.manage',
+    'finance.custody.settle',
     'finance.ledgers.view',
     'finance.review',
     'finance.manager_approve',

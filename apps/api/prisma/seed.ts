@@ -111,6 +111,7 @@ const ROLES: {
       'finance.expenses.manage',
       'finance.expenses.report',
       'finance.custody.manage',
+      'finance.fees.pay',
       'finance.ledgers.view',
       'finance.client-ledger.view',
       'finance.journal.view',
@@ -118,20 +119,22 @@ const ROLES: {
   },
   {
     name: 'ACCOUNTANT',
-    description: 'المحاسب',
+    description: 'المحاسب: التحويلات البنكية وتصفية العهد',
     permissions: [
       'shipments.view.all',
-      'finance.review',
+      'finance.custody.settle',
       'finance.shipment-account.view',
-      'finance.statement.manage',
     ],
   },
   {
     name: 'ACCOUNTS_MANAGER',
-    description: 'مدير الحسابات',
+    description: 'مدير الحسابات: مراجعة كل الحركات',
     permissions: [
       'shipments.view.all',
-      'finance.manager_approve',
+      'finance.review',
+      'finance.payroll.manage',
+      'finance.fees.pay',
+      'employees.salary.view',
       'finance.ledgers.view',
       'finance.shipment-account.view',
       'finance.client-ledger.view',
@@ -151,6 +154,16 @@ const ROLES: {
       'finance.collections.manage',
       'finance.client-ledger.view',
       'finance.journal.view',
+    ],
+  },
+  {
+    name: 'CLIENT_ACCOUNTANT',
+    description: 'محاسب العملاء: إنهاء حساب الشحنة وإصدار فواتير العملاء',
+    permissions: [
+      'shipments.view.all',
+      'finance.shipment-account.view',
+      'finance.statement.manage',
+      'finance.client-ledger.view',
     ],
   },
   {
@@ -252,6 +265,26 @@ const GRANTS: {
     // operation registers shipments too, for its own clients only
     id: 'operation-registers-shipments',
     roles: { OPERATION: ['shipments.create'] },
+  },
+  {
+    // the accounting roles of Nov 2026: the accounts manager reviews, the general
+    // auditor approves; the accountant settles custodies; the client accountant
+    // finishes shipment accounts and issues the client invoices
+    id: 'accounting-roles-2026-11',
+    roles: {
+      TREASURY_MANAGER: ['finance.fees.pay'],
+      ACCOUNTANT: ['finance.custody.settle'],
+      ACCOUNTS_MANAGER: [
+        'finance.review',
+        'finance.payroll.manage',
+        'finance.fees.pay',
+        'employees.salary.view',
+      ],
+    },
+    revoke: {
+      ACCOUNTANT: ['finance.review', 'finance.statement.manage'],
+      ACCOUNTS_MANAGER: ['finance.manager_approve'],
+    },
   },
   {
     // the documents center: operation for its own clients, Nafeza for all

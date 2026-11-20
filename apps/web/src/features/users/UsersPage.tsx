@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
@@ -27,6 +27,7 @@ import {
   usersApi,
   type AccountType,
   type User,
+  type UserChanges,
 } from './api';
 
 const createSchema = z.object({
@@ -35,20 +36,68 @@ const createSchema = z.object({
   email: companyEmail,
   password: strongPassword,
   roleId: requiredId,
+  extraRoleIds: z.array(z.number()),
 });
 type CreateForm = z.infer<typeof createSchema>;
 
-const editSchema = z.object({ email: companyEmail, roleId: requiredId });
+const editSchema = z.object({ email: companyEmail, roleId: requiredId, extraRoleIds: z.array(z.number()) });
 type EditForm = z.infer<typeof editSchema>;
+
+type RoleOption = { id: number; name: string; isSystem: boolean };
+
+/** Extra roles beside the main one: tap to add or remove; the main role is left out. */
+function ExtraRoles({
+  roles,
+  mainRoleId,
+  value,
+  onChange,
+  isCeo,
+}: {
+  roles: RoleOption[];
+  mainRoleId: number | undefined;
+  value: number[];
+  onChange: (v: number[]) => void;
+  isCeo: boolean;
+}) {
+  // the clearer role belongs to clearer accounts only
+  const choices = roles.filter((r) => r.id !== Number(mainRoleId) && r.name !== 'CLEARER' && (!r.isSystem || isCeo));
+  const toggle = (id: number) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-semibold">أدوار إضافية</legend>
+      <p className="text-xs text-muted">لو الموظف بيشتغل أكتر من شغلانة، صلاحيات الأدوار كلها بتتجمع.</p>
+      <div className="flex flex-wrap gap-2">
+        {choices.map((r) => {
+          const on = value.includes(r.id);
+          return (
+            <button
+              key={r.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(r.id)}
+              className={`focus-ring rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                on ? 'border-gold bg-gold/15 font-semibold text-gold' : 'border-line text-ink hover:border-gold/50'
+              }`}
+              dir="auto"
+            >
+              {r.name}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
 
 function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { can } = useAuth();
   const { data: roles = [] } = useRoleOptions();
   const { register, handleSubmit, control, reset, setValue, formState } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
-    defaultValues: { accountType: 'EMPLOYEE' },
+    defaultValues: { accountType: 'EMPLOYEE', extraRoleIds: [] },
   });
   const accountType = useWatch({ control, name: 'accountType' }) as AccountType;
+  const mainRoleId = useWatch({ control, name: 'roleId' });
   const { data: candidates = [], isLoading } = useCandidates(accountType, open);
   const create = useAction(usersApi.create, {
     success: 'اتعمل الحساب',
@@ -57,7 +106,7 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
 
   useEffect(() => {
     if (open) {
-      reset({ accountType: 'EMPLOYEE' });
+      reset({ accountType: 'EMPLOYEE', extraRoleIds: [] });
       create.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the drawer opens
@@ -138,6 +187,13 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
           error={formState.errors.roleId?.message}
           {...register('roleId')}
         />
+        <Controller
+          control={control}
+          name="extraRoleIds"
+          render={({ field }) => (
+            <ExtraRoles roles={roles} mainRoleId={mainRoleId} value={field.value} onChange={field.onChange} isCeo={isCeo} />
+          )}
+        />
         {create.error ? <ErrorBox error={create.error} /> : null}
       </form>
     </Drawer>
@@ -145,12 +201,19 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
 }
 
 function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => void }) {
+  const { can, user: me } = useAuth();
   const { data: roles = [] } = useRoleOptions();
-  const { register, handleSubmit, formState } = useForm<EditForm>({
+  const { register, handleSubmit, control, formState } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
-    values: user ? { email: user.email, roleId: user.role.id } : undefined,
+    values: user
+      ? { email: user.email, roleId: user.role.id, extraRoleIds: user.extraRoles.map((r) => r.role.id) }
+      : undefined,
   });
-  const update = useAction((form: EditForm) => usersApi.update(user!.id, form), {
+  const mainRoleId = useWatch({ control, name: 'roleId' });
+  const isCeo = can('roles.manage');
+  // nobody changes their own roles
+  const self = user?.id === me?.id;
+  const update = useAction((form: UserChanges) => usersApi.update(user!.id, form), {
     success: 'اتحفظت التعديلات',
     invalidate: [userKeys.all],
   });
@@ -175,15 +238,37 @@ function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => v
         id="edit-user"
         noValidate
         className="space-y-4"
-        onSubmit={handleSubmit((form) => update.mutateAsync(form).then(onClose).catch(() => undefined))}
+        onSubmit={handleSubmit((form) =>
+          update
+            .mutateAsync(self ? { email: form.email } : form)
+            .then(onClose)
+            .catch(() => undefined),
+        )}
       >
         <TextField label="إيميل الدخول" type="email" dir="ltr" error={formState.errors.email?.message} {...register('email')} />
         <SelectField
           label="الدور"
-          options={roles.map((r) => ({ value: r.id, label: r.name }))}
+          options={roles.map((r) => ({ value: r.id, label: r.name, disabled: r.isSystem && !isCeo }))}
           error={formState.errors.roleId?.message}
           {...register('roleId')}
         />
+        {self ? (
+          <p className="text-xs text-muted">مينفعش تغيّر أدوارك بنفسك، أي تغيير في الدور مش هيتحفظ.</p>
+        ) : (
+          <Controller
+            control={control}
+            name="extraRoleIds"
+            render={({ field }) => (
+              <ExtraRoles
+                roles={roles}
+                mainRoleId={mainRoleId}
+                value={field.value.filter((id) => id !== Number(mainRoleId))}
+                onChange={field.onChange}
+                isCeo={isCeo}
+              />
+            )}
+          />
+        )}
         {update.error ? <ErrorBox error={update.error} /> : null}
       </form>
     </Drawer>
@@ -278,7 +363,19 @@ export default function UsersPage() {
       header: 'النوع',
       cell: (u) => <Badge tone={u.accountType === 'CLEARER' ? 'gold' : 'muted'}>{u.accountType === 'CLEARER' ? 'مستخلص' : 'موظف'}</Badge>,
     },
-    { header: 'الدور', cell: (u) => <span dir="auto">{u.role.name}</span> },
+    {
+      header: 'الدور',
+      cell: (u) => (
+        <div className="flex flex-wrap items-center gap-1.5" dir="auto">
+          <span>{u.role.name}</span>
+          {u.extraRoles.map((r) => (
+            <Badge key={r.role.id} tone="muted">
+              {r.role.name}
+            </Badge>
+          ))}
+        </div>
+      ),
+    },
     { header: 'آخر دخول', cell: (u) => <span className="text-muted">{formatDate(u.lastLoginAt)}</span> },
     {
       header: 'الحالة',

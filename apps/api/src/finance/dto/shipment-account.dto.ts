@@ -195,6 +195,13 @@ export class AccountsQueryDto extends ListQueryDto {
   @IsInt()
   @Min(1)
   clientId?: number;
+
+  /** The clients whose accountant is this employee ("my clients"). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  accountantId?: number;
 }
 
 /** A client statement's period; without it, the whole account. */

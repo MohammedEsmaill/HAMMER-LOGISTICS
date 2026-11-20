@@ -1,10 +1,10 @@
 /**
  * How a document type is approved:
- * THREE_LEVELS: accountant review → accounts manager → general auditor.
- * FINAL_ONLY: the general auditor alone (salaries and advances, which the
- * accountant and the accounts manager do not see).
+ * TWO_LEVELS: the accounts manager reviews, the general auditor approves (every type
+ * since the roles were set in Nov 2026).
+ * THREE_LEVELS / FINAL_ONLY: the earlier flows, kept for documents still on them.
  */
-export type ApprovalFlow = 'THREE_LEVELS' | 'FINAL_ONLY';
+export type ApprovalFlow = 'TWO_LEVELS' | 'THREE_LEVELS' | 'FINAL_ONLY';
 
 /**
  * Every financial document type and its table. A new document type registers here
@@ -15,61 +15,61 @@ export const APPROVABLE = {
   TRANSFER: {
     table: 'transfers',
     label: 'تحويل',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
   OTHER: {
     table: 'other_movements',
     label: 'معاملة أخرى',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
   SALARY: {
     table: 'salary_payments',
     label: 'مرتب',
-    flow: 'FINAL_ONLY',
+    flow: 'TWO_LEVELS',
     restricted: true,
   },
   ADVANCE: {
     table: 'employee_advances',
     label: 'سلفة',
-    flow: 'FINAL_ONLY',
+    flow: 'TWO_LEVELS',
     restricted: true,
   },
   EXPENSE: {
     table: 'general_expenses',
     label: 'مصروف عمومي',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
   CUSTODY: {
     table: 'custodies',
     label: 'عهدة',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
   FEE_ADJUSTMENT: {
     table: 'clearer_fee_adjustments',
     label: 'تسوية أتعاب',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
   FEE_PAYMENT: {
     table: 'clearer_fee_payments',
     label: 'صرف أتعاب',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
   INVOICE: {
     table: 'invoices',
     label: 'فاتورة',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
   COLLECTION: {
     table: 'collections',
     label: 'تحصيل',
-    flow: 'THREE_LEVELS',
+    flow: 'TWO_LEVELS',
     restricted: false,
   },
 } as const satisfies Record<

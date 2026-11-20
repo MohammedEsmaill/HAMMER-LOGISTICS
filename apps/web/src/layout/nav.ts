@@ -108,7 +108,7 @@ export const NAV: NavItem[] = [
     label: 'العهد',
     icon: Briefcase,
     group: 'finance',
-    any: ['finance.custody.manage', 'finance.ledgers.view', 'finance.review', 'finance.manager_approve', 'finance.approve'],
+    any: ['finance.custody.manage', 'finance.custody.settle', 'finance.fees.pay', 'finance.ledgers.view', 'finance.review', 'finance.manager_approve', 'finance.approve'],
   },
   {
     to: '/ledgers',

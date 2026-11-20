@@ -237,11 +237,12 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
   const [editing, setEditing] = useState(false);
 
   const settled = custody?.status === 'SETTLED';
-  const isOwner = custody && (custody.createdBy.id === user?.id || can('finance.approved.edit'));
+  // the first settlement: any accountant; after that, whoever settled it until approval
+  const isSettler = !settled || custody?.settledBy?.id === user?.id || can('finance.approved.edit');
   const canSettle =
     !!custody &&
-    can('finance.custody.manage') &&
-    (custody.approvalStatus === 'APPROVED' ? can('finance.approved.edit') : !!isOwner);
+    (can('finance.custody.settle') || can('finance.approved.edit')) &&
+    (custody.approvalStatus === 'APPROVED' ? can('finance.approved.edit') : isSettler);
 
   const save = useAction(
     () =>

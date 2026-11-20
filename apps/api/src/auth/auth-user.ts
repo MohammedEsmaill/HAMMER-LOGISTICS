@@ -8,7 +8,10 @@ export interface AuthUser {
   accountType: AccountType;
   employeeId: number | null;
   clearerId: number | null;
+  /** The main role; isSystem when any of the user's roles is the CEO's. */
   role: { id: number; name: string; isSystem: boolean };
+  /** The names of all the user's roles, the main one first. */
+  roles: string[];
   permissions: ReadonlySet<Permission>;
 }
 

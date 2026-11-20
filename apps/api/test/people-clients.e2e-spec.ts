@@ -266,6 +266,89 @@ describe('Employees, clearers, clients (e2e)', () => {
     });
   });
 
+  describe('several roles per user', () => {
+    const roleId = async (name: string) =>
+      (await ctx.prisma.role.findUniqueOrThrow({ where: { name } })).id;
+
+    it('adds up the permissions of the main and the extra roles', async () => {
+      const employee = await ctx
+        .api(hr)
+        .post('/api/employees', employeeBody('208', { department: 'ACCOUNTS' }))
+        .expect(201);
+      const created = await ctx
+        .api(hr)
+        .post('/api/users', {
+          accountType: 'EMPLOYEE',
+          ownerId: employee.body.id,
+          email: 'multi208@hammerline.com',
+          password: 'Passw0rd1',
+          roleId: await roleId('ACCOUNTANT'),
+          extraRoleIds: [
+            await roleId('CLIENT_ACCOUNTANT'),
+            await roleId('ACCOUNTANT'),
+          ],
+        })
+        .expect(201);
+      // the main role is not repeated as an extra one
+      expect(created.body.extraRoles).toEqual([
+        {
+          role: {
+            id: await roleId('CLIENT_ACCOUNTANT'),
+            name: 'CLIENT_ACCOUNTANT',
+          },
+        },
+      ]);
+      const token = await ctx.login('multi208@hammerline.com', 'Passw0rd1');
+      const me = await ctx.api(token).get('/api/auth/me').expect(200);
+      expect(me.body.roles).toEqual(['ACCOUNTANT', 'CLIENT_ACCOUNTANT']);
+      expect(me.body.permissions).toEqual(
+        expect.arrayContaining([
+          'finance.custody.settle',
+          'finance.statement.manage',
+        ]),
+      );
+      // the extra role opens its pages
+      await ctx.api(token).get('/api/finance/clients/balances').expect(200);
+      // a user can't change their own roles
+      await ctx
+        .api(token)
+        .patch(`/api/users/${created.body.id}`, { extraRoleIds: [] })
+        .expect(403);
+    });
+
+    it('only the CEO gives the CEO role, even as an extra one', async () => {
+      const employee = await ctx
+        .api(hr)
+        .post('/api/employees', employeeBody('209', { department: 'ACCOUNTS' }))
+        .expect(201);
+      await ctx
+        .api(hr)
+        .post('/api/users', {
+          accountType: 'EMPLOYEE',
+          ownerId: employee.body.id,
+          email: 'multi209@hammerline.com',
+          password: 'Passw0rd1',
+          roleId: await roleId('ACCOUNTANT'),
+          extraRoleIds: [await roleId('CEO')],
+        })
+        .expect(403);
+    });
+
+    it('removing the extra roles takes their permissions away', async () => {
+      const user = await ctx.prisma.user.findFirstOrThrow({
+        where: { email: 'multi208@hammerline.com' },
+      });
+      await ctx
+        .api(hr)
+        .patch(`/api/users/${user.id}`, { extraRoleIds: [] })
+        .expect(200);
+      const token = await ctx.login('multi208@hammerline.com', 'Passw0rd1');
+      const me = await ctx.api(token).get('/api/auth/me').expect(200);
+      expect(me.body.roles).toEqual(['ACCOUNTANT']);
+      expect(me.body.permissions).not.toContain('finance.statement.manage');
+    });
+  });
+
   describe('clients and factories', () => {
     let operationId: number;
     let clientId: number;
@@ -335,6 +418,30 @@ describe('Employees, clearers, clients (e2e)', () => {
           ...quote,
         })
         .expect(400);
+    });
+
+    it('sets the client accountant from the accounts department only', async () => {
+      const acc = await ctx.prisma.employee.findFirstOrThrow({
+        where: { code: '204' },
+      });
+      const notAcc = await ctx.prisma.employee.findFirstOrThrow({
+        where: { code: '202' },
+      });
+      const bad = await ctx
+        .api(relations)
+        .patch(`/api/clients/${clientId}`, { accountantEmployeeId: notAcc.id })
+        .expect(400);
+      expect(bad.body.message).toContain('قسم الحسابات');
+      const res = await ctx
+        .api(relations)
+        .patch(`/api/clients/${clientId}`, { accountantEmployeeId: acc.id })
+        .expect(200);
+      expect(res.body.accountantEmployee).toMatchObject({ id: acc.id });
+      const cleared = await ctx
+        .api(relations)
+        .patch(`/api/clients/${clientId}`, { accountantEmployeeId: null })
+        .expect(200);
+      expect(cleared.body.accountantEmployee).toBeNull();
     });
 
     it('only financial relations and the CEO see the quote', async () => {

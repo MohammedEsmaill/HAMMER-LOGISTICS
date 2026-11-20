@@ -352,7 +352,24 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       where: {
         deletedAt: null,
         isActive: true,
-        role: { isSystem: false, permissions: { has: 'documents.view.all' } },
+        OR: [
+          {
+            role: {
+              isSystem: false,
+              permissions: { has: 'documents.view.all' },
+            },
+          },
+          {
+            extraRoles: {
+              some: {
+                role: {
+                  isSystem: false,
+                  permissions: { has: 'documents.view.all' },
+                },
+              },
+            },
+          },
+        ],
       },
       select: { id: true },
     });

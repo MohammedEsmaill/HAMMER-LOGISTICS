@@ -48,6 +48,7 @@ const clientSchema = z.object({
   exportOperationEmployeeId: optionalId,
   importReviewerEmployeeId: optionalId,
   exportReviewerEmployeeId: optionalId,
+  accountantEmployeeId: optionalId,
   quoteFinalBase: money,
   quoteTemporaryBase: money,
   quoteImportExtraContainer: money,
@@ -70,6 +71,7 @@ function ClientFormDrawer({
 }) {
   const { data: operations = [] } = useEmployeeOptions('OPERATION');
   const opsOptions = operations.map((e) => ({ value: e.id, label: e.fullName }));
+  const { data: accountants = [] } = useEmployeeOptions('ACCOUNTS');
   const { register, handleSubmit, control, reset, formState } = useForm<ClientForm, unknown, ClientOut>({
     resolver: zodResolver(clientSchema),
   });
@@ -98,6 +100,7 @@ function ClientFormDrawer({
       exportOperationEmployeeId: client?.exportOperationEmployee?.id ?? '',
       importReviewerEmployeeId: client?.importReviewerEmployee?.id ?? '',
       exportReviewerEmployeeId: client?.exportReviewerEmployee?.id ?? '',
+      accountantEmployeeId: client?.accountantEmployee?.id ?? '',
       ...Object.fromEntries(QUOTE_FIELDS.map((f) => [f.key, client?.[f.key] ?? ''])),
       factories: [],
     } as ClientForm);
@@ -150,6 +153,13 @@ function ClientFormDrawer({
             disabled={!exportOps}
             options={othersThan(exportOps)}
             {...register('exportReviewerEmployeeId')}
+          />
+          <SelectField
+            label="محاسب العميل (اختياري)"
+            placeholder="من غير محاسب"
+            className="sm:col-span-2"
+            options={accountants.map((e) => ({ value: e.id, label: e.fullName }))}
+            {...register('accountantEmployeeId')}
           />
         </section>
 
@@ -309,6 +319,10 @@ function ClientDetailsDrawer({
                 <div className="font-semibold">
                   {client.exportOperationEmployee ? (client.exportReviewerEmployee?.fullName ?? '—') : (client.importReviewerEmployee?.fullName ?? '—')}
                 </div>
+              </div>
+              <div className="rounded-xl bg-surface-2 p-3 sm:col-span-2">
+                <div className="text-xs text-muted">محاسب العميل</div>
+                <div className="font-semibold">{client.accountantEmployee?.fullName ?? '—'}</div>
               </div>
             </div>
 

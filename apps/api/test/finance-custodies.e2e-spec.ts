@@ -20,6 +20,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
   let fx: ShipmentFixtures;
   let treasury: string;
   let accountant: string;
+  let manager: string;
   let relations: string;
   let clearerToken: string;
   let agentId: number;
@@ -44,6 +45,8 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
     treasury = (await ctx.userWithRole('921', 'TREASURY_MANAGER', 'ACCOUNTS'))
       .token;
     accountant = (await ctx.userWithRole('922', 'ACCOUNTANT', 'ACCOUNTS'))
+      .token;
+    manager = (await ctx.userWithRole('925', 'ACCOUNTS_MANAGER', 'ACCOUNTS'))
       .token;
     relations = (
       await ctx.userWithRole('923', 'FINANCIAL_RELATIONS', 'ACCOUNTS')
@@ -184,7 +187,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
 
     it('cannot be approved before it is settled', async () => {
       await ctx
-        .api(accountant)
+        .api(manager)
         .post(`/api/finance/approvals/CUSTODY/${id}/review`, {
           version: await version(id),
         })
@@ -193,7 +196,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
 
     it('may not overspend', async () => {
       const res = await ctx
-        .api(treasury)
+        .api(accountant)
         .post(`/api/finance/custodies/${id}/settlement`, {
           version: await version(id),
           items: [{ expenseType: 'تفريغ', amount: 5200, receiptNo: '1001' }],
@@ -204,7 +207,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
 
     it('needs a receipt number or a description on each item', async () => {
       await ctx
-        .api(treasury)
+        .api(accountant)
         .post(`/api/finance/custodies/${id}/settlement`, {
           version: await version(id),
           items: [{ expenseType: 'تفريغ', amount: 100 }],
@@ -215,7 +218,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
     it('settles: the rest comes back to the cash box', async () => {
       const start = await balance(cashEgp);
       const res = await ctx
-        .api(treasury)
+        .api(accountant)
         .post(`/api/finance/custodies/${id}/settlement`, {
           version: await version(id),
           items: [
@@ -240,7 +243,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
 
     it('then joins the approval list', async () => {
       await ctx
-        .api(accountant)
+        .api(manager)
         .post(`/api/finance/approvals/CUSTODY/${id}/review`, {
           version: await version(id),
         })
@@ -323,7 +326,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
       expect(res.body.beneficiary.name).toBe('توكيل ميرسك');
       expect(res.body.transferRef).toBe('TRF-9921');
       await ctx
-        .api(treasury)
+        .api(accountant)
         .post(`/api/finance/custodies/${res.body.id}/settlement`, {
           version: res.body.version,
           items: [
@@ -332,7 +335,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
         })
         .expect(400);
       await ctx
-        .api(treasury)
+        .api(accountant)
         .post(`/api/finance/custodies/${res.body.id}/settlement`, {
           version: res.body.version,
           items: [
@@ -365,7 +368,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
     it('may overspend: the difference is paid out, and the fee is computed', async () => {
       const start = await balance(cashEgp);
       const res = await ctx
-        .api(treasury)
+        .api(accountant)
         .post(`/api/finance/custodies/${id}/settlement`, {
           version: await version(id),
           items: [
@@ -395,7 +398,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
     it('a re-settlement replaces the items and keeps one fee', async () => {
       const start = await balance(cashEgp);
       await ctx
-        .api(treasury)
+        .api(accountant)
         .post(`/api/finance/custodies/${id}/settlement`, {
           version: await version(id),
           items: [{ expenseType: 'تخليص', amount: 3800, receiptNo: '1003' }],

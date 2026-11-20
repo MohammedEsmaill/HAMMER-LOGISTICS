@@ -29,6 +29,8 @@ export interface Client extends Partial<Record<QuoteKey, string>> {
   exportOperationEmployee: { id: number; fullName: string } | null;
   importReviewerEmployee: { id: number; fullName: string } | null;
   exportReviewerEmployee: { id: number; fullName: string } | null;
+  /** The accountant who handles the client's account. */
+  accountantEmployee: { id: number; fullName: string } | null;
   factories?: Factory[];
   _count?: { factories: number };
 }
@@ -43,6 +45,7 @@ export interface ClientInput extends Record<QuoteKey, number> {
   exportOperationEmployeeId: number | null;
   importReviewerEmployeeId: number | null;
   exportReviewerEmployeeId: number | null;
+  accountantEmployeeId: number | null;
   factories?: FactoryInput[];
 }
 

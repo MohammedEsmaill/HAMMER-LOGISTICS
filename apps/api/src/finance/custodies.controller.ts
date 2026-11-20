@@ -38,12 +38,18 @@ import { HolderLedgerService } from './holder-ledger.service';
 
 const READ = [
   'finance.custody.manage',
+  'finance.custody.settle',
+  'finance.fees.pay',
   'finance.ledgers.view',
   'finance.review',
   'finance.manager_approve',
   'finance.approve',
 ] as const;
 const EDIT = ['finance.custody.manage', 'finance.approved.edit'] as const;
+/** Settling a custody: the accountant (or the CEO after approval). */
+const SETTLE = ['finance.custody.settle', 'finance.approved.edit'] as const;
+/** Paying clearers' fees: the treasury manager and the accounts manager. */
+const PAY_FEES = ['finance.fees.pay', 'finance.approved.edit'] as const;
 
 @Controller('finance/custodies')
 export class CustodiesController {
@@ -89,7 +95,7 @@ export class CustodiesController {
 
   /** Settles an open custody, or replaces the items of a settled one. */
   @Post(':id/settlement')
-  @RequireAnyPermission(...EDIT)
+  @RequireAnyPermission(...SETTLE)
   settle(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,
@@ -128,13 +134,13 @@ export class ClearerFeesController {
   }
 
   @Post('payments')
-  @RequirePermissions('finance.custody.manage')
+  @RequirePermissions('finance.fees.pay')
   pay(@CurrentUser() actor: AuthUser, @Body() dto: PayFeeDto) {
     return this.fees.pay(actor, dto);
   }
 
   @Patch('payments/:id')
-  @RequireAnyPermission(...EDIT)
+  @RequireAnyPermission(...PAY_FEES)
   updatePayment(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,
