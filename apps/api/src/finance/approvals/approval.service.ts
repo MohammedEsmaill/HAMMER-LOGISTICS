@@ -114,7 +114,11 @@ const turnOf = (type: ApprovableType, status: ApprovalStatus) =>
 
 /** Salary data (salaries, advances) is seen by payroll, the general auditor and the CEO. */
 export function canSeeRestricted(actor: AuthUser): boolean {
-  return can(actor, 'finance.payroll.manage') || can(actor, 'finance.approve');
+  return (
+    can(actor, 'finance.payroll.manage') ||
+    can(actor, 'finance.review') ||
+    can(actor, 'finance.approve')
+  );
 }
 
 export const APPROVAL_PERMISSIONS: Permission[] = [
@@ -223,7 +227,7 @@ export class ApprovalService {
         const step = STEPS[APPROVABLE[type].flow][action];
         if (!step) {
           throw new BadRequestException(
-            `${APPROVABLE[type].label} بيتعتمد من المراجع العام مباشرة`,
+            `الخطوة دي مش في دورة اعتماد ${APPROVABLE[type].label}`,
           );
         }
         if (!can(actor, step.permission)) {

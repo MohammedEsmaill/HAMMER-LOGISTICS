@@ -46,7 +46,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
       .token;
     accountant = (await ctx.userWithRole('922', 'ACCOUNTANT', 'ACCOUNTS'))
       .token;
-    manager = (await ctx.userWithRole('925', 'ACCOUNTS_MANAGER', 'ACCOUNTS'))
+    manager = (await ctx.userWithRole('925', 'GENERAL_AUDITOR', 'ACCOUNTS'))
       .token;
     relations = (
       await ctx.userWithRole('923', 'FINANCIAL_RELATIONS', 'ACCOUNTS')

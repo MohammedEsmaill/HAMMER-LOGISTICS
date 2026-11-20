@@ -330,9 +330,9 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
         .expect(403);
     });
 
-    it('the accounts manager reviews, then the general auditor approves', async () => {
+    it('the general auditor reviews, then the accounts manager approves', async () => {
       const res = await ctx
-        .api(manager)
+        .api(auditor)
         .get('/api/finance/approvals?status=PENDING&pageSize=200')
         .expect(200);
       const expense = res.body.items.find(
@@ -343,26 +343,26 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
       );
       expect(salary).toMatchObject({ flow: 'TWO_LEVELS', canAct: true });
       await ctx
-        .api(manager)
+        .api(auditor)
         .post(`/api/finance/approvals/EXPENSE/${expense.id}/review`, {
           version: expense.version,
         })
         .expect(201);
-      // the auditor can't approve before the review
+      // the manager can't approve before the review
       await ctx
-        .api(auditor)
+        .api(manager)
         .post(`/api/finance/approvals/SALARY/${salary.id}/approve`, {
           version: salary.version,
         })
         .expect(400);
       const reviewed = await ctx
-        .api(manager)
+        .api(auditor)
         .post(`/api/finance/approvals/SALARY/${salary.id}/review`, {
           version: salary.version,
         })
         .expect(201);
       const approved = await ctx
-        .api(auditor)
+        .api(manager)
         .post(`/api/finance/approvals/SALARY/${salary.id}/approve`, {
           version: reviewed.body.version,
         })

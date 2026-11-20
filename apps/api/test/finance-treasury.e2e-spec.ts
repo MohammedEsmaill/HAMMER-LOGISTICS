@@ -329,7 +329,7 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
 
     it('goes level by level: no skipping', async () => {
       await ctx
-        .api(auditor)
+        .api(manager)
         .post(`/api/finance/approvals/TRANSFER/${id}/approve`, {
           version: await version(),
         })
@@ -369,13 +369,13 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
 
     it('rejection needs a reason and the author edit sends it back to review', async () => {
       await ctx
-        .api(manager)
+        .api(auditor)
         .post(`/api/finance/approvals/TRANSFER/${id}/reject`, {
           version: await version(),
         })
         .expect(400);
       await ctx
-        .api(manager)
+        .api(auditor)
         .post(`/api/finance/approvals/TRANSFER/${id}/reject`, {
           version: await version(),
           reason: 'المبلغ مش مطابق للإيصال',
@@ -401,15 +401,15 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
       expect(res.body.rejectionReason).toBeNull();
     });
 
-    it('the accounts manager reviews, then the general auditor approves', async () => {
+    it('the general auditor reviews, then the accounts manager approves', async () => {
       await ctx
-        .api(manager)
+        .api(auditor)
         .post(`/api/finance/approvals/TRANSFER/${id}/review`, {
           version: await version(),
         })
         .expect(201);
       const res = await ctx
-        .api(auditor)
+        .api(manager)
         .post(`/api/finance/approvals/TRANSFER/${id}/approve`, {
           version: await version(),
         })

@@ -128,10 +128,10 @@ const ROLES: {
   },
   {
     name: 'ACCOUNTS_MANAGER',
-    description: 'مدير الحسابات: مراجعة كل الحركات',
+    description: 'مدير الحسابات: الاعتماد النهائي لكل الحركات',
     permissions: [
       'shipments.view.all',
-      'finance.review',
+      'finance.approve',
       'finance.payroll.manage',
       'finance.fees.pay',
       'employees.salary.view',
@@ -168,11 +168,11 @@ const ROLES: {
   },
   {
     name: 'GENERAL_AUDITOR',
-    description: 'المراجع العام',
+    description: 'المراجع العام: مراجعة كل الحركات',
     permissions: [
       'shipments.view.all',
       'audit.view',
-      'finance.approve',
+      'finance.review',
       'finance.journal.view',
     ],
   },
@@ -284,6 +284,18 @@ const GRANTS: {
     revoke: {
       ACCOUNTANT: ['finance.review', 'finance.statement.manage'],
       ACCOUNTS_MANAGER: ['finance.manager_approve'],
+    },
+  },
+  {
+    // the general auditor reviews first, the accounts manager approves last
+    id: 'approval-order-2026-11',
+    roles: {
+      GENERAL_AUDITOR: ['finance.review'],
+      ACCOUNTS_MANAGER: ['finance.approve'],
+    },
+    revoke: {
+      GENERAL_AUDITOR: ['finance.approve'],
+      ACCOUNTS_MANAGER: ['finance.review'],
     },
   },
   {

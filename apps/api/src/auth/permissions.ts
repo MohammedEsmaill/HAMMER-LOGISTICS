@@ -31,10 +31,10 @@ export const PERMISSIONS = {
   'finance.balances.view': 'عرض أرصدة الخزن والبنوك وحركتها',
   'finance.movements.create':
     'تسجيل التحويلات والمعاملات الأخرى على الخزن والبنوك',
-  'finance.review': 'مراجعة الحركات المالية (مدير الحسابات)',
+  'finance.review': 'مراجعة الحركات المالية (المراجع العام)',
   'finance.manager_approve':
     'موافقة مدير الحسابات (الدورة القديمة، مش مستخدمة)',
-  'finance.approve': 'الاعتماد النهائي للحركات المالية',
+  'finance.approve': 'الاعتماد النهائي للحركات المالية (مدير الحسابات)',
   'finance.approved.edit': 'تعديل حركة مالية بعد اعتمادها',
   'finance.payroll.manage': 'صرف المرتبات والسلف وكشوف السلف',
   'finance.expenses.manage': 'صرف المصاريف العمومية',

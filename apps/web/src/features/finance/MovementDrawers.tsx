@@ -28,17 +28,18 @@ const dateTime = (iso?: string | null) =>
   iso ? new Intl.DateTimeFormat(AR, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : '';
 const who = (u?: { email: string } | null) => u?.email.split('@')[0] ?? '';
 
-/** The document's way through the three approval levels. */
-export function ApprovalTrail({ doc, finalOnly = false }: { doc: Approval; finalOnly?: boolean }) {
+/**
+ * The document's way through approval: the general auditor reviews, then the accounts
+ * manager approves. Older documents may still show the accounts manager middle step,
+ * or (salaries and advances) a single approval.
+ */
+export function ApprovalTrail({ doc }: { doc: Approval }) {
+  const singleStep = !!doc.approvedAt && !doc.reviewedAt;
   const steps = [
     { label: 'التسجيل', by: doc.createdBy, at: doc.createdAt, done: true },
-    ...(finalOnly
-      ? []
-      : [
-          { label: 'مراجعة المحاسب', by: doc.reviewedBy, at: doc.reviewedAt, done: !!doc.reviewedAt },
-          { label: 'مدير الحسابات', by: doc.managerBy, at: doc.managerAt, done: !!doc.managerAt },
-        ]),
-    { label: finalOnly ? 'اعتماد المراجع العام' : 'الاعتماد النهائي', by: doc.approvedBy, at: doc.approvedAt, done: !!doc.approvedAt },
+    ...(singleStep ? [] : [{ label: 'المراجعة', by: doc.reviewedBy, at: doc.reviewedAt, done: !!doc.reviewedAt }]),
+    ...(doc.managerAt ? [{ label: 'موافقة مدير الحسابات', by: doc.managerBy, at: doc.managerAt, done: true }] : []),
+    { label: 'الاعتماد النهائي', by: doc.approvedBy, at: doc.approvedAt, done: !!doc.approvedAt },
   ];
   return (
     <div className="space-y-3 rounded-xl border border-line p-4">

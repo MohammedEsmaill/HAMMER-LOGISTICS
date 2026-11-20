@@ -239,7 +239,7 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
           {problems.net && <p className="text-danger">{problems.net}</p>}
         </div>
         {save.error ? <ErrorBox error={save.error} /> : null}
-        {salary && <ApprovalTrail doc={salary} finalOnly />}
+        {salary && <ApprovalTrail doc={salary} />}
       </form>
     </Drawer>
   );
@@ -339,7 +339,7 @@ export function AdvanceDrawer({
           <TextField label="ملاحظات (اختياري)" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} />
         </fieldset>
         {save.error ? <ErrorBox error={save.error} /> : null}
-        {advance && <ApprovalTrail doc={advance} finalOnly />}
+        {advance && <ApprovalTrail doc={advance} />}
       </form>
     </Drawer>
   );

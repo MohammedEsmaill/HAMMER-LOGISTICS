@@ -252,7 +252,7 @@ describe('WhatsApp group alerts (e2e)', () => {
         await ctx.userWithRole('971', 'TREASURY_MANAGER', 'ACCOUNTS')
       ).token;
       const accountant = (
-        await ctx.userWithRole('972', 'ACCOUNTS_MANAGER', 'ACCOUNTS')
+        await ctx.userWithRole('972', 'GENERAL_AUDITOR', 'ACCOUNTS')
       ).token;
       const cash = await ctx.prisma.moneyAccount.findFirstOrThrow({
         where: { type: 'CASH', currency: 'EGP' },

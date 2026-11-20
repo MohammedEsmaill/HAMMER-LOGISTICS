@@ -30,7 +30,11 @@ import { PayrollService } from './payroll.service';
  * auditor who approves them, and the CEO. Not HR, the accountant or the accounts
  * manager (HR sees the basic salary on the employee record only).
  */
-const READ = ['finance.payroll.manage', 'finance.approve'] as const;
+const READ = [
+  'finance.payroll.manage',
+  'finance.review',
+  'finance.approve',
+] as const;
 const EDIT = ['finance.payroll.manage', 'finance.approved.edit'] as const;
 
 @Controller('finance')
