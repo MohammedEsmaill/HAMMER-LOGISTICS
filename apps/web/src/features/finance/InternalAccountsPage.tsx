@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
+import type { Permission } from '@/auth/permissions';
 import { Button } from '@/components/ui/Button';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton, PageHeader } from '@/components/ui/misc';
@@ -10,7 +11,7 @@ import { money } from './api';
 import { PartyDrawer, PartyMovementDrawer } from './PartyDrawers';
 import { balanceSide, PARTY_KINDS, useParties, type Party } from './parties-api';
 
-function PartyCard({ party, index, onOpen, onEdit }: { party: Party; index: number; onOpen: () => void; onEdit?: () => void }) {
+function PartyCard({ party, index, onOpen, onEdit, figures }: { party: Party; index: number; onOpen: () => void; onEdit?: () => void; figures: boolean }) {
   const Icon = party.kind === 'OWNER' ? UserRound : Building2;
   const balances = party.balances.filter((b) => Number(b.balance) !== 0);
   return (
@@ -32,7 +33,8 @@ function PartyCard({ party, index, onOpen, onEdit }: { party: Party; index: numb
         <div className="min-w-0 flex-1">
           <div className="truncate font-bold">{party.name}</div>
           <div className="text-xs text-muted">
-            {PARTY_KINDS[party.kind]} · {party._count.movements} حركة
+            {PARTY_KINDS[party.kind]}
+            {figures && ` · ${party._count.movements} حركة`}
           </div>
         </div>
         {!party.isActive && <Badge tone="muted">موقوفة</Badge>}
@@ -42,7 +44,7 @@ function PartyCard({ party, index, onOpen, onEdit }: { party: Party; index: numb
           </IconButton>
         )}
       </div>
-      {balances.length === 0 ? (
+      {!figures ? null : balances.length === 0 ? (
         <div className="text-sm text-muted">مفيش رصيد، الحساب متصفّي</div>
       ) : (
         <div className="space-y-1.5">
@@ -81,6 +83,8 @@ export default function InternalAccountsPage() {
   const [recording, setRecording] = useState(false);
   const manage = can('finance.parties.manage');
   const record = can('finance.parties.record');
+  // who only sets the parties up (the moderator) sees no balances and no statements
+  const figures = ['finance.parties.view', 'finance.parties.record', 'finance.review', 'finance.approve'].some((p) => can(p as Permission));
 
   const groups = (['SISTER_COMPANY', 'OWNER'] as const).map((kind) => ({ kind, list: parties.filter((p) => p.kind === kind) }));
 
@@ -110,7 +114,7 @@ export default function InternalAccountsPage() {
           </div>
         }
       />
-      <p className="mb-4 text-sm text-muted">
+      <p className={`mb-4 text-sm text-muted ${figures ? '' : 'hidden'}`}>
         حساب الشركات الشقيقة والملاك، منفصل عن حسابات اللوجيستيك. <b>مدين</b> يعني الجهة عليها فلوس لينا، و<b>دائن</b> يعني ليها فلوس عندنا.
       </p>
       {error ? <ErrorBox error={error} /> : null}
@@ -131,7 +135,8 @@ export default function InternalAccountsPage() {
                     key={p.id}
                     party={p}
                     index={i}
-                    onOpen={() => navigate(`/internal-accounts/${p.id}`)}
+                    figures={figures}
+                    onOpen={() => figures && navigate(`/internal-accounts/${p.id}`)}
                     onEdit={
                       manage
                         ? () => {

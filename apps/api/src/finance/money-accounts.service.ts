@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, can } from '../auth/auth-user';
+import { Permission } from '../auth/permissions';
 import { canSeeRestricted } from './approvals/approval.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -38,9 +39,23 @@ export class MoneyAccountsService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Cash boxes first, then company banks, then owners' personal accounts. */
-  list() {
-    return this.prisma.moneyAccount.findMany({
+  /**
+   * Cash boxes first, then company banks, then owners' personal accounts. Who only
+   * sets the accounts up (the moderator) gets them without their balances.
+   */
+  async list(actor: AuthUser) {
+    const money = [
+      'finance.balances.view',
+      'finance.movements.create',
+      'finance.bank.record',
+      'finance.parties.record',
+      'finance.expenses.manage',
+      'finance.custody.manage',
+      'finance.fees.pay',
+      'finance.payroll.manage',
+      'finance.collections.manage',
+    ].some((p) => can(actor, p as Permission));
+    const accounts = await this.prisma.moneyAccount.findMany({
       orderBy: [
         { type: 'asc' },
         { ownership: 'asc' },
@@ -49,6 +64,9 @@ export class MoneyAccountsService {
       ],
       include: OWNER,
     });
+    return money
+      ? accounts
+      : accounts.map((a) => ({ ...a, balance: null, openingBalance: null }));
   }
 
   async createBank(actor: AuthUser, dto: CreateBankAccountDto) {

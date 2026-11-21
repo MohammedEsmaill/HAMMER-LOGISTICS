@@ -39,10 +39,11 @@ const EDIT = ['finance.parties.record', 'finance.approved.edit'] as const;
 export class PartiesController {
   constructor(private readonly parties: PartiesService) {}
 
+  /** Who only sets the parties up (the moderator) sees them without their balances. */
   @Get()
-  @RequireAnyPermission(...READ)
-  list() {
-    return this.parties.list();
+  @RequireAnyPermission(...READ, 'finance.parties.manage')
+  list(@CurrentUser() actor: AuthUser) {
+    return this.parties.list(actor);
   }
 
   @Get('options')

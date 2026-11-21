@@ -34,8 +34,8 @@ export class MoneyAccountsController {
     'finance.parties.record',
     'finance.bank.record',
   )
-  list() {
-    return this.accounts.list();
+  list(@CurrentUser() actor: AuthUser) {
+    return this.accounts.list(actor);
   }
 
   @Post()

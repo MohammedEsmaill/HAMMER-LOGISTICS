@@ -41,7 +41,7 @@ function AccountCard({ account, onOpen, onEdit, index }: { account: MoneyAccount
           </IconButton>
         )}
       </div>
-      {account.ownership === 'PERSONAL' ? (
+      {account.balance === null ? null : account.ownership === 'PERSONAL' ? (
         <div className="text-sm text-muted">
           حساب شخصي لـ <b className="text-ink">{account.ownerParty?.name}</b> · قناة دفع بس، ملوش رصيد
         </div>
@@ -68,6 +68,8 @@ export default function TreasuryPage() {
 
   // owners' personal accounts are payment channels: apart, and out of the totals
   const personal = accounts.filter((a) => a.ownership === 'PERSONAL');
+  // who only sets the accounts up (the moderator) sees no figures and no statements
+  const figures = accounts.every((a) => a.balance !== null);
   const byCurrency = (['EGP', 'USD'] as Currency[]).map((c) => {
     const list = accounts.filter((a) => a.currency === c && a.ownership !== 'PERSONAL');
     const total = list.reduce((s, a) => s + Number(a.balance), 0);
@@ -100,7 +102,7 @@ export default function TreasuryPage() {
           <section key={currency} className="space-y-3">
             <div className="flex items-baseline justify-between">
               <h2 className="text-lg font-bold">{CURRENCIES[currency].label}</h2>
-              <span className="text-sm text-muted">
+              <span className={`text-sm text-muted ${figures ? '' : 'hidden'}`}>
                 الإجمالي:{' '}
                 <b className="text-gold" dir="ltr">
                   {money(total, currency)}
@@ -113,7 +115,7 @@ export default function TreasuryPage() {
                   key={a.id}
                   account={a}
                   index={i}
-                  onOpen={() => navigate(`/treasury/${a.id}`)}
+                  onOpen={() => figures && navigate(`/treasury/${a.id}`)}
                   onEdit={
                     manage
                       ? () => {
@@ -139,7 +141,7 @@ export default function TreasuryPage() {
                   key={a.id}
                   account={a}
                   index={i}
-                  onOpen={() => navigate(`/treasury/${a.id}`)}
+                  onOpen={() => figures && navigate(`/treasury/${a.id}`)}
                   onEdit={
                     manage
                       ? () => {

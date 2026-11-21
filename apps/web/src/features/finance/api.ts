@@ -60,8 +60,9 @@ export interface MoneyAccount {
   currency: Currency;
   bankName: string | null;
   accountNumber: string | null;
-  openingBalance: string;
-  balance: string;
+  /** null for who only sets the accounts up (the moderator): no figures. */
+  openingBalance: string | null;
+  balance: string | null;
   isActive: boolean;
   createdAt: string;
   /** PERSONAL: an owner's own account, a payment channel with no balance of its own. */

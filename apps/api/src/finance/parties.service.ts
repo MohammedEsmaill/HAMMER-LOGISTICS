@@ -11,7 +11,8 @@ import {
   Prisma,
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, can } from '../auth/auth-user';
+import { Permission } from '../auth/permissions';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { APPROVAL_RESET, assertCanEdit } from './approvals/approval.service';
 import {
@@ -74,8 +75,17 @@ export class PartiesService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Every party with its balance per currency, and the owners' personal accounts. */
-  async list() {
+  /**
+   * Every party with its balance per currency, and the owners' personal accounts.
+   * Balances only reach who works with the money (not who just sets parties up).
+   */
+  async list(actor: AuthUser) {
+    const money = [
+      'finance.parties.view',
+      'finance.parties.record',
+      'finance.review',
+      'finance.approve',
+    ].some((p) => can(actor, p as Permission));
     const [parties, sums] = await Promise.all([
       this.prisma.internalParty.findMany({
         orderBy: [{ isActive: 'desc' }, { kind: 'asc' }, { name: 'asc' }],
@@ -94,7 +104,10 @@ export class PartiesService {
     ]);
     return parties.map((p) => ({
       ...p,
-      balances: this.balances(sums.filter((s) => s.partyId === p.id)),
+      balances: money
+        ? this.balances(sums.filter((s) => s.partyId === p.id))
+        : [],
+      ...(money ? {} : { _count: { movements: 0 } }),
     }));
   }
 

@@ -44,12 +44,14 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
   });
   const ownership = useWatch({ control, name: 'ownership' });
   const personal = (account?.ownership ?? ownership) === 'PERSONAL';
+  // who only sets the accounts up (the moderator) sees no figures: the opening balance stays as it is
+  const noFigures = !!account && account.openingBalance === null;
   const { data: parties = [] } = usePartyOptions(open && !account);
   const owners = parties.filter((p) => p.kind === 'OWNER');
   // a personal account has no opening balance: the hidden field holds 0
   useEffect(() => {
-    if (personal) setValue('openingBalance', 0 as unknown as BankIn['openingBalance']);
-  }, [personal, setValue]);
+    if (personal || noFigures) setValue('openingBalance', 0 as unknown as BankIn['openingBalance']);
+  }, [personal, noFigures, setValue]);
   const [active, setActive] = useState(true);
   const save = useAction(
     (f: BankOut) => {
@@ -60,7 +62,7 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
           ownerPartyId: f.ownership === 'PERSONAL' ? f.ownerPartyId : undefined,
         });
       }
-      const opening = Number(f.openingBalance) !== Number(account.openingBalance) ? f.openingBalance : undefined;
+      const opening = !noFigures && Number(f.openingBalance) !== Number(account.openingBalance) ? f.openingBalance : undefined;
       return financeApi.updateAccount(account.id, {
         name: f.name,
         ...(isCash ? {} : { bankName: f.bankName, accountNumber: f.accountNumber }),
@@ -80,7 +82,7 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
       bankName: account?.bankName ?? '',
       accountNumber: account?.accountNumber ?? '',
       currency: account?.currency ?? 'EGP',
-      openingBalance: account?.openingBalance ?? '',
+      openingBalance: account?.openingBalance ?? (account ? 0 : ''),
       ownership: account?.ownership ?? 'COMPANY',
       ownerPartyId: account?.ownerParty?.id ?? '',
     } as unknown as BankIn);
@@ -151,7 +153,7 @@ export function AccountDrawer({ account, open, onClose }: { account: MoneyAccoun
             />
           </>
         )}
-        {!personal && (
+        {!personal && !noFigures && (
           <TextField
             label="الرصيد الافتتاحي"
             type="number"

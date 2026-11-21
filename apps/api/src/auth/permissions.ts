@@ -68,13 +68,8 @@ export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 /** Held only by the system (CEO) role: no other role may be given these. */
 export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'roles.manage',
-  'clearers.manage',
-  'shipments.reassign',
-  'finance.accounts.manage',
   'finance.approved.edit',
   'finance.fees.adjust',
-  'finance.prices.manage',
-  'finance.parties.manage',
   'notifications.manage',
   'backups.manage',
 ]);
