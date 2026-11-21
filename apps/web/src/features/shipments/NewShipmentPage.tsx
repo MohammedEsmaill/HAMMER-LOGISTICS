@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ChevronLeft } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { PageHeader } from '@/components/ui/misc';
+import { api } from '@/lib/api-client';
 import { useAction } from '@/lib/mutations';
 import { shipmentKeys, shipmentsApi } from './api';
 import { MODE_ICONS } from './mode-icons';
@@ -147,11 +148,32 @@ function RegistrationForm({ kind, onBack }: { kind: ShipmentKind; onBack: () => 
   );
 }
 
+/**
+ * The file number the shipment is likely to get. Only for information: the real one is
+ * given on save, so someone registering at the same moment may take this one first.
+ */
+function NextFileNo() {
+  const { data } = useQuery({
+    queryKey: [...shipmentKeys.all, 'next-file-no'],
+    queryFn: () => api.get<{ fileNo: string | null }>('/shipments/next-file-no'),
+    refetchInterval: 30_000,
+  });
+  if (!data?.fileNo) return null;
+  return (
+    <div className="text-sm text-muted" title="الرقم النهائي بيتحدد وقت الحفظ">
+      رقم الملف المتوقع:{' '}
+      <b dir="ltr" className="text-gold">
+        {data.fileNo}
+      </b>
+    </div>
+  );
+}
+
 export default function NewShipmentPage() {
   const [kind, setKind] = useState<ShipmentKind | null>(null);
   return (
     <>
-      <PageHeader title="تسجيل شحنة جديدة" />
+      <PageHeader title="تسجيل شحنة جديدة" actions={<NextFileNo />} />
       {kind ? <RegistrationForm key={kind} kind={kind} onBack={() => setKind(null)} /> : <TypePicker onPick={setKind} />}
     </>
   );

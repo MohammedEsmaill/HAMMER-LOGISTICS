@@ -17,6 +17,8 @@ import {
   RequirePermissions,
 } from '../auth/decorators/permissions.decorator';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
+import { FileNumberService } from './file-number.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   AddInspectionDto,
   MoveStageDto,
@@ -44,7 +46,16 @@ export class ShipmentsController {
     private readonly edits: ShipmentEditService,
     private readonly customs: ShipmentCustomsService,
     private readonly stages: ShipmentStageService,
+    private readonly fileNumbers: FileNumberService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  /** The file number the next registration would get (for information on the form). */
+  @Get('next-file-no')
+  @RequirePermissions('shipments.create')
+  async nextFileNo() {
+    return { fileNo: await this.fileNumbers.peek(this.prisma) };
+  }
 
   @Get()
   @RequireAnyPermission('shipments.view.all', 'shipments.view.own')

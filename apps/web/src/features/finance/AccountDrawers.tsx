@@ -15,7 +15,7 @@ import { formatDate } from '@/lib/format';
 import { useAction } from '@/lib/mutations';
 import { money as moneyField } from '@/lib/schemas';
 import { usePartyOptions } from './parties-api';
-import { CURRENCIES, financeApi, financeKeys, money, OTHER_KINDS, useLedger, type LedgerLine, type MoneyAccount } from './api';
+import { CURRENCIES, financeApi, financeKeys, money, OTHER_KINDS, today, useLedger, type LedgerLine, type MoneyAccount } from './api';
 
 const accountNumber = z
   .string()
@@ -201,12 +201,66 @@ export const lineDocument = (l: LedgerLine) => ({
 });
 
 /** The account statement: every line with its running balance, by period, page by page. */
+/** The first and last day of this month or the one before, as yyyy-mm-dd. */
+function monthRange(back: 0 | 1) {
+  const now = today();
+  const [y, m] = now.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1 - back, 1));
+  const last = new Date(Date.UTC(y, m - back, 0));
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(first), to: back ? iso(last) : now };
+}
+
+const PERIODS = [
+  { key: 'month', label: 'الشهر ده', range: () => monthRange(0) },
+  { key: 'last', label: 'الشهر اللي فات', range: () => monthRange(1) },
+  { key: 'all', label: 'كل الفترات', range: () => ({ from: '', to: '' }) },
+] as const;
+
+const DIRECTIONS = [
+  { key: '', label: 'الكل' },
+  { key: 'IN', label: 'وارد بس' },
+  { key: 'OUT', label: 'منصرف بس' },
+] as const;
+
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={`focus-ring h-9 rounded-full border px-4 text-sm transition-colors ${
+        on ? 'border-gold/40 bg-gold/15 font-semibold text-gold' : 'border-line text-muted hover:text-ink'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatCard({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) {
+  return (
+    <div className="card p-4">
+      <div className="text-xs text-muted">{label}</div>
+      <div className={`mt-1 text-xl font-bold whitespace-nowrap ${tone ?? ''}`} dir="ltr">
+        {value}
+      </div>
+    </div>
+  );
+}
+
 export function AccountStatement({ account, onOpenLine }: { account: MoneyAccount; onOpenLine?: (l: LedgerLine) => void }) {
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [{ from, to }, setRange] = useState<{ from: string; to: string }>({ from: '', to: '' });
+  const [direction, setDirection] = useState<'' | 'IN' | 'OUT'>('');
   const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useLedger(account.id, { from: from || undefined, to: to || undefined, page });
+  const { data, isLoading, error } = useLedger(account.id, { from: from || undefined, to: to || undefined, page, direction: direction || undefined });
   const cur = account.currency;
+  const period = PERIODS.find((p) => {
+    const r = p.range();
+    return r.from === from && r.to === to;
+  })?.key;
+  const setFrom = (v: string) => setRange((r) => ({ ...r, from: v }));
+  const setTo = (v: string) => setRange((r) => ({ ...r, to: v }));
 
   const columns: Column<LedgerLine>[] = [
     { header: 'التاريخ', cell: (l) => <span className="whitespace-nowrap">{formatDate(l.movementDate)}</span> },
@@ -239,17 +293,28 @@ export function AccountStatement({ account, onOpenLine }: { account: MoneyAccoun
 
   return (
     <div className="space-y-4">
+      {/* the current balance is in the page header above */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="وارد الفترة" value={money(data?.totals.in, cur)} tone="text-success" />
+        <StatCard label="منصرف الفترة" value={money(data?.totals.out, cur)} tone="text-danger" />
+        <StatCard label="عدد الحركات" value={data?.totals.count ?? 0} />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {PERIODS.map((p) => (
+          <Chip key={p.key} on={period === p.key} onClick={() => (setRange(p.range()), setPage(1))}>
+            {p.label}
+          </Chip>
+        ))}
+        <span className="mx-1 h-6 w-px bg-line" aria-hidden />
+        {DIRECTIONS.map((d) => (
+          <Chip key={d.key} on={direction === d.key} onClick={() => (setDirection(d.key), setPage(1))}>
+            {d.label}
+          </Chip>
+        ))}
+      </div>
       <div className="flex flex-wrap items-end gap-3">
         <TextField label="من" type="date" className="w-44" value={from} onChange={(e) => (setFrom(e.target.value), setPage(1))} />
         <TextField label="إلى" type="date" className="w-44" value={to} onChange={(e) => (setTo(e.target.value), setPage(1))} />
-        <div className="flex flex-1 flex-wrap justify-end gap-6 pb-2 text-sm">
-          <span>
-            وارد الفترة: <b className="text-success" dir="ltr">{money(data?.totals.in, cur)}</b>
-          </span>
-          <span>
-            منصرف الفترة: <b className="text-danger" dir="ltr">{money(data?.totals.out, cur)}</b>
-          </span>
-        </div>
       </div>
       <DataTable
         columns={columns}
@@ -257,7 +322,7 @@ export function AccountStatement({ account, onOpenLine }: { account: MoneyAccoun
         rowKey={(l) => l.id}
         loading={isLoading}
         error={error}
-        empty="مفيش حركات في الفترة دي"
+        empty={direction ? `مفيش ${direction === 'IN' ? 'وارد' : 'منصرف'} في الفترة دي` : 'مفيش حركات في الفترة دي'}
         onRowClick={onOpenLine}
       />
       <Pagination page={page} pageSize={30} total={data?.total ?? 0} onChange={setPage} />

@@ -248,7 +248,25 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
         .expect(200);
       // opening 100000: out 20000, reversal in 20000, out 15000
       expect(res.body.items[0].balanceAfter).toBe('85000');
-      expect(res.body.totals).toEqual({ in: '20000', out: '35000' });
+      expect(res.body.totals).toEqual({
+        in: '20000',
+        out: '35000',
+        count: 3,
+      });
+
+      // only what went out; the period's totals stay for both directions
+      const out = await ctx
+        .api(treasury)
+        .get(`/api/finance/accounts/${bankEgp}/movements`)
+        .query({ direction: 'OUT' })
+        .expect(200);
+      expect(out.body.total).toBe(2);
+      expect(
+        (out.body.items as { direction: string }[]).every(
+          (l) => l.direction === 'OUT',
+        ),
+      ).toBe(true);
+      expect(out.body.totals.count).toBe(3);
     });
   });
 

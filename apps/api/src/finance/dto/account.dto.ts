@@ -1,4 +1,4 @@
-import { AccountOwnership, Currency } from '@prisma/client';
+import { AccountOwnership, Currency, MoneyDirection } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -95,4 +95,9 @@ export class LedgerQueryDto extends ListQueryDto {
   @Type(() => Date)
   @IsDate()
   to?: Date;
+
+  /** Only what came in, or only what went out. */
+  @IsOptional()
+  @IsEnum(MoneyDirection)
+  direction?: MoneyDirection;
 }

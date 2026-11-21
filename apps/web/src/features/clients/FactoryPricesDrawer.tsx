@@ -17,6 +17,7 @@ export function FactoryPricesDrawer({ factory, onClose }: { factory: { id: numbe
   const { data, error, isLoading } = useFactoryPrices(factory?.id ?? null);
   const [values, setValues] = useState<Record<number, string>>({});
   const [problem, setProblem] = useState('');
+  const [onlyCustom, setOnlyCustom] = useState(false);
   const save = useAction(
     () =>
       pricesApi.updateFactoryPrices(
@@ -37,6 +38,8 @@ export function FactoryPricesDrawer({ factory, onClose }: { factory: { id: numbe
   }, [data]);
 
   const changed = (data?.items ?? []).filter((i) => Number(values[i.id]) !== Number(i.price));
+  const custom = (data?.items ?? []).filter((i) => Number(values[i.id]) !== Number(i.defaultPrice));
+  const shown = (data?.items ?? []).filter((i) => !onlyCustom || Number(values[i.id]) !== Number(i.defaultPrice));
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if ((data?.items ?? []).some((i) => !validPrice(values[i.id] ?? ''))) return setProblem('اكتب سعر صحيح لكل بند (صفر أو أكتر)');
@@ -67,6 +70,21 @@ export function FactoryPricesDrawer({ factory, onClose }: { factory: { id: numbe
       {isLoading && <div className="h-40 rounded-2xl shimmer" />}
       {data && (
         <form id="factory-prices" noValidate onSubmit={submit} className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="flex-1 text-muted">
+              {custom.length ? (
+                <>
+                  <b className="text-gold">{custom.length}</b> بند سعره مخصوص للمصنع ده، والباقي بالسعر الافتراضي
+                </>
+              ) : (
+                'كل البنود بالسعر الافتراضي'
+              )}
+            </span>
+            <label className="flex items-center gap-2 text-muted">
+              <input type="checkbox" className="size-4 accent-[var(--gold-2)]" checked={onlyCustom} onChange={(e) => setOnlyCustom(e.target.checked)} />
+              المتعدّل بس
+            </label>
+          </div>
           <div className="overflow-hidden rounded-xl border border-line">
             <table className="w-full text-sm">
               <thead className="bg-surface-2 text-muted">
@@ -74,10 +92,18 @@ export function FactoryPricesDrawer({ factory, onClose }: { factory: { id: numbe
                   <th className="px-3 py-2 text-start font-medium">البند</th>
                   <th className="px-3 py-2 text-start font-medium">السعر الافتراضي</th>
                   <th className="w-40 px-3 py-2 text-start font-medium">سعر المصنع</th>
+                  <th className="w-28 px-3 py-2" aria-label="الحالة" />
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((i) => {
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-6 text-center text-muted">
+                      مفيش بنود متعدّلة
+                    </td>
+                  </tr>
+                )}
+                {shown.map((i) => {
                   const differs = Number(values[i.id]) !== Number(i.defaultPrice);
                   return (
                     <tr key={i.id} className="border-t border-line">
@@ -103,13 +129,27 @@ export function FactoryPricesDrawer({ factory, onClose }: { factory: { id: numbe
                           className={`focus-ring h-10 w-full rounded-lg border bg-surface px-3 ${differs ? 'border-gold text-gold' : 'border-line'}`}
                         />
                       </td>
+                      <td className="px-3 py-2">
+                        {differs && (
+                          <div className="flex flex-col items-start gap-1">
+                            <Badge tone="gold">متعدّل</Badge>
+                            <button
+                              type="button"
+                              className="focus-ring rounded text-xs text-muted hover:text-gold"
+                              onClick={() => setValues((v) => ({ ...v, [i.id]: String(Number(i.defaultPrice)) }))}
+                            >
+                              رجّعه للافتراضي
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-muted">السعر الذهبي مختلف عن الافتراضي. البند الجديد في القوائم الثابتة بيتضاف هنا بسعره الافتراضي.</p>
+          <p className="text-xs text-muted">البند الجديد في القوائم الثابتة بيتضاف هنا بسعره الافتراضي.</p>
           {problem && <p className="text-sm text-danger">{problem}</p>}
           {save.error ? <ErrorBox error={save.error} /> : null}
         </form>

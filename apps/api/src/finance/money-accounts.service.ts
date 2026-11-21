@@ -186,10 +186,14 @@ export class MoneyAccountsService {
       where: { id },
     });
     if (!account) throw new NotFoundException('الحساب غير موجود');
-    const where: Prisma.MoneyMovementWhereInput = {
+    // the period's totals cover both directions; the lines follow the direction filter
+    const period: Prisma.MoneyMovementWhereInput = {
       accountId: id,
       movementDate: { gte: q.from, lte: q.to },
     };
+    const where: Prisma.MoneyMovementWhereInput = q.direction
+      ? { ...period, direction: q.direction }
+      : period;
     const [rows, total, totals] = await this.prisma.$transaction([
       this.prisma.moneyMovement.findMany({
         where,
@@ -268,9 +272,10 @@ export class MoneyAccountsService {
       this.prisma.moneyMovement.count({ where }),
       this.prisma.moneyMovement.groupBy({
         by: ['direction'],
-        where,
+        where: period,
         orderBy: { direction: 'asc' },
         _sum: { amount: true },
+        _count: { _all: true },
       }),
     ]);
     const sum = (d: 'IN' | 'OUT') =>
@@ -278,7 +283,16 @@ export class MoneyAccountsService {
       new Prisma.Decimal(0);
     return {
       account,
-      totals: { in: sum('IN'), out: sum('OUT') },
+      totals: {
+        in: sum('IN'),
+        out: sum('OUT'),
+        // how many lines in the period, both directions
+        count: totals.reduce(
+          (n, t) =>
+            n + (typeof t._count === 'object' ? (t._count._all ?? 0) : 0),
+          0,
+        ),
+      },
       items: rows.map((m) => ({
         ...m,
         id: m.id.toString(),

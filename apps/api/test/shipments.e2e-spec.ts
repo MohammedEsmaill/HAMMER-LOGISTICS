@@ -177,11 +177,16 @@ describe('Shipment registration (e2e)', () => {
       });
     });
 
-    it('numbers the next file one higher', async () => {
+    it('numbers the next file one higher, as shown beforehand on the form', async () => {
+      const peek = await ctx
+        .api(scan)
+        .get('/api/shipments/next-file-no')
+        .expect(200);
       const res = await ctx
         .api(scan)
         .post('/api/shipments', seaImport())
         .expect(201);
+      expect(res.body.fileNo).toBe(peek.body.fileNo);
       const n = (fileNo: string) => Number(fileNo.slice(-4));
       expect(n(res.body.fileNo)).toBe(n(first.fileNo) + 1);
     });

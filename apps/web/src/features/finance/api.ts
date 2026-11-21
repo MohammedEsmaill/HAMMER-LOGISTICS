@@ -142,7 +142,8 @@ export interface LedgerLine {
 
 export interface Ledger extends Page<LedgerLine> {
   account: MoneyAccount;
-  totals: { in: string; out: string };
+  /** The period's totals, both directions. */
+  totals: { in: string; out: string; count: number };
 }
 
 export interface Operation {
@@ -180,7 +181,7 @@ export const financeKeys = {
 export const useAccounts = () =>
   useQuery({ queryKey: financeKeys.accounts, queryFn: () => api.get<MoneyAccount[]>('/finance/accounts') });
 
-export const useLedger = (id: number | null, q: DateRange & { page: number }) =>
+export const useLedger = (id: number | null, q: DateRange & { page: number; direction?: 'IN' | 'OUT' }) =>
   useQuery({
     queryKey: financeKeys.ledger(id ?? 0, q),
     queryFn: () => api.get<Ledger>(`/finance/accounts/${id}/movements`, { ...q, pageSize: 30 }),

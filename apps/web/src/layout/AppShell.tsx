@@ -200,7 +200,7 @@ export function AppShell() {
           >
             <Menu className="size-5" />
           </button>
-          <h1 className="text-lg font-semibold">{current?.label ?? ''}</h1>
+          <h1 className="min-w-0 truncate text-lg font-semibold">{current?.label ?? ''}</h1>
           <div className="ms-auto flex items-center gap-2">
             <QuickSearch />
             <Bell />
