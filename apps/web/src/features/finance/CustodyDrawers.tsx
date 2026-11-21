@@ -440,7 +440,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
           <div className="grid gap-3 sm:grid-cols-3">
             <Info label="المصروف" value={money(custody.spentAmount, cur)} ltr />
             {Number(custody.returnedAmount) > 0 && <Info label="رجع للخزنة" value={money(custody.returnedAmount, cur)} ltr tone="text-success" />}
-            {Number(custody.keptAmount ?? 0) > 0 && <Info label="باقي مع المستخلص (يتخصم من أتعابه)" value={money(custody.keptAmount, cur)} ltr tone="text-success" />}
+            {Number(custody.keptAmount ?? 0) > 0 && <Info label="في حساب المستخلص (يُخصم من أتعابه)" value={money(custody.keptAmount, cur)} ltr tone="text-success" />}
             {Number(custody.extraAmount) > 0 && <Info label="اتصرف زيادة" value={money(custody.extraAmount, cur)} ltr tone="text-warning" />}
             {custody.computedFee && <Info label="أتعاب المستخلص" value={money(custody.computedFee.amount, 'EGP')} ltr />}
           </div>
@@ -539,7 +539,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                     ? 'الفرق (لازم يبقى صفر)'
                     : totals.diff >= 0
                       ? custody.holderType === 'CLEARER'
-                        ? 'الباقي مع المستخلص: يتخصم من أتعابه'
+                        ? 'في حساب المستخلص: يُخصم من أتعابه'
                         : `يرجع لـ ${custody.sourceAccount.name}`
                       : 'يتصرف زيادة'}
                 </span>
