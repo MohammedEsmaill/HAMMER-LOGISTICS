@@ -162,7 +162,7 @@ export default function ApprovalsPage() {
     Promise.all([queryClient.invalidateQueries({ queryKey: financeKeys.all }), queryClient.invalidateQueries({ queryKey: ['inbox'] })]);
   const tab = tabOf(q);
   const tabs: { key: Tab; label: string; patch: Partial<ApprovalsQuery> }[] = [
-    ...(approver ? [{ key: 'waiting' as const, label: `مستنية دوري${waitingCount ? ` · ${waitingCount}` : ''}`, patch: { waiting: true, status: '' as const, mine: false } }] : []),
+    ...(approver ? [{ key: 'waiting' as const, label: `Waiting${waitingCount ? ` · ${waitingCount}` : ''}`, patch: { waiting: true, status: '' as const, mine: false } }] : []),
     { key: 'rejected', label: 'مرفوضة', patch: { waiting: false, status: 'REJECTED' } },
     { key: 'approved', label: 'معتمدة', patch: { waiting: false, status: 'APPROVED' } },
     { key: 'all', label: 'الكل', patch: { waiting: false, status: '' } },
@@ -258,7 +258,7 @@ export default function ApprovalsPage() {
       cell: (o) =>
         WAITS[o.approvalStatus] ? (
           <span className={`text-xs whitespace-nowrap ${o.canAct ? 'font-semibold text-gold' : 'text-muted'}`}>
-            {o.canAct ? 'دورك · ' : ''}
+            {o.canAct ? 'Waiting · ' : ''}
             {WAITS[o.approvalStatus]}
           </span>
         ) : null,
@@ -350,7 +350,7 @@ export default function ApprovalsPage() {
         rowKey={(o) => `${o.type}-${o.id}`}
         loading={isLoading}
         error={error}
-        empty={tab === 'waiting' ? 'مفيش حاجة مستنية دورك' : 'مفيش حركات بالفلتر ده'}
+        empty={tab === 'waiting' ? 'مفيش حاجة في Waiting' : 'مفيش حركات بالفلتر ده'}
         onRowClick={(o) => setOpen({ type: o.type, id: o.id })}
       />
       <div className="mt-4">

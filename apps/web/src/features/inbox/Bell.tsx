@@ -95,8 +95,8 @@ export function Bell() {
       });
     }
     if (moreWaiting) {
-      toast('معاملات جديدة مستنية دورك', {
-        description: `${waiting} معاملة في انتظارك`,
+      toast('معاملات جديدة في Waiting', {
+        description: `${waiting} معاملة في Waiting`,
         action: { label: 'فتح', onClick: () => navigate('/approvals') },
       });
     }
@@ -158,7 +158,7 @@ export function Bell() {
             <div className="max-h-[70vh] overflow-y-auto">
               {groups.length > 0 && (
                 <div className="border-b border-line bg-gold/5 p-2">
-                  <div className="px-2 pt-1 pb-2 text-xs font-semibold text-gold">مستنية دورك</div>
+                  <div className="px-2 pt-1 pb-2 text-xs font-semibold text-gold">Waiting</div>
                   {groups.map((g) => (
                     <button
                       key={g.type}
