@@ -121,6 +121,8 @@ export class ReportsService {
     const salaryData = canSeeRestricted(actor);
     const accounts = await this.prisma.moneyAccount.findMany({
       where: {
+        // owners' personal accounts are payment channels, not the company's money
+        ownership: 'COMPANY',
         ...(q.accountId ? { id: q.accountId } : {}),
         ...(q.currency ? { currency: q.currency } : {}),
       },

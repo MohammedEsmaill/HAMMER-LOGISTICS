@@ -129,7 +129,7 @@ export default function ReportsPage() {
             label="الخزنة / الحساب"
             className="w-56"
             placeholder="الكل"
-            options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+            options={accounts.filter((a) => kind !== 'accounts' || a.ownership !== 'PERSONAL').map((a) => ({ value: a.id, label: a.name }))}
             value={accountId}
             onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
           />

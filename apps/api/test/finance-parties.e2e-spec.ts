@@ -333,6 +333,19 @@ describe('Finance: internal accounts and personal accounts (e2e)', () => {
       ]);
     });
 
+    it('stays out of the accounts report', async () => {
+      const day = new Date().toISOString().slice(0, 10);
+      const res = await ctx
+        .api(treasury)
+        .get(`/api/finance/journal/reports/accounts?from=2020-01-01&to=${day}`)
+        .expect(200);
+      const ids = res.body.accounts.map(
+        (a: { account: { id: number } }) => a.account.id,
+      );
+      expect(ids).not.toContain(personal);
+      expect(ids).toContain(cashEgp);
+    });
+
     it('keeps the books check clean', async () => {
       const res = await ctx
         .api(ctx.ceoToken)
