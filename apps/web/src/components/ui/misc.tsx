@@ -23,6 +23,8 @@ const BADGE_TONES = {
   success: 'bg-success/12 text-success border-success/30',
   danger: 'bg-danger/12 text-danger border-danger/30',
   muted: 'bg-surface-2 text-muted border-line',
+  warning: 'bg-warning/12 text-warning border-warning/30',
+  info: 'bg-sky-500/12 text-sky-500 border-sky-500/30',
 } as const;
 
 export function Badge({

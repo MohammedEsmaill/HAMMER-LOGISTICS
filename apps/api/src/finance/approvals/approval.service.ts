@@ -325,6 +325,118 @@ export class ApprovalService {
     };
   }
 
+  /** The step that moves a document on from a status, in its type's flow. */
+  nextAction(
+    type: ApprovableType,
+    status: ApprovalStatus,
+  ): ApprovalAction | null {
+    const flow = APPROVABLE[type].flow as ApprovalFlow;
+    if (status === 'PENDING')
+      return flow === 'FINAL_ONLY' ? 'approve' : 'review';
+    if (status === 'REVIEWED')
+      return flow === 'THREE_LEVELS' ? 'manager-approve' : 'approve';
+    if (status === 'MANAGER_APPROVED') return 'approve';
+    return null;
+  }
+
+  /**
+   * The documents waiting for this user's step (not their own), oldest first, with
+   * how many there are in all and how many came in today.
+   */
+  async queue(actor: AuthUser, limit = 8) {
+    const turns = this.turnsOf(actor);
+    if (!turns.length) return { total: 0, today: 0, items: [] };
+    const filter = Prisma.sql`"created_by" <> ${actor.id} AND (${Prisma.join(turns, ' OR ')})`;
+    const [rows, [counts]] = await Promise.all([
+      this.prisma.$queryRaw<
+        (FinancialOperation & { created_by_email: string })[]
+      >`
+        SELECT v.*, u."email" AS "created_by_email"
+          FROM "financial_operations_v" v JOIN "users" u ON u."id" = v."created_by"
+         WHERE ${filter}
+         ORDER BY v."created_at" ASC
+         LIMIT ${limit}`,
+      this.prisma.$queryRaw<{ total: bigint; today: bigint }[]>`
+        SELECT count(*) AS "total",
+               count(*) FILTER (WHERE ("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Cairo')::date
+                                 = (now() AT TIME ZONE 'Africa/Cairo')::date) AS "today"
+          FROM "financial_operations_v" WHERE ${filter}`,
+    ]);
+    return {
+      total: Number(counts.total),
+      today: Number(counts.today),
+      items: rows.map((r) => ({
+        type: r.type,
+        typeLabel: APPROVABLE[r.type].label,
+        id: r.id,
+        currency: r.currency,
+        amount: r.amount,
+        date: r.operation_date,
+        approvalStatus: r.approval_status,
+        version: r.version,
+        createdBy: { id: r.created_by, email: r.created_by_email },
+        action: this.nextAction(r.type, r.approval_status),
+      })),
+    };
+  }
+
+  /** Several documents moved on at once; each one alone, so one refusal stops no other. */
+  async bulk(
+    actor: AuthUser,
+    items: { type: ApprovableType; id: number; version: number }[],
+  ) {
+    const results: {
+      type: ApprovableType;
+      id: number;
+      ok: boolean;
+      error?: string;
+    }[] = [];
+    for (const item of items) {
+      try {
+        const [doc] = await this.prisma.$queryRaw<
+          { approval_status: ApprovalStatus }[]
+        >`
+          SELECT "approval_status"::text AS "approval_status"
+            FROM ${Prisma.raw(`"${APPROVABLE[item.type].table}"`)} WHERE "id" = ${item.id}`;
+        const action = doc
+          ? this.nextAction(item.type, doc.approval_status)
+          : null;
+        if (!action) throw new BadRequestException('مفيش خطوة اعتماد عليها');
+        await this.act(actor, item.type, item.id, action, item.version);
+        results.push({ type: item.type, id: item.id, ok: true });
+      } catch (e) {
+        results.push({
+          type: item.type,
+          id: item.id,
+          ok: false,
+          error: e instanceof Error ? e.message : 'حصلت مشكلة',
+        });
+      }
+    }
+    return {
+      done: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+      results,
+    };
+  }
+
+  private turnsOf(actor: AuthUser): Prisma.Sql[] {
+    const turns: Prisma.Sql[] = [];
+    for (const type of Object.keys(APPROVABLE) as ApprovableType[]) {
+      if (RESTRICTED_TYPES.includes(type) && !canSeeRestricted(actor)) continue;
+      for (const [status, permission] of Object.entries(
+        TURNS[APPROVABLE[type].flow],
+      )) {
+        if (can(actor, permission)) {
+          turns.push(
+            Prisma.sql`("type" = ${type} AND "approval_status" = ${status})`,
+          );
+        }
+      }
+    }
+    return turns;
+  }
+
   /** What waits for this user's step, per document type (not their own documents). */
   async waiting(actor: AuthUser) {
     const turns: Prisma.Sql[] = [];

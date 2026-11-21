@@ -11,7 +11,11 @@ import {
 import type { AuthUser } from '../../auth/auth-user';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { RequireAnyPermission } from '../../auth/decorators/permissions.decorator';
-import { ApprovalActionDto, ApprovalQueryDto } from './approval.dto';
+import {
+  ApprovalActionDto,
+  ApprovalQueryDto,
+  BulkApprovalDto,
+} from './approval.dto';
 import { APPROVABLE_TYPES, ApprovalService } from './approval.service';
 import type { ApprovableType, ApprovalAction } from './approval.service';
 
@@ -40,6 +44,17 @@ export class ApprovalsController {
   )
   list(@CurrentUser() actor: AuthUser, @Query() query: ApprovalQueryDto) {
     return this.approvals.list(actor, query);
+  }
+
+  /** Several documents, each moved by its own next step (the dashboard's queue). */
+  @Post('bulk')
+  @RequireAnyPermission(
+    'finance.review',
+    'finance.manager_approve',
+    'finance.approve',
+  )
+  bulk(@CurrentUser() actor: AuthUser, @Body() dto: BulkApprovalDto) {
+    return this.approvals.bulk(actor, dto.items);
   }
 
   /** The service checks the step's own permission and whose turn it is. */

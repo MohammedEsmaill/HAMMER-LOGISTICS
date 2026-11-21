@@ -93,6 +93,9 @@ import { JournalDaysService } from './journal-days.service';
     ClearerFeesService,
     JournalService,
     JournalDaysService,
+    ClientLedgerService,
+    HolderLedgerService,
+    PartiesService,
   ],
 })
 export class FinanceModule {}
