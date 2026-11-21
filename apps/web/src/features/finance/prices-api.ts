@@ -33,7 +33,22 @@ export const usePrices = (enabled = true) =>
     enabled,
   });
 
+/** A factory's own price for each settlement item, beside the default. */
+export interface FactoryPrices {
+  factory: { id: number; name: string; client: { id: number; name: string } };
+  items: { id: number; name: string; perContainer: boolean; isActive: boolean; defaultPrice: string; price: string }[];
+}
+
+export const useFactoryPrices = (factoryId: number | null) =>
+  useQuery({
+    queryKey: [...pricesKey, 'factory', factoryId],
+    queryFn: () => api.get<FactoryPrices>(`/finance/prices/factories/${factoryId}`),
+    enabled: !!factoryId,
+  });
+
 export const pricesApi = {
+  updateFactoryPrices: (factoryId: number, prices: { settlementItemId: number; price: number }[]) =>
+    api.patch<FactoryPrices>(`/finance/prices/factories/${factoryId}`, { prices }),
   updateFeeRate: (regime: Regime, body: { firstContainer: number; extraContainer: number }) =>
     api.patch<FeeRate>(`/finance/prices/fee-rates/${regime}`, body),
   createItem: (body: { name: string; price: number; perContainer: boolean }) => api.post<SettlementItem>('/finance/prices/items', body),

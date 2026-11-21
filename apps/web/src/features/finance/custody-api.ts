@@ -44,6 +44,8 @@ export const RECEIPT_KINDS: Record<ReceiptKind, { label: string; line: (no: stri
 
 export interface Custody extends Approval, BankPaid {
   id: number;
+  /** The shipment's factory price for each settlement item. */
+  itemPrices?: { settlementItemId: number; price: string }[];
   /** What a clearer kept of it: taken off his fees. */
   keptAmount?: string;
   extraAccountId?: number | null;

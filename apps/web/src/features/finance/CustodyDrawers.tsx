@@ -383,7 +383,11 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
   // price-list items still free on this shipment: each one once per shipment
   const containers = custody.shipmentContainers ?? 1;
   const taken = new Set([...(custody.usedSettlementItemIds ?? []), ...items.map((i) => i.settlementItemId)]);
-  const available = (prices?.items ?? []).filter((p) => p.isActive && !taken.has(p.id));
+  // the shipment's factory has its own price for each item (its default where none)
+  const factoryPrice = new Map((custody.itemPrices ?? []).map((p) => [p.settlementItemId, p.price]));
+  const available = (prices?.items ?? [])
+    .filter((p) => p.isActive && !taken.has(p.id))
+    .map((p) => ({ ...p, price: factoryPrice.get(p.id) ?? p.price }));
   const addFixed = (p: SettlementItem) => {
     const quantity = p.perContainer ? containers : 1;
     const row: ItemRow = {

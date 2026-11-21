@@ -1,3 +1,4 @@
+import { seedFactoryPrices } from '../finance/factory-prices';
 import {
   BadRequestException,
   ConflictException,
@@ -153,8 +154,14 @@ export class ClientsService {
             ? { create: dto.factories }
             : undefined,
         },
-        select: { id: true },
+        select: { id: true, factories: { select: { id: true } } },
       });
+      // each factory starts with every clearer settlement item at its default price
+      if (created.factories.length) {
+        await seedFactoryPrices(tx, {
+          factoryIds: created.factories.map((f) => f.id),
+        });
+      }
       const client = await this.getIn(tx, actor, created.id);
       await this.audit.log(
         {
@@ -266,6 +273,7 @@ export class ClientsService {
         data: { ...dto, clientId },
         select: FACTORY_SELECT,
       });
+      await seedFactoryPrices(tx, { factoryIds: [factory.id] });
       await this.audit.log(
         {
           userId: actor.id,

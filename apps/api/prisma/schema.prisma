@@ -501,10 +501,11 @@ model Factory {
   deletedAt          DateTime? @map("deleted_at")
   deletedById        Int?      @map("deleted_by")
 
-  client    Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  deletedBy User?           @relation("FactoryDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
-  shipments Shipment[]
-  documents PartyDocument[]
+  client     Client             @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  deletedBy  User?              @relation("FactoryDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+  shipments  Shipment[]
+  documents  PartyDocument[]
+  itemPrices FactoryItemPrice[]
 
   @@unique([id, clientId]) // target of the composite FK that ties a shipment's factory to its client
   @@index([clientId])
@@ -1511,10 +1512,28 @@ model SettlementItem {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  expenseType  ExpenseType   @relation(fields: [expenseTypeId], references: [id], onDelete: Restrict)
-  custodyItems CustodyItem[]
+  expenseType   ExpenseType        @relation(fields: [expenseTypeId], references: [id], onDelete: Restrict)
+  custodyItems  CustodyItem[]
+  factoryPrices FactoryItemPrice[]
 
   @@map("settlement_items")
+}
+
+/// A factory's own price for a clearer settlement item. Every factory gets every item
+/// at its default price (when the factory or the item is added); the CEO edits it.
+/// An item with no row here falls back to its default price.
+model FactoryItemPrice {
+  factoryId        Int      @map("factory_id")
+  settlementItemId Int      @map("settlement_item_id")
+  price            Decimal  @db.Decimal(14, 2)
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  factory        Factory        @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  settlementItem SettlementItem @relation(fields: [settlementItemId], references: [id], onDelete: Cascade)
+
+  @@id([factoryId, settlementItemId])
+  @@index([settlementItemId])
+  @@map("factory_item_prices")
 }
 
 /// A port or airport (Egyptian) a clearer clears at.

@@ -20,6 +20,7 @@ import {
   bankPayment,
   postBankCharges,
 } from './bank-payment';
+import { factoryItemPrices } from './factory-prices';
 import { payableBeneficiary } from './beneficiaries.service';
 import { ClearerFeesService, feeContainers } from './clearer-fees.service';
 import { nextCustodyNo } from './custody-number';
@@ -190,6 +191,7 @@ export class CustodiesService {
           containersCount: true,
           direction: true,
           customsRegime: true,
+          factoryId: true,
         },
       }),
       // price-list items already on the shipment's other custodies: once per shipment
@@ -201,8 +203,14 @@ export class CustodiesService {
         select: { settlementItemId: true },
       }),
     ]);
+    // the shipment's factory prices for the settlement items (the default where none)
+    const prices = await factoryItemPrices(this.prisma, shipment.factoryId);
     return {
       ...custody,
+      itemPrices: [...prices.entries()].map(([settlementItemId, price]) => ({
+        settlementItemId,
+        price,
+      })),
       shipmentContainers: feeContainers(shipment),
       usedSettlementItemIds: usedElsewhere.map((u) => u.settlementItemId!),
       duplicateReceipts: await this.duplicateReceipts(this.prisma, custody.id),
@@ -628,6 +636,8 @@ export class CustodiesService {
       ? await tx.settlementItem.findMany({ where: { id: { in: ids } } })
       : [];
     let containers = 1;
+    // each factory has its own price for an item; its default when it has none
+    let prices = new Map<number, Prisma.Decimal>();
     if (ids.length) {
       // one settlement of the shipment at a time: the once-per-shipment rule holds
       await tx.$executeRaw`SELECT 1 FROM "shipments" WHERE "id" = ${custody.shipmentId} FOR UPDATE`;
@@ -639,9 +649,11 @@ export class CustodiesService {
           containersCount: true,
           direction: true,
           customsRegime: true,
+          factoryId: true,
         },
       });
       containers = feeContainers(shipment);
+      prices = await factoryItemPrices(tx, shipment.factoryId, ids);
       const used = await tx.custodyItem.findFirst({
         where: {
           settlementItemId: { in: ids },
@@ -687,7 +699,7 @@ export class CustodiesService {
           expenseTypeId: fixed.expenseTypeId,
           settlementItemId: fixed.id,
           quantity,
-          amount: fixed.price.times(quantity),
+          amount: (prices.get(fixed.id) ?? fixed.price).times(quantity),
         });
         continue;
       }

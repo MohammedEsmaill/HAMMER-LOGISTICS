@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -9,9 +10,11 @@ import { AuthUser } from '../auth/auth-user';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreateSettlementItemDto,
+  UpdateFactoryPricesDto,
   UpdateFeeRateDto,
   UpdateSettlementItemDto,
 } from './dto/prices.dto';
+import { seedFactoryPrices } from './factory-prices';
 import { decimal } from './money';
 
 /** Ports whose sea imports take the fee rates (UN/LOCODE): Alexandria, El Dekheila. */
@@ -78,6 +81,89 @@ export class PricesService {
   }
 
   /** A new item and its shipment expense type (same name), together. */
+  /** A factory's price for each item, beside the item's default price. */
+  async factoryPrices(factoryId: number) {
+    const factory = await this.prisma.factory.findFirst({
+      where: { id: factoryId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        client: { select: { id: true, name: true } },
+      },
+    });
+    if (!factory) throw new NotFoundException('المصنع غير موجود');
+    const items = await this.prisma.settlementItem.findMany({
+      orderBy: [{ isActive: 'desc' }, { sortOrder: 'asc' }, { id: 'asc' }],
+      include: { factoryPrices: { where: { factoryId } } },
+    });
+    return {
+      factory,
+      items: items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        perContainer: i.perContainer,
+        isActive: i.isActive,
+        defaultPrice: i.price,
+        price: i.factoryPrices[0]?.price ?? i.price,
+      })),
+    };
+  }
+
+  /** The CEO sets a factory's own prices; new settlements take them. */
+  async updateFactoryPrices(
+    actor: AuthUser,
+    factoryId: number,
+    dto: UpdateFactoryPricesDto,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      const factory = await tx.factory.findFirst({
+        where: { id: factoryId, deletedAt: null },
+      });
+      if (!factory) throw new NotFoundException('المصنع غير موجود');
+      const ids = dto.prices.map((p) => p.settlementItemId);
+      if (new Set(ids).size !== ids.length) {
+        throw new BadRequestException('البند متكرر');
+      }
+      const found = await tx.settlementItem.count({
+        where: { id: { in: ids } },
+      });
+      if (found !== ids.length) {
+        throw new BadRequestException('فيه بند مش موجود في بنود التصفية');
+      }
+      const before = await tx.factoryItemPrice.findMany({
+        where: { factoryId, settlementItemId: { in: ids } },
+      });
+      for (const p of dto.prices) {
+        await tx.factoryItemPrice.upsert({
+          where: {
+            factoryId_settlementItemId: {
+              factoryId,
+              settlementItemId: p.settlementItemId,
+            },
+          },
+          update: { price: decimal(p.price) },
+          create: {
+            factoryId,
+            settlementItemId: p.settlementItemId,
+            price: decimal(p.price),
+          },
+        });
+      }
+      await this.audit.log(
+        {
+          userId: actor.id,
+          action: 'UPDATE',
+          entity: 'factory_item_prices',
+          entityId: factoryId,
+          before,
+          after: dto.prices,
+        },
+        tx,
+      );
+    });
+    return this.factoryPrices(factoryId);
+  }
+
   async createItem(actor: AuthUser, dto: CreateSettlementItemDto) {
     const name = dto.name.replace(/\s+/g, ' ').trim();
     return this.prisma.$transaction(async (tx) => {
@@ -108,6 +194,8 @@ export class PricesService {
           expenseTypeId: type.id,
         },
       });
+      // every factory gets the new item at its default price
+      await seedFactoryPrices(tx, { itemId: item.id });
       await this.audit.log(
         {
           userId: actor.id,

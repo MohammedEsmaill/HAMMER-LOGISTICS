@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, Factory as FactoryIcon, Pencil, Plus, Trash2, UserRound } from 'lucide-react';
+import { Building2, Factory as FactoryIcon, Pencil, Plus, Tags, Trash2, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -20,6 +20,7 @@ import { formatMoney } from '@/lib/format';
 import { useAction } from '@/lib/mutations';
 import { egyptMobile, money, requiredId, taxNumber } from '@/lib/schemas';
 import { useEmployeeOptions } from '../employees/api';
+import { FactoryPricesDrawer } from './FactoryPricesDrawer';
 import {
   clientKeys,
   clientsApi,
@@ -269,8 +270,11 @@ function ClientDetailsDrawer({
 }) {
   const { can } = useAuth();
   const manage = can('clients.manage');
+  // a factory's prices for the clearer settlement items: the CEO
+  const canPrices = can('finance.prices.manage');
   const { data: client, isLoading, error } = useClient(clientId);
   const [factory, setFactory] = useState<Factory | null>(null);
+  const [pricing, setPricing] = useState<Factory | null>(null);
   const [factoryOpen, setFactoryOpen] = useState(false);
   const [deleting, setDeleting] = useState<Factory | null>(null);
   const removeFactory = useAction((id: number) => clientsApi.removeFactory(id), {
@@ -367,6 +371,11 @@ function ClientDetailsDrawer({
                         ض: <span dir="ltr">{f.taxNumber}</span> · س.ت: <span dir="ltr">{f.commercialRegister}</span> · {f.address}
                       </div>
                     </div>
+                    {canPrices && (
+                      <IconButton label={`أسعار بنود التصفية لـ ${f.name}`} onClick={() => setPricing(f)}>
+                        <Tags className="size-4" />
+                      </IconButton>
+                    )}
                     {manage && (
                       <>
                         <IconButton
@@ -397,9 +406,8 @@ function ClientDetailsDrawer({
           </div>
         )}
       </Drawer>
-      {clientId && (
-        <FactoryDrawer clientId={clientId} factory={factory} open={factoryOpen} onClose={() => setFactoryOpen(false)} />
-      )}
+      {clientId && <FactoryDrawer clientId={clientId} factory={factory} open={factoryOpen} onClose={() => setFactoryOpen(false)} />}
+      <FactoryPricesDrawer factory={pricing} onClose={() => setPricing(null)} />
       <ConfirmDialog
         open={!!deleting}
         title="حذف المصنع"

@@ -247,4 +247,70 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
       expect.arrayContaining([item('الزراعة').id, item('وزن الحاوية').id]),
     );
   });
+
+  describe("a factory's own prices", () => {
+    it('each factory has every item, at the default price to start with', async () => {
+      await ctx
+        .api(treasury)
+        .get(`/api/finance/prices/factories/${fx.ids.factoryA}`)
+        .expect(403);
+      const res = await ctx
+        .api(ctx.ceoToken)
+        .get(`/api/finance/prices/factories/${fx.ids.factoryA}`)
+        .expect(200);
+      const chem = res.body.items.find(
+        (i: { id: number }) => i.id === item('الكيماويات').id,
+      );
+      expect(chem.price).toBe(chem.defaultPrice);
+    });
+
+    it('a new item reaches every factory at its default price', async () => {
+      const created = await ctx
+        .api(ctx.ceoToken)
+        .post('/api/finance/prices/items', {
+          name: 'عرض جديد للمصانع',
+          price: 75,
+        })
+        .expect(201);
+      const row = await ctx.prisma.factoryItemPrice.findUniqueOrThrow({
+        where: {
+          factoryId_settlementItemId: {
+            factoryId: fx.ids.factoryB,
+            settlementItemId: created.body.id,
+          },
+        },
+      });
+      expect(Number(row.price)).toBe(75);
+    });
+
+    it('the CEO sets a factory price, and the settlement takes it', async () => {
+      await ctx
+        .api(ctx.ceoToken)
+        .patch(`/api/finance/prices/factories/${fx.ids.factoryA}`, {
+          prices: [{ settlementItemId: item('الكيماويات').id, price: 333 }],
+        })
+        .expect(200);
+      const id = await issue('CLEARER');
+      const custody = await ctx
+        .api(treasury)
+        .get(`/api/finance/custodies/${id}`)
+        .expect(200);
+      expect(
+        custody.body.itemPrices.find(
+          (p: { settlementItemId: number }) =>
+            p.settlementItemId === item('الكيماويات').id,
+        ).price,
+      ).toBe('333');
+      const res = await ctx
+        .api(accountant)
+        .post(`/api/finance/custodies/${id}/settlement`, {
+          version: await version(id),
+          items: [
+            { settlementItemId: item('الكيماويات').id, receiptNo: '777' },
+          ],
+        })
+        .expect(201);
+      expect(res.body.spentAmount).toBe('333');
+    });
+  });
 });

@@ -1,13 +1,20 @@
 import { CustomsRegime } from '@prisma/client';
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
-import { Trim } from '../../common/validation';
+import { Money, Trim } from '../../common/validation';
 import { PositiveMoney } from '../money';
 
 export class UpdateFeeRateDto {
@@ -59,4 +66,23 @@ export class UpdateSettlementItemDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class FactoryPriceDto {
+  @IsInt()
+  @Min(1)
+  settlementItemId!: number;
+
+  @Money()
+  price!: number;
+}
+
+/** A factory's own prices for the clearer settlement items. */
+export class UpdateFactoryPricesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ValidateNested({ each: true })
+  @Type(() => FactoryPriceDto)
+  prices!: FactoryPriceDto[];
 }

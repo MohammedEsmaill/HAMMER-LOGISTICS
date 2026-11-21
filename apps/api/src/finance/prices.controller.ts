@@ -16,6 +16,7 @@ import {
 import {
   CreateSettlementItemDto,
   RegimeParam,
+  UpdateFactoryPricesDto,
   UpdateFeeRateDto,
   UpdateSettlementItemDto,
 } from './dto/prices.dto';
@@ -50,6 +51,23 @@ export class PricesController {
     @Body() dto: UpdateFeeRateDto,
   ) {
     return this.prices.updateFeeRate(actor, p.regime, dto);
+  }
+
+  /** A factory's own prices for the clearer settlement items (the CEO). */
+  @Get('factories/:id')
+  @RequirePermissions('finance.prices.manage')
+  factoryPrices(@Param('id', ParseIntPipe) id: number) {
+    return this.prices.factoryPrices(id);
+  }
+
+  @Patch('factories/:id')
+  @RequirePermissions('finance.prices.manage')
+  updateFactoryPrices(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateFactoryPricesDto,
+  ) {
+    return this.prices.updateFactoryPrices(actor, id, dto);
   }
 
   @Post('items')
