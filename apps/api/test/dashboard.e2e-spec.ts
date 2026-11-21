@@ -58,6 +58,15 @@ describe('Dashboard (e2e)', () => {
     expect(a.kpis).not.toContain('balances');
     expect(a.body.custodiesToSettle).toBeDefined();
 
+    // the biggest debts list: the client accountant only, not the CEO
+    expect(ceo.body.receivables).toBeUndefined();
+    const clientAccountant = (
+      await ctx.userWithRole('847', 'CLIENT_ACCOUNTANT', 'ACCOUNTS')
+    ).token;
+    const ca = await keys(clientAccountant);
+    expect(ca.kpis).toContain('receivables');
+    expect(ca.body.receivables).toBeDefined();
+
     const h = await keys(hr);
     expect(h.kpis).not.toContain('approvals');
     expect(h.body.treasury).toBeUndefined();

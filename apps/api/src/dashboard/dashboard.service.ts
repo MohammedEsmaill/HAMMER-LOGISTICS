@@ -187,11 +187,13 @@ export class DashboardService {
           : undefined,
         link: '/client-ledgers',
       });
-      out.receivables = owing.slice(0, 6).map((b) => ({
-        client: b.client,
-        balance: b.egp.balance,
-        oldestDays: b.egp.oldestDays,
-      }));
+      // the list of the biggest debts is the client accountant's card only
+      if (actor.roles.includes('CLIENT_ACCOUNTANT'))
+        out.receivables = owing.slice(0, 6).map((b) => ({
+          client: b.client,
+          balance: b.egp.balance,
+          oldestDays: b.egp.oldestDays,
+        }));
     }
 
     // what is still owed to the clearers
