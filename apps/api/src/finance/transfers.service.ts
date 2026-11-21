@@ -1,11 +1,16 @@
 import { assertDayEditable, openDate } from './days';
 import {
+  assertMayRecordOn,
+  bankPayment,
+  postBankCharges,
+} from './bank-payment';
+import {
   BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MoneyAccount, Prisma } from '@prisma/client';
+import { BankPaymentMethod, MoneyAccount, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
@@ -37,6 +42,8 @@ interface TransferFields {
   amount: Prisma.Decimal;
   chequeNo: string | null;
   transferDate: Date;
+  paymentMethod: BankPaymentMethod | null;
+  bankCharges: Prisma.Decimal;
 }
 
 /** Deposits (cash → bank), cheque withdrawals (bank → cash) and bank → bank. */
@@ -94,14 +101,13 @@ export class TransfersService {
 
   async create(actor: AuthUser, dto: CreateTransferDto) {
     const id = await this.prisma.$transaction(async (tx) => {
-      const fields: TransferFields = {
+      const draft = {
         fromAccountId: dto.fromAccountId,
         toAccountId: dto.toAccountId,
         amount: decimal(dto.amount),
-        chequeNo: dto.chequeNo?.toUpperCase() ?? null,
         transferDate: await openDate(tx, dto.transferDate, 'تاريخ التحويل'),
       };
-      const { currency } = await this.check(tx, fields);
+      const { currency, fields } = await this.check(tx, draft, dto, actor);
       const transfer = await tx.transfer.create({
         data: { ...fields, currency, notes: dto.notes, createdById: actor.id },
       });
@@ -132,26 +138,33 @@ export class TransfersService {
       const { resetApproval } = assertCanEdit(actor, before);
       await assertDayEditable(tx, actor, before.transferDate);
 
-      const fields: TransferFields = {
+      const draft = {
         fromAccountId: dto.fromAccountId ?? before.fromAccountId,
         toAccountId: dto.toAccountId ?? before.toAccountId,
         amount: dto.amount !== undefined ? decimal(dto.amount) : before.amount,
-        chequeNo:
-          dto.chequeNo === undefined
-            ? before.chequeNo
-            : (dto.chequeNo?.toUpperCase() ?? null),
         transferDate:
           dto.transferDate !== undefined
             ? await openDate(tx, dto.transferDate, 'تاريخ التحويل', actor)
             : before.transferDate,
       };
+      const { currency, fields } = await this.check(tx, draft, {
+        chequeNo: dto.chequeNo === undefined ? before.chequeNo : dto.chequeNo,
+        paymentMethod:
+          dto.paymentMethod !== undefined
+            ? dto.paymentMethod
+            : before.paymentMethod,
+        bankCharges:
+          dto.bankCharges !== undefined
+            ? dto.bankCharges
+            : before.bankCharges.toNumber(),
+      });
       const moneyChanged =
         fields.fromAccountId !== before.fromAccountId ||
         fields.toAccountId !== before.toAccountId ||
         !fields.amount.equals(before.amount) ||
+        !fields.bankCharges.equals(before.bankCharges) ||
         fields.transferDate.getTime() !== before.transferDate.getTime();
 
-      const { currency } = await this.check(tx, fields);
       if (moneyChanged) {
         // the old lines are reversed and the corrected ones posted, both in this transaction
         await this.ledger.reverseDocument(tx, 'TRANSFER', id, actor.id);
@@ -181,11 +194,21 @@ export class TransfersService {
     return this.get(id);
   }
 
-  /** Both accounts exist, are active, differ and share one currency; a bank pays by cheque. */
+  /**
+   * Both accounts exist, are active, differ and share one currency. Out of a bank: by
+   * transfer or cheque with its number, and the bank's charges. A new transfer out of
+   * a cash box is the treasury manager's; out of a bank, the accountant's too.
+   */
   private async check(
     tx: Tx,
-    f: TransferFields,
-  ): Promise<{ currency: MoneyAccount['currency'] }> {
+    f: Omit<TransferFields, 'chequeNo' | 'paymentMethod' | 'bankCharges'>,
+    pay: {
+      chequeNo?: string | null;
+      paymentMethod?: BankPaymentMethod | null;
+      bankCharges?: number;
+    },
+    creator?: AuthUser,
+  ): Promise<{ currency: MoneyAccount['currency']; fields: TransferFields }> {
     if (f.fromAccountId === f.toAccountId) {
       throw new BadRequestException('التحويل لازم يكون بين حسابين مختلفين');
     }
@@ -203,12 +226,21 @@ export class TransfersService {
         'مفيش تغيير عملة: التحويل لازم يكون بين حسابين بنفس العملة',
       );
     }
-    if (from.type === 'BANK' && !f.chequeNo) {
-      throw new BadRequestException(
-        'اكتب رقم الشيك أو التحويل لما الفلوس تطلع من البنك',
-      );
-    }
-    return { currency: from.currency };
+    if (creator) assertMayRecordOn(creator, from, 'finance.movements.create');
+    const bank = bankPayment(from, {
+      paymentMethod: pay.paymentMethod,
+      bankCharges: pay.bankCharges,
+      reference: pay.chequeNo,
+    });
+    return {
+      currency: from.currency,
+      fields: {
+        ...f,
+        chequeNo: bank.reference,
+        paymentMethod: bank.paymentMethod,
+        bankCharges: bank.bankCharges,
+      },
+    };
   }
 
   private async post(tx: Tx, id: number, f: TransferFields, actorId: number) {
@@ -229,6 +261,11 @@ export class TransfersService {
       ...line,
       accountId: f.toAccountId,
       direction: 'IN',
+    });
+    await postBankCharges(this.ledger, tx, {
+      ...line,
+      accountId: f.fromAccountId,
+      charges: f.bankCharges,
     });
   }
 

@@ -17,9 +17,10 @@ import {
 } from 'class-validator';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { Trim } from '../../common/validation';
+import { BankPaymentDto } from '../bank-payment';
 import { PositiveMoney } from '../money';
 
-export class CreateTransferDto {
+export class CreateTransferDto extends BankPaymentDto {
   @IsInt()
   @Min(1)
   fromAccountId!: number;
@@ -31,7 +32,7 @@ export class CreateTransferDto {
   @PositiveMoney()
   amount!: number;
 
-  /** Required when money leaves a bank account (cheque / transfer reference). */
+  /** Required when money leaves a bank account: the cheque number or transfer reference. */
   @IsOptional()
   @Trim()
   @Matches(/^[A-Za-z0-9-]{1,30}$/, { message: 'رقم الشيك حروف وأرقام بس' })
@@ -51,7 +52,7 @@ export class CreateTransferDto {
 }
 
 /** Accounts and amount may change; the edit reverses the old lines and posts new ones. */
-export class UpdateTransferDto {
+export class UpdateTransferDto extends BankPaymentDto {
   @IsInt()
   @Min(0)
   version!: number;

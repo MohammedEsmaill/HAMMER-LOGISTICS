@@ -158,6 +158,23 @@ enum ExpenseScope {
   SHIPMENT
 }
 
+/// The main items of the general expenses; each general expense type sits under one.
+enum ExpenseCategory {
+  GENERAL_EXPENSES
+  TRANSPORT
+  TIPS_DONATIONS
+  PETTY
+  PURCHASES
+  COMMISSIONS
+  BILLS_UTILITIES
+}
+
+/// How money left a bank account. A cheque is recorded on the day the bank paid it.
+enum BankPaymentMethod {
+  TRANSFER
+  CHEQUE
+}
+
 /// Funding from management (in), bank charges (out), corrections (either way).
 /// An internal account: a sister company (transport, fumigation) or an owner.
 enum InternalPartyKind {
@@ -844,14 +861,18 @@ model MoneyMovement {
 
 /// Cash → bank (deposit), bank → cash (cheque withdrawal) or bank → bank. Same currency always.
 model Transfer {
-  id            Int      @id @default(autoincrement())
-  fromAccountId Int      @map("from_account_id")
-  toAccountId   Int      @map("to_account_id")
+  id            Int                @id @default(autoincrement())
+  fromAccountId Int                @map("from_account_id")
+  toAccountId   Int                @map("to_account_id")
   currency      Currency
-  amount        Decimal  @db.Decimal(14, 2)
-  chequeNo      String?  @map("cheque_no")
-  transferDate  DateTime @map("transfer_date") @db.Date
+  amount        Decimal            @db.Decimal(14, 2)
+  chequeNo      String?            @map("cheque_no")
+  transferDate  DateTime           @map("transfer_date") @db.Date
   notes         String?
+  /// Paid from a bank: by transfer or cheque (null when paid in cash).
+  paymentMethod BankPaymentMethod? @map("payment_method")
+  /// The bank's charges on this payment, taken from the same account with it.
+  bankCharges   Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1009,10 +1030,12 @@ model EmployeeAdvance {
 
 /// The expense type lists; a type typed for the first time is added automatically.
 model ExpenseType {
-  id        Int          @id @default(autoincrement())
+  id        Int              @id @default(autoincrement())
   name      String
   scope     ExpenseScope
-  createdAt DateTime     @default(now()) @map("created_at")
+  /// GENERAL types only: the main item it falls under.
+  category  ExpenseCategory?
+  createdAt DateTime         @default(now()) @map("created_at")
 
   generalExpenses GeneralExpense[]
   custodyItems    CustodyItem[]
@@ -1022,17 +1045,23 @@ model ExpenseType {
   @@map("expense_types")
 }
 
-/// Office expenses (petty cash included), paid from the EGP cash box.
+/// Office expenses (petty cash included), paid from an EGP cash box or bank account.
 model GeneralExpense {
-  id            Int      @id @default(autoincrement())
-  expenseTypeId Int      @map("expense_type_id")
+  id            Int                @id @default(autoincrement())
+  expenseTypeId Int                @map("expense_type_id")
   payee         String
-  amount        Decimal  @db.Decimal(14, 2)
-  receiptNo     String   @map("receipt_no")
-  expenseDate   DateTime @map("expense_date") @db.Date
-  accountId     Int      @map("account_id")
-  currency      Currency @default(EGP)
+  amount        Decimal            @db.Decimal(14, 2)
+  receiptNo     String             @map("receipt_no")
+  expenseDate   DateTime           @map("expense_date") @db.Date
+  accountId     Int                @map("account_id")
+  currency      Currency           @default(EGP)
   notes         String?
+  /// Paid from a bank: the transfer reference or cheque number.
+  reference     String?
+  /// Paid from a bank: by transfer or cheque (null when paid in cash).
+  paymentMethod BankPaymentMethod? @map("payment_method")
+  /// The bank's charges on this payment, taken from the same account with it.
+  bankCharges   Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1069,25 +1098,29 @@ model GeneralExpense {
 // approved once, after settlement.
 
 model Custody {
-  id              Int             @id @default(autoincrement())
-  custodyNo       String          @unique @map("custody_no") // CU26-0001
-  shipmentId      Int             @map("shipment_id")
-  holderType      CustodyHolder   @map("holder_type")
-  agentEmployeeId Int?            @map("agent_employee_id")
-  clearerId       Int?            @map("clearer_id")
+  id              Int                @id @default(autoincrement())
+  custodyNo       String             @unique @map("custody_no") // CU26-0001
+  shipmentId      Int                @map("shipment_id")
+  holderType      CustodyHolder      @map("holder_type")
+  agentEmployeeId Int?               @map("agent_employee_id")
+  clearerId       Int?               @map("clearer_id")
   purpose         CustodyPurpose?
-  sourceAccountId Int             @map("source_account_id")
-  beneficiaryId   Int?            @map("beneficiary_id") // BANK_TRANSFER: the external account paid
-  transferRef     String?         @map("transfer_ref") // the bank transfer / cheque reference
+  sourceAccountId Int                @map("source_account_id")
+  beneficiaryId   Int?               @map("beneficiary_id") // BANK_TRANSFER: the external account paid
+  transferRef     String?            @map("transfer_ref") // the bank transfer / cheque reference
+  /// Paid from a bank: by transfer or cheque (null when paid in cash).
+  paymentMethod   BankPaymentMethod? @map("payment_method")
+  /// The bank's charges on this payment, taken from the same account with it.
+  bankCharges     Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
   currency        Currency
-  amount          Decimal         @db.Decimal(14, 2)
-  extraAmount     Decimal         @default(0) @map("extra_amount") @db.Decimal(14, 2) // a clearer's overspend, paid at settlement
-  spentAmount     Decimal         @default(0) @map("spent_amount") @db.Decimal(14, 2)
-  returnedAmount  Decimal         @default(0) @map("returned_amount") @db.Decimal(14, 2)
-  status          CustodyStatus   @default(OPEN)
-  issueDate       DateTime        @map("issue_date") @db.Date
-  settlementDate  DateTime?       @map("settlement_date") @db.Date
-  settledById     Int?            @map("settled_by")
+  amount          Decimal            @db.Decimal(14, 2)
+  extraAmount     Decimal            @default(0) @map("extra_amount") @db.Decimal(14, 2) // a clearer's overspend, paid at settlement
+  spentAmount     Decimal            @default(0) @map("spent_amount") @db.Decimal(14, 2)
+  returnedAmount  Decimal            @default(0) @map("returned_amount") @db.Decimal(14, 2)
+  status          CustodyStatus      @default(OPEN)
+  issueDate       DateTime           @map("issue_date") @db.Date
+  settlementDate  DateTime?          @map("settlement_date") @db.Date
+  settledById     Int?               @map("settled_by")
   notes           String?
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
@@ -1214,16 +1247,20 @@ model ClearerFeeAdjustment {
 
 /// A fee payment to the clearer, from the EGP cash box; installments allowed.
 model ClearerFeePayment {
-  id            Int      @id @default(autoincrement())
-  feeId         Int      @map("fee_id")
-  amount        Decimal  @db.Decimal(14, 2)
-  accountId     Int      @map("account_id")
-  currency      Currency @default(EGP)
-  paymentDate   DateTime @map("payment_date") @db.Date
+  id            Int                @id @default(autoincrement())
+  feeId         Int                @map("fee_id")
+  amount        Decimal            @db.Decimal(14, 2)
+  accountId     Int                @map("account_id")
+  currency      Currency           @default(EGP)
+  paymentDate   DateTime           @map("payment_date") @db.Date
   /// paid by bank transfer: the clearer account and the transfer reference
-  beneficiaryId Int?     @map("beneficiary_id")
-  transferRef   String?  @map("transfer_ref")
+  beneficiaryId Int?               @map("beneficiary_id")
+  transferRef   String?            @map("transfer_ref")
   notes         String?
+  /// Paid from a bank: by transfer or cheque (null when paid in cash).
+  paymentMethod BankPaymentMethod? @map("payment_method")
+  /// The bank's charges on this payment, taken from the same account with it.
+  bankCharges   Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1677,18 +1714,22 @@ model InternalParty {
 
 /// One movement between the office and a party; posts one ledger line on its account.
 model PartyMovement {
-  id           Int               @id @default(autoincrement())
-  partyId      Int               @map("party_id")
-  accountId    Int               @map("account_id")
-  currency     Currency
-  kind         PartyMovementKind
-  direction    MoneyDirection
-  amount       Decimal           @db.Decimal(14, 2)
-  movementDate DateTime          @map("movement_date") @db.Date
+  id            Int                @id @default(autoincrement())
+  partyId       Int                @map("party_id")
+  accountId     Int                @map("account_id")
+  currency      Currency
+  kind          PartyMovementKind
+  direction     MoneyDirection
+  amount        Decimal            @db.Decimal(14, 2)
+  movementDate  DateTime           @map("movement_date") @db.Date
   /// SHARED_DEBT: who was paid.
-  payee        String?
-  reference    String?
-  notes        String?
+  payee         String?
+  reference     String?
+  notes         String?
+  /// Paid from a bank: by transfer or cheque (null when paid in cash).
+  paymentMethod BankPaymentMethod? @map("payment_method")
+  /// The bank's charges on this payment, taken from the same account with it.
+  bankCharges   Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")

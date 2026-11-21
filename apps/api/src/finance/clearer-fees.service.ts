@@ -18,6 +18,11 @@ import {
 import { LedgerService } from './ledger.service';
 import { FEE_RATE_PORTS } from './prices.service';
 import { decimal, formatAmount, todayCairo } from './money';
+import {
+  assertMayRecordOn,
+  bankPayment,
+  postBankCharges,
+} from './bank-payment';
 import { payableBeneficiary } from './beneficiaries.service';
 import { egpCashBox, egpPayingAccount } from './paying-account';
 import { assertDayEditable, openDate } from './days';
@@ -296,32 +301,30 @@ export class ClearerFeesService {
         if (!dto.beneficiaryId)
           throw new BadRequestException('اختار حساب المستخلص اللي هتحوّل له');
         await payableBeneficiary(tx, dto.beneficiaryId, fee.clearerId);
-      } else if (dto.beneficiaryId || dto.transferRef) {
-        throw new BadRequestException(
-          'حساب المستخلص ورقم التحويل للتحويل البنكي بس',
-        );
+      } else if (dto.beneficiaryId) {
+        throw new BadRequestException('حساب المستخلص للتحويل البنكي بس');
       }
+      assertMayRecordOn(actor, box, 'finance.fees.pay');
+      const bank = bankPayment(box, {
+        paymentMethod: dto.paymentMethod,
+        bankCharges: dto.bankCharges,
+        reference: dto.transferRef,
+      });
       const payment = await tx.clearerFeePayment.create({
         data: {
           feeId: fee.id,
           amount,
           accountId: box.id,
           beneficiaryId: dto.beneficiaryId ?? null,
-          transferRef: dto.transferRef?.toUpperCase() ?? null,
+          transferRef: bank.reference,
+          paymentMethod: bank.paymentMethod,
+          bankCharges: bank.bankCharges,
           paymentDate: await openDate(tx, dto.paymentDate, 'تاريخ الصرف'),
           notes: dto.notes,
           createdById: actor.id,
         },
       });
-      await this.ledger.post(tx, {
-        accountId: box.id,
-        direction: 'OUT',
-        amount,
-        date: payment.paymentDate,
-        source: 'FEE_PAYMENT',
-        documentId: payment.id,
-        actorId: actor.id,
-      });
+      await this.postPayment(tx, payment, actor.id);
       await this.audit.log(
         {
           userId: actor.id,
@@ -359,8 +362,22 @@ export class ClearerFeesService {
         dto.paymentDate !== undefined
           ? await openDate(tx, dto.paymentDate, 'تاريخ الصرف', actor)
           : before.paymentDate;
+      const account = await tx.moneyAccount.findUniqueOrThrow({
+        where: { id: before.accountId },
+      });
+      const bank = bankPayment(account, {
+        paymentMethod:
+          dto.paymentMethod !== undefined
+            ? dto.paymentMethod
+            : before.paymentMethod,
+        bankCharges:
+          dto.bankCharges !== undefined ? dto.bankCharges : before.bankCharges,
+        reference:
+          dto.transferRef !== undefined ? dto.transferRef : before.transferRef,
+      });
       const moneyChanged =
         !amount.equals(before.amount) ||
+        !bank.bankCharges.equals(before.bankCharges) ||
         paymentDate.getTime() !== before.paymentDate.getTime();
       if (moneyChanged)
         await this.ledger.reverseDocument(tx, 'FEE_PAYMENT', id, actor.id);
@@ -369,21 +386,14 @@ export class ClearerFeesService {
         data: {
           amount,
           paymentDate,
+          transferRef: bank.reference,
+          paymentMethod: bank.paymentMethod,
+          bankCharges: bank.bankCharges,
           notes: dto.notes === undefined ? undefined : dto.notes,
           ...(resetApproval ? APPROVAL_RESET : {}),
         },
       });
-      if (moneyChanged) {
-        await this.ledger.post(tx, {
-          accountId: after.accountId,
-          direction: 'OUT',
-          amount,
-          date: paymentDate,
-          source: 'FEE_PAYMENT',
-          documentId: id,
-          actorId: actor.id,
-        });
-      }
+      if (moneyChanged) await this.postPayment(tx, after, actor.id);
       await this.audit.log(
         {
           userId: actor.id,
@@ -457,5 +467,28 @@ export class ClearerFeesService {
     const [row] = await tx.$queryRaw<{ id: number }[]>`
       SELECT "id" FROM "clearer_fees" WHERE "id" = ${id} FOR UPDATE`;
     if (!row) throw new NotFoundException('الأتعاب غير موجودة');
+  }
+
+  /** The payment's line, and the bank's charges as a second line on the same account. */
+  private async postPayment(
+    tx: Tx,
+    p: {
+      id: number;
+      accountId: number;
+      amount: Prisma.Decimal;
+      bankCharges: Prisma.Decimal;
+      paymentDate: Date;
+    },
+    actorId: number,
+  ) {
+    const line = {
+      accountId: p.accountId,
+      date: p.paymentDate,
+      source: 'FEE_PAYMENT' as const,
+      documentId: p.id,
+      actorId,
+    };
+    await this.ledger.post(tx, { ...line, direction: 'OUT', amount: p.amount });
+    await postBankCharges(this.ledger, tx, { ...line, charges: p.bankCharges });
   }
 }

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import { financeKeys, STATUS, type ApprovalStatus, type Currency, type MoneyAccount } from './api';
+import { financeKeys, STATUS, type ApprovalStatus, type Currency, type ExpenseCategory, type MoneyAccount } from './api';
 import { JOURNAL_TYPES, journalParams, type JournalRow, type JournalTotals, type JournalType } from './journal-api';
 
 export type ReportKind = 'journal' | 'accounts' | 'expenses';
@@ -46,7 +46,12 @@ export interface JournalReport extends ReportHead {
 
 export interface ExpensesReport extends ReportHead {
   kind: 'expenses';
-  summary: { totals: JournalTotals[]; byItem: { name: string; currency: Currency; total: string; count: number }[] };
+  summary: {
+    totals: JournalTotals[];
+    byCategory: { category: ExpenseCategory; label: string; currency: Currency; total: string; count: number }[];
+    byItem: { category: ExpenseCategory; name: string; currency: Currency; total: string; count: number }[];
+    bankCharges: string;
+  };
   rows: JournalRow[];
 }
 

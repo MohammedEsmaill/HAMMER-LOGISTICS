@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import { financeKeys, type Approval, type Currency, type DateRange, type Direction } from './api';
+import { financeKeys, type Approval, type BankPaid, type BankPaymentMethod, type Currency, type DateRange, type Direction } from './api';
 
 export type PartyKind = 'SISTER_COMPANY' | 'OWNER';
 export type PartyMovementKind = 'FUNDING' | 'PAYMENT' | 'SHARED_DEBT';
@@ -43,7 +43,7 @@ interface AccountRef {
   ownership: 'COMPANY' | 'PERSONAL';
 }
 
-export interface PartyMovement extends Approval {
+export interface PartyMovement extends Approval, BankPaid {
   id: number;
   party: { id: number; name: string; kind: PartyKind };
   account: AccountRef;
@@ -77,6 +77,8 @@ export interface PartyMovementInput {
   payee?: string;
   reference?: string;
   notes?: string;
+  paymentMethod?: BankPaymentMethod;
+  bankCharges?: number;
 }
 
 export const partyKeys = {
@@ -108,7 +110,17 @@ export const partiesApi = {
   createMovement: (input: PartyMovementInput) => api.post<PartyMovement>('/finance/party-movements', input),
   updateMovement: (
     id: number,
-    input: { version: number; accountId?: number; amount?: number; movementDate?: string; payee?: string; reference?: string | null; notes?: string | null },
+    input: {
+      version: number;
+      accountId?: number;
+      amount?: number;
+      movementDate?: string;
+      payee?: string;
+      reference?: string | null;
+      notes?: string | null;
+      paymentMethod?: BankPaymentMethod;
+      bankCharges?: number;
+    },
   ) => api.patch<PartyMovement>(`/finance/party-movements/${id}`, input),
 };
 

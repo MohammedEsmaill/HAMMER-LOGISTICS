@@ -1,9 +1,10 @@
 import { AR } from '@/lib/format';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Circle, X } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -11,6 +12,7 @@ import { Badge } from '@/components/ui/misc';
 import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { useAction } from '@/lib/mutations';
+import { BankPaymentFields, bankPaymentBody, bankPaymentOf, bankPaymentProblems, EMPTY_BANK_PAYMENT, type BankPaymentValue } from './BankPaymentFields';
 import { accountOptions, useEditable } from './finance-helpers';
 import {
   financeApi,
@@ -104,9 +106,15 @@ type TransferIn = z.input<typeof transferSchema>;
 type TransferOut = z.output<typeof transferSchema>;
 
 export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer | null; open: boolean; onClose: () => void }) {
+  const { can } = useAuth();
   const { data: accounts = [] } = useAccounts();
-  const editable = useEditable(transfer);
-  const { register, handleSubmit, reset, control, setError, formState } = useForm<TransferIn, unknown, TransferOut>({
+  const cash = can('finance.movements.create');
+  const editable = useEditable(transfer, cash ? 'finance.movements.create' : 'finance.bank.record');
+  // money out of a cash box is the treasury manager's; out of a bank the accountant's too
+  const fromAccounts = cash ? accounts : accounts.filter((a) => a.type === 'BANK');
+  const [bank, setBank] = useState<BankPaymentValue>(EMPTY_BANK_PAYMENT);
+  const [bankErrors, setBankErrors] = useState<Partial<Record<keyof BankPaymentValue, string>>>({});
+  const { register, handleSubmit, reset, control, formState } = useForm<TransferIn, unknown, TransferOut>({
     resolver: zodResolver(transferSchema),
   });
   const fromId = Number(useWatch({ control, name: 'fromAccountId' }));
@@ -117,7 +125,8 @@ export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer
   );
   const save = useAction(
     (f: TransferOut) => {
-      const body = { ...f, chequeNo: f.chequeNo || null, notes: f.notes || null };
+      const pay = from?.type === 'BANK' ? { ...bankPaymentBody(bank), chequeNo: bank.reference.trim() } : { chequeNo: null };
+      const body = { ...f, ...pay, notes: f.notes || null };
       return transfer
         ? financeApi.updateTransfer(transfer.id, { ...body, version: transfer.version })
         : financeApi.createTransfer({ ...body, chequeNo: body.chequeNo ?? undefined, notes: body.notes ?? undefined });
@@ -128,6 +137,8 @@ export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer
   useEffect(() => {
     if (!open) return;
     save.reset();
+    setBank(bankPaymentOf(transfer, transfer?.chequeNo));
+    setBankErrors({});
     reset({
       fromAccountId: transfer?.fromAccount.id ?? '',
       toAccountId: transfer?.toAccount.id ?? '',
@@ -140,7 +151,11 @@ export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer
   }, [open, transfer]);
 
   const submit = (f: TransferOut) => {
-    if (from?.type === 'BANK' && !f.chequeNo) return setError('chequeNo', { message: 'رقم الشيك مطلوب لما الفلوس تطلع من البنك' });
+    if (from?.type === 'BANK') {
+      const p = bankPaymentProblems(bank);
+      setBankErrors(p);
+      if (Object.keys(p).length) return;
+    }
     return save.mutateAsync(f).then(onClose, () => undefined);
   };
   const e = formState.errors;
@@ -165,7 +180,7 @@ export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer
     >
       <form id="transfer-form" noValidate className="space-y-4" onSubmit={handleSubmit(submit)}>
         <fieldset disabled={!editable} className="space-y-4">
-          <SelectField label="من" options={accountOptions(accounts, transfer?.fromAccount.id)} error={e.fromAccountId?.message} {...register('fromAccountId')} />
+          <SelectField label="من" options={accountOptions(fromAccounts, transfer?.fromAccount.id)} error={e.fromAccountId?.message} {...register('fromAccountId')} />
           <SelectField
             label="إلى"
             placeholder={from ? `حسابات ${from.currency === 'USD' ? 'الدولار' : 'الجنيه'}` : 'اختار "من" الأول'}
@@ -174,7 +189,7 @@ export function TransferDrawer({ transfer, open, onClose }: { transfer: Transfer
             {...register('toAccountId')}
           />
           <TextField label={`المبلغ${from ? ` (${from.currency})` : ''}`} type="number" step="0.01" min="0.01" dir="ltr" error={e.amount?.message} {...register('amount')} />
-          {from?.type === 'BANK' && <TextField label="رقم الشيك / التحويل" dir="ltr" error={e.chequeNo?.message} {...register('chequeNo')} />}
+          {from?.type === 'BANK' && <BankPaymentFields value={bank} onChange={setBank} errors={bankErrors} currency={from.currency} />}
           <TextField label="التاريخ" type="date" max={today()} error={e.transferDate?.message} {...register('transferDate')} />
           <TextField label="ملاحظات (اختياري)" error={e.notes?.message} {...register('notes')} />
         </fieldset>

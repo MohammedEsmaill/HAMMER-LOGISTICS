@@ -319,6 +319,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
           holderType: 'BANK_TRANSFER',
           bankAccountId: bankEgp,
           beneficiaryId: agencyId,
+          paymentMethod: 'TRANSFER',
           transferRef: 'trf-9921',
           amount: 2500,
         })
@@ -502,6 +503,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
           amount: 500,
           accountId: bankEgp,
           beneficiaryId: own.body.id,
+          paymentMethod: 'TRANSFER',
           transferRef: 'TR-1',
         })
         .expect(201);

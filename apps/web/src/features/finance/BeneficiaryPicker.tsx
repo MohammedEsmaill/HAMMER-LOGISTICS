@@ -71,7 +71,7 @@ export function BeneficiaryPicker({
         onChange={(v) => onChange(v === '' ? '' : Number(v))}
         error={error}
       />
-      {can('finance.custody.manage') && !adding && (
+      {(can('finance.custody.manage') || can('finance.bank.record')) && !adding && (
         <button type="button" className="flex items-center gap-1 text-sm text-gold hover:underline" onClick={() => setAdding(true)}>
           <Plus className="size-4" /> حساب جديد
         </button>

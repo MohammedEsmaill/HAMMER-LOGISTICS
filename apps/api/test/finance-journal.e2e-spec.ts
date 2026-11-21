@@ -83,8 +83,9 @@ describe('Finance: journal and reports (e2e)', () => {
     }
   });
 
-  it('the accountant, scan and HR do not', async () => {
-    for (const token of [accountant, scan, hr]) {
+  it('the accountant sees it (bank transfers are recorded there); scan and HR do not', async () => {
+    await journal(accountant).expect(200);
+    for (const token of [scan, hr]) {
       await journal(token).expect(403);
     }
   });

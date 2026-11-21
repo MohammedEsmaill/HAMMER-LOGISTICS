@@ -26,9 +26,10 @@ import {
 } from 'class-validator';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
 import { Trim } from '../../common/validation';
+import { BankPaymentDto } from '../bank-payment';
 import { PositiveMoney } from '../money';
 
-export class IssueCustodyDto {
+export class IssueCustodyDto extends BankPaymentDto {
   @IsInt()
   @Min(1)
   shipmentId!: number;
@@ -47,13 +48,13 @@ export class IssueCustodyDto {
   @IsEnum(CustodyPurpose)
   purpose?: CustodyPurpose;
 
-  /** BANK_TRANSFER only: the bank account paid from (EGP or USD). */
+  /** BANK_TRANSFER: the bank account paid from (EGP or USD). CLEARER: an EGP bank, to pay by transfer. */
   @IsOptional()
   @IsInt()
   @Min(1)
   bankAccountId?: number;
 
-  /** BANK_TRANSFER only: the external account paid (shipping agency, clearer, other). */
+  /** Paid by bank: the external account paid (for a clearer custody, his own account). */
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -79,11 +80,16 @@ export class IssueCustodyDto {
   notes?: string;
 }
 
-/** While the custody is open: the amount, date and notes. */
-export class UpdateIssueDto {
+/** While the custody is open: the amount, date, notes, and (by bank) the method, reference and charges. */
+export class UpdateIssueDto extends BankPaymentDto {
   @IsInt()
   @Min(0)
   version!: number;
+
+  @IsOptional()
+  @Trim()
+  @Matches(/^[A-Za-z0-9/-]{1,40}$/, { message: 'رقم التحويل حروف وأرقام بس' })
+  transferRef?: string;
 
   @IsOptional()
   @PositiveMoney()
@@ -198,7 +204,7 @@ export class CustodiesQueryDto extends ListQueryDto {
   approvalStatus?: ApprovalStatus;
 }
 
-export class PayFeeDto {
+export class PayFeeDto extends BankPaymentDto {
   @IsInt()
   @Min(1)
   feeId!: number;
@@ -234,10 +240,15 @@ export class PayFeeDto {
   notes?: string;
 }
 
-export class UpdateFeePaymentDto {
+export class UpdateFeePaymentDto extends BankPaymentDto {
   @IsInt()
   @Min(0)
   version!: number;
+
+  @IsOptional()
+  @Trim()
+  @Matches(/^[A-Za-z0-9/-]{1,40}$/, { message: 'رقم التحويل حروف وأرقام بس' })
+  transferRef?: string;
 
   @IsOptional()
   @PositiveMoney()

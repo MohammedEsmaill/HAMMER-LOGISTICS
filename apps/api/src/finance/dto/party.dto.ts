@@ -12,6 +12,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { Trim } from '../../common/validation';
+import { BankPaymentDto } from '../bank-payment';
 import { PositiveMoney } from '../money';
 
 export class CreatePartyDto {
@@ -51,7 +52,7 @@ export class UpdatePartyDto {
   isActive?: boolean;
 }
 
-export class CreatePartyMovementDto {
+export class CreatePartyMovementDto extends BankPaymentDto {
   @IsInt()
   @Min(1)
   partyId!: number;
@@ -94,7 +95,7 @@ export class CreatePartyMovementDto {
 }
 
 /** The party and the kind stay; the account (same currency), amount and date may change. */
-export class UpdatePartyMovementDto {
+export class UpdatePartyMovementDto extends BankPaymentDto {
   @IsInt()
   @Min(0)
   version!: number;

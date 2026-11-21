@@ -128,6 +128,8 @@ const ROLES: {
       'finance.shipment-account.view',
       'finance.parties.view',
       'finance.parties.record',
+      'finance.bank.record',
+      'finance.journal.view',
     ],
   },
   {
@@ -313,6 +315,11 @@ const GRANTS: {
       GENERAL_AUDITOR: ['finance.parties.view'],
       ACCOUNTS_MANAGER: ['finance.parties.view'],
     },
+  },
+  {
+    // cash is the treasury manager's; the bank the accountant's (and the treasury manager's)
+    id: 'bank-payments',
+    roles: { ACCOUNTANT: ['finance.bank.record', 'finance.journal.view'] },
   },
   {
     // the documents center: operation for its own clients, Nafeza for all

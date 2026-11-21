@@ -36,15 +36,15 @@ import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
 
 type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANCE' | 'PARTY';
 
-/** What can be recorded from the journal, each by who may record it. */
-const NEW_KINDS: { kind: NewKind; label: string; icon: LucideIcon; permission: Permission }[] = [
-  { kind: 'TRANSFER', label: 'تحويل', icon: ArrowLeftRight, permission: 'finance.movements.create' },
-  { kind: 'OTHER', label: 'معاملة أخرى', icon: Banknote, permission: 'finance.movements.create' },
-  { kind: 'EXPENSE', label: 'مصروف عمومي', icon: Receipt, permission: 'finance.expenses.manage' },
-  { kind: 'CUSTODY', label: 'عهدة', icon: Briefcase, permission: 'finance.custody.manage' },
-  { kind: 'SALARY', label: 'مرتب', icon: Wallet, permission: 'finance.payroll.manage' },
-  { kind: 'ADVANCE', label: 'سلفة', icon: HandCoins, permission: 'finance.payroll.manage' },
-  { kind: 'PARTY', label: 'حساب داخلي', icon: Building2, permission: 'finance.parties.record' },
+/** What can be recorded from the journal, each by who may record it (the accountant: from a bank). */
+const NEW_KINDS: { kind: NewKind; label: string; icon: LucideIcon; any: Permission[] }[] = [
+  { kind: 'TRANSFER', label: 'تحويل', icon: ArrowLeftRight, any: ['finance.movements.create', 'finance.bank.record'] },
+  { kind: 'OTHER', label: 'معاملة أخرى', icon: Banknote, any: ['finance.movements.create'] },
+  { kind: 'EXPENSE', label: 'مصروف عمومي', icon: Receipt, any: ['finance.expenses.manage', 'finance.bank.record'] },
+  { kind: 'CUSTODY', label: 'عهدة', icon: Briefcase, any: ['finance.custody.manage', 'finance.bank.record'] },
+  { kind: 'SALARY', label: 'مرتب', icon: Wallet, any: ['finance.payroll.manage'] },
+  { kind: 'ADVANCE', label: 'سلفة', icon: HandCoins, any: ['finance.payroll.manage'] },
+  { kind: 'PARTY', label: 'حساب داخلي', icon: Building2, any: ['finance.parties.record'] },
 ];
 
 const EMPTY: JournalQuery = { page: 1, types: [], accountId: '', currency: '', status: '', flow: '', createdBy: '', search: '' };
@@ -130,7 +130,7 @@ export default function JournalPage() {
   const [picker, setPicker] = useState(false);
   const [creating, setCreating] = useState<NewKind | null>(null);
   const set = (patch: Partial<JournalQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
-  const newKinds = NEW_KINDS.filter((k) => can(k.permission));
+  const newKinds = NEW_KINDS.filter((k) => k.any.some((p) => can(p)));
   const typeOptions = (Object.keys(JOURNAL_TYPES) as JournalType[])
     .filter((t) => salaryData || !JOURNAL_TYPES[t].restricted)
     .map((t) => ({ value: t, label: JOURNAL_TYPES[t].label }));

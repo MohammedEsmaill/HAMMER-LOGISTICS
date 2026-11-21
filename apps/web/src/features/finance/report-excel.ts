@@ -159,7 +159,7 @@ const OPERATION_COLS: Col[] = [
   { header: 'التاريخ', width: 12, date: true },
   { header: 'المرجع', width: 13 },
   { header: 'النوع', width: 14 },
-  { header: 'الطرف', width: 22 },
+  { header: 'جهة الصرف', width: 22 },
   { header: 'البيان', width: 40 },
   { header: 'رقم الملف', width: 12 },
   { header: 'من', width: 18 },
@@ -260,19 +260,28 @@ function expensesSheets(wb: Workbook, report: ExpensesReport, head: Head) {
   const totals = new Map(report.summary.totals.map((t) => [t.currency, n(t.out)]));
   summary.table(
     [
-      { header: 'بند المصروف', width: 28 },
+      { header: 'البند', width: 30 },
       { header: 'العملة', width: 12 },
       { header: 'عدد', width: 10 },
       { header: 'الإجمالي', width: 18, money: true },
       { header: 'النسبة %', width: 12 },
     ],
-    report.summary.byItem.map((b) => [
-      b.name,
-      CURRENCIES[b.currency].label,
-      b.count,
-      n(b.total),
-      totals.get(b.currency) ? Math.round((n(b.total) / totals.get(b.currency)!) * 1000) / 10 : null,
-    ]),
+    [
+      // each main item, then its types under it
+      ...report.summary.byCategory.flatMap((c) => [
+        [
+          c.label,
+          CURRENCIES[c.currency].label,
+          c.count,
+          n(c.total),
+          totals.get(c.currency) ? Math.round((n(c.total) / totals.get(c.currency)!) * 1000) / 10 : null,
+        ],
+        ...report.summary.byItem
+          .filter((b) => b.category === c.category && b.currency === c.currency)
+          .map((b) => [`    ${b.name}`, '', b.count, n(b.total), null]),
+      ]),
+      ...(n(report.summary.bankCharges) > 0 ? [['مصاريف بنكية على المصروفات', CURRENCIES.EGP.label, null, n(report.summary.bankCharges), null]] : []),
+    ],
     report.summary.totals.map((t) => [`الإجمالي (${CURRENCIES[t.currency].label})`, CURRENCIES[t.currency].label, t.count, n(t.out), 100]),
   );
   summary.signatures();
@@ -309,7 +318,7 @@ function accountsSheets(wb: Workbook, report: AccountsReport, head: Head) {
     { header: 'التاريخ', width: 12, date: true },
     { header: 'المرجع', width: 14 },
     { header: 'النوع', width: 14 },
-    { header: 'الطرف', width: 22 },
+    { header: 'جهة الصرف', width: 22 },
     { header: 'البيان', width: 40 },
     { header: 'وارد', width: 16, money: true },
     { header: 'منصرف', width: 16, money: true },

@@ -120,6 +120,7 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
           fromAccountId: bankEgp,
           toAccountId: cashEgp,
           amount: 20000,
+          paymentMethod: 'CHEQUE',
           chequeNo: 'chq-1001',
         })
         .expect(201);
@@ -137,6 +138,7 @@ describe('Finance: treasury, transfers, approvals (e2e)', () => {
           fromAccountId: bankEgp,
           toAccountId: cashEgp,
           amount: 10,
+          paymentMethod: 'CHEQUE',
         })
         .expect(400);
       expect(res.body.message).toContain('رقم الشيك');

@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { AR } from '@/lib/format';
 import type { ReactNode } from 'react';
 import type { CompanySettings } from './account-api';
@@ -26,13 +27,34 @@ function SectionTitle({ n, children }: { n: number; children: ReactNode }) {
   );
 }
 
-function Table({ head, children, foot }: { head: ReactNode[]; children: ReactNode; foot?: ReactNode }) {
+/** widths: each column's share of the page, so long text wraps in its own column only. */
+function Table({
+  head,
+  children,
+  foot,
+  widths,
+  small,
+}: {
+  head: ReactNode[];
+  children: ReactNode;
+  foot?: ReactNode;
+  widths?: string[];
+  /** many columns: a smaller type, so the description keeps its room */
+  small?: boolean;
+}) {
   return (
-    <table className="w-full border-collapse text-[11.5px]" style={{ color: INK }}>
+    <table className={`w-full border-collapse ${small ? 'text-[10px]' : 'text-[11.5px]'}`} style={{ color: INK, tableLayout: widths ? 'fixed' : undefined }}>
+      {widths && (
+        <colgroup>
+          {widths.map((w, i) => (
+            <col key={i} style={{ width: w }} />
+          ))}
+        </colgroup>
+      )}
       <thead>
         <tr style={{ background: INK, color: '#f1d27a' }}>
           {head.map((h, i) => (
-            <th key={i} className="border px-2 py-1.5 text-start font-bold whitespace-nowrap" style={{ borderColor: INK }}>
+            <th key={i} className={`border px-2 py-1.5 text-start font-bold ${widths ? '' : 'whitespace-nowrap'}`} style={{ borderColor: INK }}>
               {h}
             </th>
           ))}
@@ -44,12 +66,26 @@ function Table({ head, children, foot }: { head: ReactNode[]; children: ReactNod
   );
 }
 
-function Td({ children, ltr, strong, tone, className = '' }: { children?: ReactNode; ltr?: boolean; strong?: boolean; tone?: 'in' | 'out'; className?: string }) {
+function Td({
+  children,
+  ltr,
+  strong,
+  tone,
+  className = '',
+  style,
+}: {
+  children?: ReactNode;
+  ltr?: boolean;
+  strong?: boolean;
+  tone?: 'in' | 'out';
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
     <td
-      className={`border px-2 py-1 align-top ${strong ? 'font-bold' : ''} ${className}`}
+      className={`border px-1.5 py-1 align-top ${strong ? 'font-bold' : ''} ${className}`}
       dir={ltr ? 'ltr' : undefined}
-      style={{ borderColor: LINE, textAlign: ltr ? 'right' : undefined, color: tone === 'in' ? '#15803d' : tone === 'out' ? '#b91c1c' : undefined }}
+      style={{ borderColor: LINE, textAlign: ltr ? 'right' : undefined, color: tone === 'in' ? '#15803d' : tone === 'out' ? '#b91c1c' : undefined, ...style }}
     >
       {children}
     </td>
@@ -93,7 +129,8 @@ function Kpis({ totals }: { totals: JournalTotals[] }) {
 function OperationsTable({ rows, totals }: { rows: JournalRow[]; totals: JournalTotals[] }) {
   return (
     <Table
-      head={['م', 'التاريخ', 'المرجع', 'النوع', 'البيان', 'من ← إلى', 'وارد', 'منصرف', 'الحالة']}
+      head={['م', 'التاريخ', 'المرجع', 'النوع', 'جهة الصرف', 'البيان', 'الخزنة / الحساب', 'وارد', 'منصرف', 'الحالة']}
+      small
       foot={totals.map((t) => (
         <TotalRow
           key={t.currency}
@@ -104,6 +141,7 @@ function OperationsTable({ rows, totals }: { rows: JournalRow[]; totals: Journal
             </Td>,
             <Td key="e1" />,
             <Td key="e2" />,
+            <Td key="e0" />,
             <Td key="e3">{`${t.count} معاملة`}</Td>,
             <Td key="e4" />,
             <Td key="in" ltr strong tone="in">
@@ -124,14 +162,20 @@ function OperationsTable({ rows, totals }: { rows: JournalRow[]; totals: Journal
           <Td ltr className="whitespace-nowrap">
             {r.ref}
           </Td>
-          <Td className="whitespace-nowrap">{JOURNAL_TYPES[r.type].label}</Td>
-          <Td>
-            {r.counterparty && <div className="font-semibold">{r.counterparty}</div>}
+          <Td>{JOURNAL_TYPES[r.type].label}</Td>
+          <Td strong style={{ minWidth: 80 }}>
+            {r.counterparty ?? '—'}
+          </Td>
+          <Td style={{ minWidth: 170 }}>
             <div>{r.description}</div>
             {r.fileNo && <div style={{ color: GOLD }}>ملف {r.fileNo}</div>}
           </Td>
           <Td>
-            {r.fromAccount?.name ?? '—'} ← {r.toAccount?.name ?? '—'}
+            {r.flow === 'MOVE'
+              ? `${r.fromAccount?.name ?? '—'} ← ${r.toAccount?.name ?? '—'}`
+              : r.flow === 'IN'
+                ? `إلى ${r.toAccount?.name ?? '—'}`
+                : `من ${r.fromAccount?.name ?? '—'}`}
           </Td>
           <Td ltr tone="in" className="whitespace-nowrap">
             {r.flow === 'IN' ? money(r.amount, r.currency) : r.flow === 'MOVE' ? `(${money(r.amount, r.currency)})` : ''}
@@ -139,7 +183,7 @@ function OperationsTable({ rows, totals }: { rows: JournalRow[]; totals: Journal
           <Td ltr tone="out" className="whitespace-nowrap">
             {r.flow === 'OUT' ? money(r.amount, r.currency) : ''}
           </Td>
-          <Td className="whitespace-nowrap">{STATUS[r.approvalStatus].label}</Td>
+          <Td>{STATUS[r.approvalStatus].label}</Td>
         </tr>
       ))}
     </Table>
@@ -184,19 +228,47 @@ function ExpensesBody({ report }: { report: ExpensesReport }) {
   const totals = new Map(report.summary.totals.map((t) => [t.currency, Number(t.out)]));
   return (
     <>
-      <SectionTitle n={1}>ملخص التقرير</SectionTitle>
-      <Table head={['بند المصروف', 'العملة', 'عدد', 'الإجمالي', 'النسبة']}>
-        {report.summary.byItem.map((b) => (
-          <tr key={`${b.name}-${b.currency}`}>
-            <Td strong>{b.name}</Td>
-            <Td>{CURRENCIES[b.currency].label}</Td>
-            <Td>{b.count}</Td>
-            <Td ltr strong>
-              {money(b.total, b.currency)}
-            </Td>
-            <Td ltr>{totals.get(b.currency) ? `${((Number(b.total) / totals.get(b.currency)!) * 100).toFixed(1)}%` : '—'}</Td>
-          </tr>
+      <SectionTitle n={1}>ملخص التقرير بالبنود الرئيسية</SectionTitle>
+      <Table head={['البند', 'العملة', 'عدد', 'الإجمالي', 'النسبة']}>
+        {report.summary.byCategory.map((c) => (
+          <Fragment key={`${c.category}-${c.currency}`}>
+            <tr style={{ background: '#f3ecd9' }}>
+              <Td strong>{c.label}</Td>
+              <Td>{CURRENCIES[c.currency].label}</Td>
+              <Td strong>{c.count}</Td>
+              <Td ltr strong>
+                {money(c.total, c.currency)}
+              </Td>
+              <Td ltr strong>
+                {totals.get(c.currency) ? `${((Number(c.total) / totals.get(c.currency)!) * 100).toFixed(1)}%` : '—'}
+              </Td>
+            </tr>
+            {report.summary.byItem
+              .filter((b) => b.category === c.category && b.currency === c.currency)
+              .map((b) => (
+                <tr key={`${b.name}-${b.currency}`}>
+                  <Td>
+                    <span style={{ paddingInlineStart: 14, display: 'inline-block' }}>{b.name}</span>
+                  </Td>
+                  <Td />
+                  <Td>{b.count}</Td>
+                  <Td ltr>{money(b.total, b.currency)}</Td>
+                  <Td />
+                </tr>
+              ))}
+          </Fragment>
         ))}
+        {Number(report.summary.bankCharges) > 0 && (
+          <tr>
+            <Td strong>مصاريف بنكية على المصروفات</Td>
+            <Td>{CURRENCIES.EGP.label}</Td>
+            <Td />
+            <Td ltr strong>
+              {money(report.summary.bankCharges, 'EGP')}
+            </Td>
+            <Td />
+          </tr>
+        )}
         {report.summary.totals.map((t) => (
           <TotalRow
             key={t.currency}
@@ -261,7 +333,7 @@ function AccountsBody({ report }: { report: AccountsReport }) {
               </p>
             ) : (
               <Table
-                head={['التاريخ', 'المرجع', 'البيان', 'وارد', 'منصرف', 'الرصيد']}
+                head={['التاريخ', 'المرجع', 'جهة الصرف', 'البيان', 'وارد', 'منصرف', 'الرصيد']}
                 foot={
                   <TotalRow
                     cells={[
@@ -269,6 +341,7 @@ function AccountsBody({ report }: { report: AccountsReport }) {
                         الإجمالي
                       </Td>,
                       <Td key="e" />,
+                      <Td key="p" />,
                       <Td key="n">{`${a.lines.length} حركة`}</Td>,
                       <Td key="i" ltr strong tone="in">
                         {num(a.in)}
@@ -289,10 +362,10 @@ function AccountsBody({ report }: { report: AccountsReport }) {
                     <Td ltr className="whitespace-nowrap">
                       {l.ref ?? '—'}
                     </Td>
+                    <Td strong>{l.counterparty ?? '—'}</Td>
                     <Td>
                       {l.reversal && <b style={{ color: '#b45309' }}>قيد عكسي · </b>}
                       {JOURNAL_TYPES[l.source]?.label}
-                      {l.counterparty && ` · ${l.counterparty}`}
                       {l.description && <div style={{ color: '#555' }}>{l.description}</div>}
                     </Td>
                     <Td ltr tone="in">

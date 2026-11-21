@@ -49,6 +49,7 @@ export type Permission =
   | 'finance.client-ledger.view'
   | 'finance.journal.view'
   | 'finance.prices.manage'
+  | 'finance.bank.record'
   | 'finance.parties.view'
   | 'finance.parties.record'
   | 'finance.parties.manage'

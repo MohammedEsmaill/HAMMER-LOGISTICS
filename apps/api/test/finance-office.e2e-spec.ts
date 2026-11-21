@@ -255,10 +255,21 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
   describe('general expenses', () => {
     it('adds a new expense type the first time it is typed', async () => {
       const start = await balance(cashEgp);
+      // a new type needs its main item
+      await ctx
+        .api(treasury)
+        .post('/api/finance/expenses', {
+          expenseType: 'كهربا',
+          payee: 'شركة الكهرباء',
+          amount: 1200,
+          receiptNo: 'e-5531',
+        })
+        .expect(400);
       const res = await ctx
         .api(treasury)
         .post('/api/finance/expenses', {
           expenseType: 'كهربا',
+          category: 'BILLS_UTILITIES',
           payee: 'شركة الكهرباء',
           amount: 1200,
           receiptNo: 'e-5531',
@@ -280,6 +291,7 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
         .api(treasury)
         .post('/api/finance/expenses', {
           expenseType: 'بوفيه',
+          category: 'PETTY',
           payee: 'عم سعيد',
           amount: 150,
           receiptNo: '17',
@@ -314,12 +326,23 @@ describe('Finance: salaries, advances, general expenses (e2e)', () => {
         .api(treasury)
         .get('/api/finance/expenses/report')
         .expect(200);
-      expect(res.body.total).toBe('1650');
-      expect(res.body.byType[0]).toMatchObject({
-        expenseType: { name: 'كهربا' },
-        total: '1500',
-        count: 2,
-      });
+      // other files record expenses too: this file's types only
+      type Row = {
+        expenseType: { name: string };
+        total: string;
+        count: number;
+      };
+      const row = (name: string) =>
+        (res.body.byType as Row[]).find((t) => t.expenseType.name === name)!;
+      expect(row('كهربا')).toMatchObject({ total: '1500', count: 2 });
+      expect(Number(row('كهربا').total) + Number(row('بوفيه').total)).toBe(
+        1650,
+      );
+      expect(res.body.byCategory).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ category: 'PETTY', label: 'نثريات' }),
+        ]),
+      );
       await ctx.api(accountant).get('/api/finance/expenses/report').expect(403);
     });
 

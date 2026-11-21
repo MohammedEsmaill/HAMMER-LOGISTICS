@@ -31,10 +31,15 @@ const READ = [
   'finance.review',
   'finance.manager_approve',
   'finance.approve',
+  'finance.bank.record',
 ] as const;
 
 /** Editing: the service lets the author edit until approval, then only the CEO. */
-const EDIT = ['finance.movements.create', 'finance.approved.edit'] as const;
+const EDIT = [
+  'finance.movements.create',
+  'finance.bank.record',
+  'finance.approved.edit',
+] as const;
 
 @Controller('finance/transfers')
 export class TransfersController {
@@ -53,7 +58,7 @@ export class TransfersController {
   }
 
   @Post()
-  @RequirePermissions('finance.movements.create')
+  @RequireAnyPermission('finance.movements.create', 'finance.bank.record')
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateTransferDto) {
     return this.transfers.create(actor, dto);
   }

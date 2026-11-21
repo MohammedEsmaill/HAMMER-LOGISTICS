@@ -8,6 +8,32 @@ export type OtherKind = 'FUNDING' | 'BANK_CHARGES' | 'ADJUSTMENT';
 export type Direction = 'IN' | 'OUT';
 export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_ADJUSTMENT' | 'FEE_PAYMENT' | 'INVOICE' | 'COLLECTION' | 'PARTY';
 
+export type BankPaymentMethod = 'TRANSFER' | 'CHEQUE';
+
+export const BANK_METHODS: Record<BankPaymentMethod, string> = {
+  TRANSFER: 'تحويل بنكي',
+  CHEQUE: 'شيك',
+};
+
+export type ExpenseCategory = 'GENERAL_EXPENSES' | 'TRANSPORT' | 'TIPS_DONATIONS' | 'PETTY' | 'PURCHASES' | 'COMMISSIONS' | 'BILLS_UTILITIES';
+
+/** The main items of the general expenses. */
+export const EXPENSE_CATEGORIES: Record<ExpenseCategory, string> = {
+  GENERAL_EXPENSES: 'مصاريف عمومية',
+  TRANSPORT: 'انتقالات',
+  TIPS_DONATIONS: 'إكراميات وتبرعات',
+  PETTY: 'نثريات',
+  PURCHASES: 'مشتريات',
+  COMMISSIONS: 'عمولات',
+  BILLS_UTILITIES: 'فواتير ومرافق',
+};
+
+/** The fields a payment out of a bank account carries. */
+export interface BankPaid {
+  paymentMethod?: BankPaymentMethod | null;
+  bankCharges?: string;
+}
+
 export const CURRENCIES: Record<Currency, { label: string; symbol: string }> = {
   EGP: { label: 'جنيه', symbol: 'ج' },
   USD: { label: 'دولار', symbol: '$' },
@@ -70,7 +96,7 @@ export interface Approval {
   rejectionReason: string | null;
 }
 
-export interface Transfer extends Approval {
+export interface Transfer extends Approval, BankPaid {
   id: number;
   fromAccount: AccountRef;
   toAccount: AccountRef;
@@ -224,6 +250,8 @@ export interface TransferInput {
   chequeNo?: string | null;
   transferDate?: string;
   notes?: string | null;
+  paymentMethod?: BankPaymentMethod;
+  bankCharges?: number;
 }
 
 export interface OtherInput {

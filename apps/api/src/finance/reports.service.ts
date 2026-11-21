@@ -4,6 +4,7 @@ import { AuthUser } from '../auth/auth-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { canSeeRestricted } from './approvals/approval.service';
 import { JournalQueryDto } from './dto/journal.dto';
+import { EXPENSE_CATEGORIES } from './expenses.service';
 import { JOURNAL_EXPORT_LIMIT, JournalService } from './journal.service';
 
 export const REPORT_KINDS = ['journal', 'accounts', 'expenses'] as const;
@@ -92,24 +93,69 @@ export class ReportsService {
   private async expenses(actor: AuthUser, q: JournalQueryDto) {
     const { rows, totals, truncated } = await this.journal.all(actor, q);
     const ids = rows.map((r) => r.id);
+    // per main item, and within it per type; the bank charges paid with them on their own line
     const byItem = ids.length
       ? await this.prisma.$queryRaw<
-          { name: string; currency: string; total: Prisma.Decimal; n: bigint }[]
+          {
+            category: string;
+            name: string;
+            currency: string;
+            total: Prisma.Decimal;
+            n: bigint;
+          }[]
         >`
-          SELECT et."name", x."currency"::text AS currency, sum(x."amount") AS total, count(*) AS n
+          SELECT coalesce(et."category"::text, 'GENERAL_EXPENSES') AS category, et."name",
+                 x."currency"::text AS currency, sum(x."amount") AS total, count(*) AS n
             FROM "general_expenses" x JOIN "expense_types" et ON et."id" = x."expense_type_id"
            WHERE x."id" IN (${Prisma.join(ids)})
-           GROUP BY et."name", x."currency" ORDER BY x."currency", total DESC`
+           GROUP BY 1, et."name", x."currency" ORDER BY x."currency", total DESC`
       : [];
+    const [charges] = ids.length
+      ? await this.prisma.$queryRaw<{ total: Prisma.Decimal | null }[]>`
+          SELECT sum("bank_charges") AS total FROM "general_expenses" WHERE "id" IN (${Prisma.join(ids)})`
+      : [{ total: null }];
+    const categories = new Map<
+      string,
+      {
+        category: string;
+        currency: string;
+        total: Prisma.Decimal;
+        count: number;
+      }
+    >();
+    for (const b of byItem) {
+      const key = `${b.category}|${b.currency}`;
+      const c = categories.get(key) ?? {
+        category: b.category,
+        currency: b.currency,
+        total: new Prisma.Decimal(0),
+        count: 0,
+      };
+      c.total = c.total.plus(b.total);
+      c.count += Number(b.n);
+      categories.set(key, c);
+    }
     return {
       summary: {
         totals,
+        byCategory: [...categories.values()]
+          .sort((a, b) => b.total.comparedTo(a.total))
+          .map((c) => ({
+            category: c.category,
+            label:
+              EXPENSE_CATEGORIES[c.category as keyof typeof EXPENSE_CATEGORIES],
+            currency: c.currency,
+            total: fixed(c.total),
+            count: c.count,
+          })),
         byItem: byItem.map((b) => ({
+          category: b.category,
           name: b.name,
           currency: b.currency,
           total: fixed(b.total),
           count: Number(b.n),
         })),
+        bankCharges: fixed(charges.total),
       },
       rows,
       truncated,
@@ -162,7 +208,8 @@ export class ReportsService {
           FROM "money_movements" m
           LEFT JOIN "journal_v" j ON j."type" = m."source"::text AND j."id" = coalesce(
                  m."transfer_id", m."other_movement_id", m."salary_id", m."advance_id",
-                 m."expense_id", m."custody_id", m."fee_payment_id", m."collection_id")
+                 m."expense_id", m."custody_id", m."fee_payment_id", m."collection_id",
+                 m."party_movement_id")
          WHERE m."account_id" = ${a.id}
            AND m."movement_date" BETWEEN ${q.from}::date AND ${q.to}::date
          ORDER BY m."movement_date", m."id"

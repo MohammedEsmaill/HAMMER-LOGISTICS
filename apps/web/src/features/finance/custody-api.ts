@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Page } from '@/lib/mutations';
-import type { Approval, ApprovalStatus, Currency } from './api';
+import type { Approval, ApprovalStatus, BankPaid, BankPaymentMethod, Currency } from './api';
 
 export type HolderType = 'AGENT' | 'WAY_OUT' | 'CLEARER' | 'BANK_TRANSFER';
 export type Purpose = 'UNLOADING' | 'RELEASE' | 'STORAGE' | 'CLEARANCE';
@@ -42,7 +42,7 @@ export const RECEIPT_KINDS: Record<ReceiptKind, { label: string; line: (no: stri
   VAT: { label: 'VAT', line: (no) => `VAT NO-${no}` },
 };
 
-export interface Custody extends Approval {
+export interface Custody extends Approval, BankPaid {
   id: number;
   custodyNo: string;
   shipment: { id: number; fileNo: string; clearerId: number; client: { id: number; name: string } };
@@ -89,7 +89,7 @@ export interface Fee {
   payments: (Approval & { id: number; amount: string; paymentDate: string; notes: string | null })[];
 }
 
-export interface FeePayment extends Approval {
+export interface FeePayment extends Approval, BankPaid {
   id: number;
   fee: { id: number; clearer: { id: number; fullName: string }; shipment: { id: number; fileNo: string } };
   amount: string;
@@ -199,7 +199,10 @@ export const useShipmentSearch = (search: string) =>
   useQuery({
     queryKey: ['shipments', 'pick', search],
     queryFn: () =>
-      api.get<Page<{ id: number; fileNo: string; client: { name: string }; commodity: string }>>('/shipments', { search, pageSize: 20 }),
+      api.get<Page<{ id: number; fileNo: string; client: { name: string }; commodity: string; clearer: { id: number; fullName: string } | null }>>(
+        '/shipments',
+        { search, pageSize: 20 },
+      ),
     placeholderData: keepPreviousData,
   });
 
@@ -219,16 +222,51 @@ export const custodyApi = {
     bankAccountId?: number;
     beneficiaryId?: number;
     transferRef?: string;
+    paymentMethod?: BankPaymentMethod;
+    bankCharges?: number;
     amount: number;
     issueDate?: string;
     notes?: string;
   }) => api.post<Custody>('/finance/custodies', input),
-  updateIssue: (id: number, input: { version: number; amount?: number; purpose?: Purpose; issueDate?: string; notes?: string | null }) =>
+  updateIssue: (
+    id: number,
+    input: {
+      version: number;
+      amount?: number;
+      purpose?: Purpose;
+      issueDate?: string;
+      notes?: string | null;
+      paymentMethod?: BankPaymentMethod;
+      transferRef?: string;
+      bankCharges?: number;
+    },
+  ) =>
     api.patch<Custody>(`/finance/custodies/${id}`, input),
   settle: (id: number, input: { version: number; items: ItemInput[]; settlementDate?: string }) =>
     api.post<Custody>(`/finance/custodies/${id}/settlement`, input),
-  payFee: (input: { feeId: number; amount: number; accountId?: number; beneficiaryId?: number; transferRef?: string; paymentDate?: string; notes?: string }) => api.post<FeePayment>('/finance/clearer-fees/payments', input),
-  updateFeePayment: (id: number, input: { version: number; amount?: number; paymentDate?: string; notes?: string | null }) =>
+  payFee: (input: {
+    feeId: number;
+    amount: number;
+    accountId?: number;
+    beneficiaryId?: number;
+    transferRef?: string;
+    paymentMethod?: BankPaymentMethod;
+    bankCharges?: number;
+    paymentDate?: string;
+    notes?: string;
+  }) => api.post<FeePayment>('/finance/clearer-fees/payments', input),
+  updateFeePayment: (
+    id: number,
+    input: {
+      version: number;
+      amount?: number;
+      paymentDate?: string;
+      notes?: string | null;
+      paymentMethod?: BankPaymentMethod;
+      transferRef?: string;
+      bankCharges?: number;
+    },
+  ) =>
     api.patch<FeePayment>(`/finance/clearer-fees/payments/${id}`, input),
   adjustFee: (input: { feeId: number; amount: number; notes: string }) => api.post<Fee>('/finance/clearer-fees/adjustments', input),
 };

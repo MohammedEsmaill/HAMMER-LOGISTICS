@@ -2,7 +2,7 @@ import { AR } from '@/lib/format';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Page } from '@/lib/mutations';
-import type { Approval, ApprovalStatus } from './api';
+import type { Approval, ApprovalStatus, BankPaid, BankPaymentMethod, ExpenseCategory } from './api';
 
 export type AdjustmentKind = 'BONUS' | 'OVERTIME' | 'PENALTY' | 'ABSENCE';
 export const ADJUSTMENTS: Record<AdjustmentKind, { label: string; adds: boolean }> = {
@@ -55,15 +55,16 @@ export interface Advance extends Approval {
   notes: string | null;
 }
 
-export interface Expense extends Approval {
+export interface Expense extends Approval, BankPaid {
   id: number;
-  expenseType: { id: number; name: string };
+  expenseType: { id: number; name: string; category: ExpenseCategory | null };
+  reference?: string | null;
   payee: string;
   amount: string;
   receiptNo: string;
   expenseDate: string;
   notes: string | null;
-  account?: { id: number; name: string };
+  account?: { id: number; name: string; type?: 'CASH' | 'BANK' };
 }
 
 export interface SalaryPreview {
@@ -98,7 +99,9 @@ export interface AdvanceStatement {
 export interface ExpenseReport {
   total: string;
   count: number;
-  byType: { expenseType: { id: number; name: string }; total: string; count: number }[];
+  byType: { expenseType: { id: number; name: string; category: ExpenseCategory | null }; total: string; count: number }[];
+  byCategory: { category: ExpenseCategory; label: string; total: string; count: number }[];
+  bankCharges: string;
   byPayee: { payee: string; total: string; count: number }[];
 }
 
@@ -169,7 +172,10 @@ export const useExpenseReport = (q: Omit<ExpensesQuery, 'page'>, enabled: boolea
   });
 
 export const useExpenseTypes = () =>
-  useQuery({ queryKey: officeKeys.types, queryFn: () => api.get<{ id: number; name: string }[]>('/finance/expenses/types') });
+  useQuery({
+    queryKey: officeKeys.types,
+    queryFn: () => api.get<{ id: number; name: string; category: ExpenseCategory | null }[]>('/finance/expenses/types'),
+  });
 
 export interface SalaryInput {
   employeeId: number;
@@ -189,11 +195,35 @@ export const officeApi = {
     api.post<Advance>('/finance/advances', input),
   updateAdvance: (id: number, input: { version: number; amount?: number; accountId?: number; advanceDate?: string; notes?: string | null }) =>
     api.patch<Advance>(`/finance/advances/${id}`, input),
-  createExpense: (input: { expenseType: string; payee: string; amount: number; receiptNo: string; expenseDate?: string; notes?: string }) =>
+  createExpense: (input: {
+    expenseType: string;
+    category?: ExpenseCategory;
+    payee: string;
+    amount: number;
+    receiptNo: string;
+    expenseDate?: string;
+    notes?: string;
+    accountId?: number;
+    paymentMethod?: BankPaymentMethod;
+    reference?: string;
+    bankCharges?: number;
+  }) =>
     api.post<Expense>('/finance/expenses', input),
   updateExpense: (
     id: number,
-    input: { version: number; expenseType?: string; payee?: string; amount?: number; receiptNo?: string; expenseDate?: string; notes?: string | null },
+    input: {
+      version: number;
+      expenseType?: string;
+      category?: ExpenseCategory;
+      payee?: string;
+      amount?: number;
+      receiptNo?: string;
+      expenseDate?: string;
+      notes?: string | null;
+      paymentMethod?: BankPaymentMethod;
+      reference?: string;
+      bankCharges?: number;
+    },
   ) => api.patch<Expense>(`/finance/expenses/${id}`, input),
 };
 

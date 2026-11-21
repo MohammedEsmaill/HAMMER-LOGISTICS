@@ -28,6 +28,7 @@ import {
 import { usePrices, type SettlementItem } from './prices-api';
 import { BeneficiaryPicker } from './BeneficiaryPicker';
 import { ApprovalTrail } from './MovementDrawers';
+import { BankPaymentFields, bankPaymentBody, bankPaymentProblems, EMPTY_BANK_PAYMENT, type BankPaymentValue } from './BankPaymentFields';
 
 const cents = (v: number | string) => Math.round(Number(v || 0) * 100);
 const validAmount = (v: number | string) => v !== '' && Number(v) > 0 && Math.abs(Number(v) * 100 - Math.round(Number(v) * 100)) < 1e-6;
@@ -37,24 +38,32 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
   const [search, setSearch] = useState('');
   const { data: shipments } = useShipmentSearch(search);
   const { data: agents = [] } = useEmployeeOptions('AGENTS', open);
+  const { can } = useAuth();
   const { data: accounts = [] } = useAccounts();
   const banks = accounts.filter((a) => a.type === 'BANK' && a.isActive);
+  // cash custodies are the treasury manager's; the accountant pays by bank only
+  const cash = can('finance.custody.manage');
+  const holders = (Object.keys(HOLDERS) as HolderType[]).filter((h) => cash || h === 'BANK_TRANSFER' || h === 'CLEARER');
   const [shipmentId, setShipmentId] = useState<number | ''>('');
-  const [holderType, setHolderType] = useState<HolderType>('AGENT');
+  const [holderType, setHolderType] = useState<HolderType>(cash ? 'AGENT' : 'BANK_TRANSFER');
+  const [clearerByBank, setClearerByBank] = useState(!cash);
+  const [pay, setPay] = useState<BankPaymentValue>(EMPTY_BANK_PAYMENT);
   const [agentId, setAgentId] = useState<number | ''>('');
   const [purpose, setPurpose] = useState<Purpose | ''>('');
   const [bankId, setBankId] = useState<number | ''>('');
   const [beneficiaryId, setBeneficiaryId] = useState<number | ''>('');
-  const [transferRef, setTransferRef] = useState('');
   const [amount, setAmount] = useState('');
   const [issueDate, setIssueDate] = useState(today());
   const [notes, setNotes] = useState('');
   const [problems, setProblems] = useState<Record<string, string>>({});
   const rule = HOLDERS[holderType];
+  const shipment = shipments?.items.find((s) => s.id === shipmentId);
+  // by bank: a transfer to an external account, or a clearer custody into his own account
+  const byBank = holderType === 'BANK_TRANSFER' || (holderType === 'CLEARER' && clearerByBank);
+  const bankChoices = holderType === 'CLEARER' ? banks.filter((b) => b.currency === 'EGP') : banks;
   const bank = banks.find((b) => b.id === bankId);
   const currency = holderType === 'WAY_OUT' ? 'USD' : holderType === 'BANK_TRANSFER' ? bank?.currency : 'EGP';
-  const source =
-    holderType === 'BANK_TRANSFER' ? bank : accounts.find((a) => a.type === 'CASH' && a.currency === (holderType === 'WAY_OUT' ? 'USD' : 'EGP'));
+  const source = byBank ? bank : accounts.find((a) => a.type === 'CASH' && a.currency === (holderType === 'WAY_OUT' ? 'USD' : 'EGP'));
 
   const save = useAction(
     () =>
@@ -63,9 +72,9 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
         holderType,
         agentEmployeeId: holderType === 'AGENT' ? Number(agentId) : undefined,
         purpose: rule.purposes ? (purpose as Purpose) : undefined,
-        bankAccountId: holderType === 'BANK_TRANSFER' ? Number(bankId) : undefined,
-        beneficiaryId: holderType === 'BANK_TRANSFER' ? Number(beneficiaryId) : undefined,
-        transferRef: holderType === 'BANK_TRANSFER' ? transferRef.trim() || undefined : undefined,
+        bankAccountId: byBank ? Number(bankId) : undefined,
+        beneficiaryId: byBank ? Number(beneficiaryId) : undefined,
+        ...(byBank ? { ...bankPaymentBody(pay), transferRef: pay.reference.trim() } : {}),
         amount: Number(amount),
         issueDate,
         notes: notes.trim() || undefined,
@@ -79,12 +88,13 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
     setProblems({});
     setSearch('');
     setShipmentId('');
-    setHolderType('AGENT');
+    setHolderType(cash ? 'AGENT' : 'BANK_TRANSFER');
+    setClearerByBank(!cash);
+    setPay(EMPTY_BANK_PAYMENT);
     setAgentId('');
     setPurpose('');
     setBankId('');
     setBeneficiaryId('');
-    setTransferRef('');
     setAmount('');
     setIssueDate(today());
     setNotes('');
@@ -99,9 +109,9 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
     if (!shipmentId) p.shipment = 'اختار الشحنة';
     if (holderType === 'AGENT' && !agentId) p.agent = 'اختار المندوب';
     if (rule.purposes && !purpose) p.purpose = 'اختار الغرض';
-    if (holderType === 'BANK_TRANSFER' && !bankId) p.bank = 'اختار الحساب البنكي';
-    if (holderType === 'BANK_TRANSFER' && !beneficiaryId) p.beneficiary = 'اختار الحساب المستلم';
-    if (transferRef && !/^[A-Za-z0-9/-]{1,40}$/.test(transferRef.trim())) p.ref = 'حروف وأرقام بس';
+    if (byBank && !bankId) p.bank = 'اختار الحساب البنكي';
+    if (byBank && !beneficiaryId) p.beneficiary = holderType === 'CLEARER' ? 'اختار حساب المستخلص' : 'اختار الحساب المستلم';
+    if (byBank) Object.assign(p, bankPaymentProblems(pay));
     if (!validAmount(amount)) p.amount = 'اكتب مبلغ صحيح (رقمين عشريين بالكتير)';
     else if (source && Number(amount) > Number(source.balance)) p.amount = `رصيد ${source.name} ${money(source.balance)} بس`;
     if (!issueDate || issueDate > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
@@ -143,7 +153,7 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
         <div>
           <div className="mb-1.5 text-sm font-medium text-muted">المستلم</div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
-            {(Object.keys(HOLDERS) as HolderType[]).map((h) => (
+            {holders.map((h) => (
               <button
                 key={h}
                 type="button"
@@ -169,21 +179,50 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
             empty="مفيش موظفين في قسم مندوبين التوكيلات"
           />
         )}
-        {holderType === 'BANK_TRANSFER' && (
+        {holderType === 'CLEARER' && (
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-surface-2 p-1" role="radiogroup" aria-label="طريقة صرف عهدة المستخلص">
+            {[
+              { v: false, label: 'نقدي من الخزنة', show: cash },
+              { v: true, label: 'تحويل بنكي لحسابه', show: true },
+            ]
+              .filter((o) => o.show)
+              .map((o) => (
+                <button
+                  key={String(o.v)}
+                  type="button"
+                  role="radio"
+                  aria-checked={clearerByBank === o.v}
+                  onClick={() => {
+                    setClearerByBank(o.v);
+                    setBankId('');
+                    setBeneficiaryId('');
+                  }}
+                  className={`focus-ring rounded-lg px-3 py-2 text-sm font-semibold ${clearerByBank === o.v ? 'gold-fill' : 'text-muted'}`}
+                >
+                  {o.label}
+                </button>
+              ))}
+          </div>
+        )}
+        {byBank && (
           <SelectField
             label="الحساب البنكي"
-            options={banks.map((b) => ({ value: b.id, label: `${b.name} · ${money(b.balance, b.currency)}` }))}
+            options={bankChoices.map((b) => ({ value: b.id, label: `${b.name} · ${money(b.balance, b.currency)}` }))}
             value={bankId}
             onChange={(e) => setBankId(e.target.value ? Number(e.target.value) : '')}
             error={problems.bank}
           />
         )}
-        {holderType === 'BANK_TRANSFER' && (
-          <>
-            <BeneficiaryPicker value={beneficiaryId} onChange={setBeneficiaryId} error={problems.beneficiary} />
-            <TextField label="رقم التحويل (اختياري)" dir="ltr" value={transferRef} onChange={(e) => setTransferRef(e.target.value)} error={problems.ref} />
-          </>
+        {byBank && holderType === 'CLEARER' && !shipment?.clearer && <p className="text-sm text-muted">اختار الشحنة الأول علشان يظهر حساب مستخلصها.</p>}
+        {byBank && (holderType === 'BANK_TRANSFER' || shipment?.clearer) && (
+          <BeneficiaryPicker
+            value={beneficiaryId}
+            onChange={setBeneficiaryId}
+            error={problems.beneficiary}
+            clearer={holderType === 'CLEARER' ? (shipment?.clearer ?? undefined) : undefined}
+          />
         )}
+        {byBank && <BankPaymentFields value={pay} onChange={setPay} errors={problems} currency={currency} />}
         {rule.purposes && (
           <SelectField
             label="الغرض"
@@ -366,7 +405,9 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
             <Info
               label="حوّلنا لـ"
               value={custody.beneficiary.name}
-              hint={`من ${custody.sourceAccount.name} · ${custody.beneficiary.bankName} ${custody.beneficiary.accountNumber}${custody.transferRef ? ` · تحويل ${custody.transferRef}` : ''}`}
+              hint={`من ${custody.sourceAccount.name} · ${custody.beneficiary.bankName} ${custody.beneficiary.accountNumber}${
+                custody.transferRef ? ` · ${custody.paymentMethod === 'CHEQUE' ? 'شيك' : 'تحويل'} ${custody.transferRef}` : ''
+              }${Number(custody.bankCharges ?? 0) > 0 ? ` · مصاريف بنكية ${money(custody.bankCharges, cur)}` : ''}`}
             />
           ) : (
             <Info label="الغرض" value={custody.purpose ? PURPOSES[custody.purpose] : '—'} hint={`من ${custody.sourceAccount.name}`} />

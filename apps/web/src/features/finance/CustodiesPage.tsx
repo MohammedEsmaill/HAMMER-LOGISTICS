@@ -78,7 +78,7 @@ export default function CustodiesPage() {
       <PageHeader
         title="العهد"
         actions={
-          can('finance.custody.manage') && (
+          (can('finance.custody.manage') || can('finance.bank.record')) && (
             <Button icon={<Plus className="size-4" />} onClick={() => setIssuing(true)}>
               صرف عهدة
             </Button>

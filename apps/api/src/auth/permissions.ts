@@ -52,6 +52,7 @@ export const PERMISSIONS = {
   'finance.client-ledger.view': 'كشوف حساب العملاء',
   'finance.journal.view': 'عرض اليوميات والتقارير المالية',
   'finance.prices.manage': 'تعديل أسعار أتعاب المستخلص وبنود التصفية',
+  'finance.bank.record': 'تسجيل الصرف من الحسابات البنكية (التحويلات والشيكات)',
   'finance.parties.view': 'عرض الحسابات الداخلية (الشركات الشقيقة والملاك)',
   'finance.parties.record': 'تسجيل حركة الحسابات الداخلية',
   'finance.parties.manage': 'إضافة وتعديل جهات الحسابات الداخلية',

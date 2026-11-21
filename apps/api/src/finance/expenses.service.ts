@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ExpenseScope, Prisma } from '@prisma/client';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ExpenseCategory, ExpenseScope, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
@@ -12,13 +16,32 @@ import {
 } from './dto/expense.dto';
 import { LedgerService } from './ledger.service';
 import { decimal } from './money';
-import { egpCashBox } from './paying-account';
+import {
+  assertMayRecordOn,
+  bankPayment,
+  postBankCharges,
+} from './bank-payment';
+import { egpCashBox, egpPayingAccount } from './paying-account';
 import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
-const TYPE = { select: { id: true, name: true } } as const;
+const TYPE = { select: { id: true, name: true, category: true } } as const;
 
-/** General office expenses (petty cash included), paid from the EGP cash box. */
+/** The main items of the general expenses, in the order the office lists them. */
+export const EXPENSE_CATEGORIES: Record<ExpenseCategory, string> = {
+  GENERAL_EXPENSES: 'مصاريف عمومية',
+  TRANSPORT: 'انتقالات',
+  TIPS_DONATIONS: 'إكراميات وتبرعات',
+  PETTY: 'نثريات',
+  PURCHASES: 'مشتريات',
+  COMMISSIONS: 'عمولات',
+  BILLS_UTILITIES: 'فواتير ومرافق',
+};
+
+/**
+ * General office expenses (petty cash included), paid in EGP from the cash box (the
+ * treasury manager) or a bank account (the accountant, by transfer or cheque).
+ */
 @Injectable()
 export class ExpensesService {
   constructor(
@@ -30,14 +53,41 @@ export class ExpensesService {
   types(scope: ExpenseScope = 'GENERAL') {
     return this.prisma.expenseType.findMany({
       where: { scope },
-      select: { id: true, name: true },
+      select: { id: true, name: true, category: true },
       orderBy: { name: 'asc' },
+    });
+  }
+
+  /** Moves a general expense type under another main item. */
+  async setCategory(actor: AuthUser, id: number, category: ExpenseCategory) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.expenseType.findUnique({ where: { id } });
+      if (!before || before.scope !== 'GENERAL')
+        throw new NotFoundException('نوع المصروف غير موجود');
+      const after = await tx.expenseType.update({
+        where: { id },
+        data: { category },
+        select: TYPE.select,
+      });
+      await this.audit.log(
+        {
+          userId: actor.id,
+          action: 'UPDATE',
+          entity: 'expense_type',
+          entityId: id,
+          before,
+          after,
+        },
+        tx,
+      );
+      return after;
     });
   }
 
   private where(q: ExpensesQueryDto): Prisma.GeneralExpenseWhereInput {
     return {
       expenseTypeId: q.expenseTypeId,
+      expenseType: q.category ? { category: q.category } : undefined,
       approvalStatus: q.status,
       expenseDate: { gte: q.from, lte: q.to },
       payee: q.payee ? { contains: q.payee, mode: 'insensitive' } : undefined,
@@ -68,10 +118,10 @@ export class ExpensesService {
       }));
   }
 
-  /** The report: totals per type and per payee for the filter, and the grand total. */
+  /** The report: totals per main item, per type and per payee for the filter, and the grand total. */
   async report(q: ExpensesQueryDto) {
     const where = this.where(q);
-    const [byType, byPayee, sum, types] = await Promise.all([
+    const [byType, byPayee, sum, types, charges] = await Promise.all([
       this.prisma.generalExpense.groupBy({
         by: ['expenseTypeId'],
         where,
@@ -96,13 +146,45 @@ export class ExpensesService {
         where: { scope: 'GENERAL' },
         select: TYPE.select,
       }),
+      this.prisma.generalExpense.aggregate({
+        where,
+        _sum: { bankCharges: true },
+      }),
     ]);
-    const name = (id: number) => types.find((t) => t.id === id)?.name ?? '';
+    const type = (id: number) => types.find((t) => t.id === id);
+    const categories = new Map<
+      ExpenseCategory,
+      { total: Prisma.Decimal; count: number }
+    >();
+    for (const t of byType) {
+      const category = type(t.expenseTypeId)?.category ?? 'GENERAL_EXPENSES';
+      const c = categories.get(category) ?? {
+        total: new Prisma.Decimal(0),
+        count: 0,
+      };
+      c.total = c.total.plus(t._sum.amount ?? 0);
+      c.count += t._count;
+      categories.set(category, c);
+    }
     return {
       total: sum._sum.amount ?? new Prisma.Decimal(0),
       count: sum._count,
+      /** The bank charges paid with these expenses, apart from the items. */
+      bankCharges: charges._sum.bankCharges ?? new Prisma.Decimal(0),
+      byCategory: [...categories.entries()]
+        .map(([category, c]) => ({
+          category,
+          label: EXPENSE_CATEGORIES[category],
+          total: c.total,
+          count: c.count,
+        }))
+        .sort((a, b) => b.total.comparedTo(a.total)),
       byType: byType.map((t) => ({
-        expenseType: { id: t.expenseTypeId, name: name(t.expenseTypeId) },
+        expenseType: {
+          id: t.expenseTypeId,
+          name: type(t.expenseTypeId)?.name ?? '',
+          category: type(t.expenseTypeId)?.category ?? null,
+        },
         total: t._sum.amount,
         count: t._count,
       })),
@@ -119,7 +201,9 @@ export class ExpensesService {
       where: { id },
       include: {
         expenseType: TYPE,
-        account: { select: { id: true, name: true, currency: true } },
+        account: {
+          select: { id: true, name: true, type: true, currency: true },
+        },
         ...DOCUMENT_INCLUDE,
       },
     });
@@ -129,8 +213,12 @@ export class ExpensesService {
 
   async create(actor: AuthUser, dto: CreateExpenseDto) {
     const id = await this.prisma.$transaction(async (tx) => {
-      const box = await egpCashBox(tx);
-      const type = await this.typeFor(tx, dto.expenseType);
+      const account = dto.accountId
+        ? await egpPayingAccount(tx, dto.accountId)
+        : await egpCashBox(tx);
+      assertMayRecordOn(actor, account, 'finance.expenses.manage');
+      const bank = bankPayment(account, dto);
+      const type = await this.typeFor(tx, dto.expenseType, dto.category);
       const expense = await tx.generalExpense.create({
         data: {
           expenseTypeId: type.id,
@@ -138,19 +226,13 @@ export class ExpensesService {
           amount: decimal(dto.amount),
           receiptNo: dto.receiptNo.toUpperCase(),
           expenseDate: await openDate(tx, dto.expenseDate, 'تاريخ المصروف'),
-          accountId: box.id,
+          accountId: account.id,
           notes: dto.notes,
+          ...bank,
           createdById: actor.id,
         },
       });
-      await this.post(
-        tx,
-        expense.id,
-        box.id,
-        expense.amount,
-        expense.expenseDate,
-        actor.id,
-      );
+      await this.post(tx, expense, actor.id);
       await this.audit.log(
         {
           userId: actor.id,
@@ -174,6 +256,19 @@ export class ExpensesService {
       });
       const { resetApproval } = assertCanEdit(actor, before);
       await assertDayEditable(tx, actor, before.expenseDate);
+      const account = await tx.moneyAccount.findUniqueOrThrow({
+        where: { id: before.accountId },
+      });
+      const bank = bankPayment(account, {
+        paymentMethod:
+          dto.paymentMethod !== undefined
+            ? dto.paymentMethod
+            : before.paymentMethod,
+        reference:
+          dto.reference !== undefined ? dto.reference : before.reference,
+        bankCharges:
+          dto.bankCharges !== undefined ? dto.bankCharges : before.bankCharges,
+      });
       const amount =
         dto.amount !== undefined ? decimal(dto.amount) : before.amount;
       const expenseDate =
@@ -182,6 +277,7 @@ export class ExpensesService {
           : before.expenseDate;
       const moneyChanged =
         !amount.equals(before.amount) ||
+        !bank.bankCharges.equals(before.bankCharges) ||
         expenseDate.getTime() !== before.expenseDate.getTime();
       if (moneyChanged)
         await this.ledger.reverseDocument(tx, 'EXPENSE', id, actor.id);
@@ -189,18 +285,18 @@ export class ExpensesService {
         where: { id },
         data: {
           expenseTypeId: dto.expenseType
-            ? (await this.typeFor(tx, dto.expenseType)).id
+            ? (await this.typeFor(tx, dto.expenseType, dto.category)).id
             : undefined,
           payee: dto.payee,
           amount,
           receiptNo: dto.receiptNo?.toUpperCase(),
           expenseDate,
           notes: dto.notes === undefined ? undefined : dto.notes,
+          ...bank,
           ...(resetApproval ? APPROVAL_RESET : {}),
         },
       });
-      if (moneyChanged)
-        await this.post(tx, id, after.accountId, amount, expenseDate, actor.id);
+      if (moneyChanged) await this.post(tx, after, actor.id);
       await this.audit.log(
         {
           userId: actor.id,
@@ -216,32 +312,49 @@ export class ExpensesService {
     return this.get(id);
   }
 
-  /** The type by name, created the first time it is typed (spacing ignored). */
-  private async typeFor(tx: Tx, name: string) {
+  /**
+   * The type by name (spacing ignored). A new name joins the list under the main item
+   * given with it; an existing one keeps its own.
+   */
+  private async typeFor(tx: Tx, name: string, category?: ExpenseCategory) {
     const clean = name.replace(/\s+/g, ' ').trim();
-    return tx.expenseType.upsert({
+    const found = await tx.expenseType.findUnique({
       where: { scope_name: { scope: 'GENERAL', name: clean } },
-      update: {},
-      create: { scope: 'GENERAL', name: clean },
+    });
+    if (found) return found;
+    if (!category) {
+      throw new BadRequestException(
+        `«${clean}» نوع جديد: اختار البند الرئيسي بتاعه`,
+      );
+    }
+    return tx.expenseType.create({
+      data: { scope: 'GENERAL', name: clean, category },
     });
   }
 
-  private post(
+  /** The expense's line, and the bank's charges as a second line on the same account. */
+  private async post(
     tx: Tx,
-    id: number,
-    accountId: number,
-    amount: Prisma.Decimal,
-    date: Date,
+    e: {
+      id: number;
+      accountId: number;
+      amount: Prisma.Decimal;
+      bankCharges: Prisma.Decimal;
+      expenseDate: Date;
+    },
     actorId: number,
   ) {
-    return this.ledger.post(tx, {
-      accountId,
-      direction: 'OUT',
-      amount,
-      date,
-      source: 'EXPENSE',
-      documentId: id,
+    const line = {
+      accountId: e.accountId,
+      date: e.expenseDate,
+      source: 'EXPENSE' as const,
+      documentId: e.id,
       actorId,
+    };
+    await this.ledger.post(tx, { ...line, direction: 'OUT', amount: e.amount });
+    await postBankCharges(this.ledger, tx, {
+      ...line,
+      charges: e.bankCharges,
     });
   }
 }

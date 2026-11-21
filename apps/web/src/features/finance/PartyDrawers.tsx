@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -12,6 +13,7 @@ import { useAction } from '@/lib/mutations';
 import { accountOptions, useEditable } from './finance-helpers';
 import { financeKeys, today, useAccounts } from './api';
 import { ApprovalTrail } from './MovementDrawers';
+import { BankPaymentFields, bankPaymentBody, bankPaymentOf, bankPaymentProblems, EMPTY_BANK_PAYMENT, type BankPaymentValue } from './BankPaymentFields';
 import {
   PARTY_KINDS,
   PARTY_MOVEMENT_KINDS,
@@ -121,15 +123,22 @@ export function PartyMovementDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const { data: accounts = [] } = useAccounts();
+  const { can } = useAuth();
+  const { data: allAccounts = [] } = useAccounts();
+  // cash movements are the treasury manager's; the accountant records on banks only
+  const accounts = can('finance.movements.create') ? allAccounts : allAccounts.filter((a) => a.type === 'BANK');
   const { data: parties = [] } = usePartyOptions(open);
   const editable = useEditable(movement, 'finance.parties.record');
+  const [pay, setPay] = useState<BankPaymentValue>(EMPTY_BANK_PAYMENT);
+  const [payErrors, setPayErrors] = useState<Partial<Record<keyof BankPaymentValue, string>>>({});
   const { register, handleSubmit, reset, control, formState } = useForm<MovementIn, unknown, MovementOut>({
     resolver: zodResolver(movementSchema),
   });
   const kind = useWatch({ control, name: 'kind' });
   const accountId = useWatch({ control, name: 'accountId' });
-  const account = accounts.find((a) => a.id === Number(accountId));
+  const account = allAccounts.find((a) => a.id === Number(accountId));
+  // money out of a bank: by transfer or cheque, with the charges
+  const bankOut = account?.type === 'BANK' && kind !== 'FUNDING';
   const save = useAction(
     (f: MovementOut) =>
       movement
@@ -139,14 +148,16 @@ export function PartyMovementDrawer({
             amount: f.amount,
             movementDate: f.movementDate,
             payee: f.kind === 'SHARED_DEBT' ? f.payee : undefined,
-            reference: f.reference || null,
+            reference: (bankOut ? pay.reference.trim() : f.reference) || null,
             notes: f.notes || null,
+            ...(bankOut ? bankPaymentBody(pay) : {}),
           })
         : partiesApi.createMovement({
             ...f,
             payee: f.kind === 'SHARED_DEBT' ? f.payee : undefined,
-            reference: f.reference || undefined,
+            reference: (bankOut ? pay.reference.trim() : f.reference) || undefined,
             notes: f.notes || undefined,
+            ...(bankOut ? bankPaymentBody(pay) : {}),
           }),
     { success: movement ? 'اتحفظت الحركة' : 'اتسجلت الحركة', invalidate: [financeKeys.all] },
   );
@@ -154,6 +165,8 @@ export function PartyMovementDrawer({
   useEffect(() => {
     if (!open) return;
     save.reset();
+    setPay(bankPaymentOf(movement, movement?.reference));
+    setPayErrors({});
     reset({
       partyId: movement?.party.id ?? partyId ?? '',
       kind: movement?.kind ?? 'FUNDING',
@@ -169,6 +182,14 @@ export function PartyMovementDrawer({
 
   // an edit keeps the currency: only accounts of the same currency
   const accountChoices = movement ? accounts.filter((a) => a.currency === movement.currency) : accounts;
+  const submit = (f: MovementOut) => {
+    if (bankOut) {
+      const p = bankPaymentProblems(pay);
+      setPayErrors(p);
+      if (Object.keys(p).length) return;
+    }
+    return save.mutateAsync(f).then(onClose, () => undefined);
+  };
   const e = formState.errors;
   return (
     <Drawer
@@ -188,7 +209,7 @@ export function PartyMovementDrawer({
         )
       }
     >
-      <form id="party-movement-form" noValidate className="space-y-4" onSubmit={handleSubmit((f) => save.mutateAsync(f).then(onClose, () => undefined))}>
+      <form id="party-movement-form" noValidate className="space-y-4" onSubmit={handleSubmit(submit)}>
         <fieldset disabled={!editable} className="space-y-4">
           <SelectField
             label="الجهة"
@@ -212,7 +233,11 @@ export function PartyMovementDrawer({
           />
           <TextField label={`المبلغ${account ? ` (${account.currency})` : ''}`} type="number" step="0.01" min="0.01" dir="ltr" error={e.amount?.message} {...register('amount')} />
           {kind === 'SHARED_DEBT' && <TextField label="اتدفع لمين" error={e.payee?.message} {...register('payee')} />}
-          <TextField label="رقم مرجعي (اختياري)" dir="ltr" error={e.reference?.message} {...register('reference')} />
+          {bankOut ? (
+            <BankPaymentFields value={pay} onChange={setPay} errors={payErrors} currency={account?.currency} />
+          ) : (
+            <TextField label="رقم مرجعي (اختياري)" dir="ltr" error={e.reference?.message} {...register('reference')} />
+          )}
           <TextField label="التاريخ" type="date" max={today()} error={e.movementDate?.message} {...register('movementDate')} />
           <TextField label="ملاحظات (اختياري)" error={e.notes?.message} {...register('notes')} />
         </fieldset>

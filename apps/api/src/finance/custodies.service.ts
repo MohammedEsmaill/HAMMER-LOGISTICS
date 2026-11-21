@@ -15,6 +15,11 @@ import { AuditService } from '../audit/audit.service';
 import { AuthUser, can } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { APPROVAL_RESET, assertCanEdit } from './approvals/approval.service';
+import {
+  assertMayRecordOn,
+  bankPayment,
+  postBankCharges,
+} from './bank-payment';
 import { payableBeneficiary } from './beneficiaries.service';
 import { ClearerFeesService, feeContainers } from './clearer-fees.service';
 import { nextCustodyNo } from './custody-number';
@@ -225,16 +230,28 @@ export class CustodiesService {
       }
       const holder = await this.holderFields(tx, dto, shipment.clearerId);
       const account = await this.sourceAccount(tx, dto);
-      // a bank transfer names the external account it paid; nothing else has one
-      if (dto.holderType === 'BANK_TRANSFER') {
+      assertMayRecordOn(actor, account, 'finance.custody.manage');
+      // paid by bank: the external account it went to (a clearer's own account for his custody)
+      if (account.type === 'BANK') {
         if (!dto.beneficiaryId)
-          throw new BadRequestException('اختار الحساب المستلم (المستفيد)');
-        await payableBeneficiary(tx, dto.beneficiaryId);
-      } else if (dto.beneficiaryId || dto.transferRef) {
-        throw new BadRequestException(
-          'المستفيد ورقم التحويل للتحويل البنكي بس',
+          throw new BadRequestException(
+            dto.holderType === 'CLEARER'
+              ? 'اختار حساب المستخلص اللي هتحوّل له'
+              : 'اختار الحساب المستلم (المستفيد)',
+          );
+        await payableBeneficiary(
+          tx,
+          dto.beneficiaryId,
+          dto.holderType === 'CLEARER' ? holder.clearerId! : undefined,
         );
+      } else if (dto.beneficiaryId) {
+        throw new BadRequestException('المستفيد للصرف من البنك بس');
       }
+      const bank = bankPayment(account, {
+        paymentMethod: dto.paymentMethod,
+        bankCharges: dto.bankCharges,
+        reference: dto.transferRef,
+      });
       const custody = await tx.custody.create({
         data: {
           custodyNo: await nextCustodyNo(tx),
@@ -244,7 +261,9 @@ export class CustodiesService {
           purpose: dto.purpose ?? null,
           sourceAccountId: account.id,
           beneficiaryId: dto.beneficiaryId ?? null,
-          transferRef: dto.transferRef?.toUpperCase() ?? null,
+          transferRef: bank.reference,
+          paymentMethod: bank.paymentMethod,
+          bankCharges: bank.bankCharges,
           currency: account.currency,
           amount: decimal(dto.amount),
           issueDate: await openDate(tx, dto.issueDate, 'تاريخ الصرف'),
@@ -252,15 +271,7 @@ export class CustodiesService {
           createdById: actor.id,
         },
       });
-      await this.ledger.post(tx, {
-        accountId: account.id,
-        direction: 'OUT',
-        amount: custody.amount,
-        date: custody.issueDate,
-        source: 'CUSTODY',
-        documentId: custody.id,
-        actorId: actor.id,
-      });
+      await this.postIssue(tx, custody, actor.id);
       await this.audit.log(
         {
           userId: actor.id,
@@ -299,8 +310,22 @@ export class CustodiesService {
         dto.issueDate !== undefined
           ? await openDate(tx, dto.issueDate, 'تاريخ الصرف', actor)
           : before.issueDate;
+      const account = await tx.moneyAccount.findUniqueOrThrow({
+        where: { id: before.sourceAccountId },
+      });
+      const bank = bankPayment(account, {
+        paymentMethod:
+          dto.paymentMethod !== undefined
+            ? dto.paymentMethod
+            : before.paymentMethod,
+        bankCharges:
+          dto.bankCharges !== undefined ? dto.bankCharges : before.bankCharges,
+        reference:
+          dto.transferRef !== undefined ? dto.transferRef : before.transferRef,
+      });
       const moneyChanged =
         !amount.equals(before.amount) ||
+        !bank.bankCharges.equals(before.bankCharges) ||
         issueDate.getTime() !== before.issueDate.getTime();
       if (moneyChanged)
         await this.ledger.reverseDocument(tx, 'CUSTODY', id, actor.id);
@@ -310,6 +335,9 @@ export class CustodiesService {
           amount,
           issueDate,
           purpose: dto.purpose,
+          transferRef: bank.reference,
+          paymentMethod: bank.paymentMethod,
+          bankCharges: bank.bankCharges,
           notes: dto.notes === undefined ? undefined : dto.notes,
         },
       });
@@ -457,9 +485,16 @@ export class CustodiesService {
     return { agentEmployeeId: null, clearerId: null };
   }
 
-  /** Agent and clearer: the EGP cash box. USD deposit (WAY_OUT): the USD cash box. Bank transfer: the chosen bank. */
+  /**
+   * Agent: the EGP cash box. Clearer: the EGP cash box, or an EGP bank account by
+   * transfer into his own account. USD deposit (WAY_OUT): the USD cash box. Bank
+   * transfer: the chosen bank.
+   */
   private async sourceAccount(tx: Tx, dto: IssueCustodyDto) {
-    if (dto.holderType === 'BANK_TRANSFER') {
+    const byBank =
+      dto.holderType === 'BANK_TRANSFER' ||
+      (dto.holderType === 'CLEARER' && !!dto.bankAccountId);
+    if (byBank) {
       if (!dto.bankAccountId)
         throw new BadRequestException('اختار الحساب البنكي');
       const bank = await tx.moneyAccount.findUnique({
@@ -468,10 +503,14 @@ export class CustodiesService {
       if (!bank || bank.type !== 'BANK')
         throw new BadRequestException('التحويل البنكي من حساب بنكي بس');
       if (!bank.isActive) throw new BadRequestException(`${bank.name} موقوف`);
+      if (dto.holderType === 'CLEARER' && bank.currency !== 'EGP')
+        throw new BadRequestException('عهدة المستخلص بالجنيه بس');
       return bank;
     }
     if (dto.bankAccountId)
-      throw new BadRequestException('الحساب البنكي للتحويل البنكي بس');
+      throw new BadRequestException(
+        'الصرف من البنك للتحويل البنكي ولعهدة المستخلص بس',
+      );
     const currency = dto.holderType === 'WAY_OUT' ? 'USD' : 'EGP';
     const box = await tx.moneyAccount.findFirst({
       where: { type: 'CASH', currency },
@@ -483,16 +522,17 @@ export class CustodiesService {
     return box;
   }
 
-  private postIssue(tx: Tx, c: Custody, actorId: number) {
-    return this.ledger.post(tx, {
+  /** The issue line, and the bank's charges as a second line on the same account. */
+  private async postIssue(tx: Tx, c: Custody, actorId: number) {
+    const line = {
       accountId: c.sourceAccountId,
-      direction: 'OUT',
-      amount: c.amount,
       date: c.issueDate,
-      source: 'CUSTODY',
+      source: 'CUSTODY' as const,
       documentId: c.id,
       actorId,
-    });
+    };
+    await this.ledger.post(tx, { ...line, direction: 'OUT', amount: c.amount });
+    await postBankCharges(this.ledger, tx, { ...line, charges: c.bankCharges });
   }
 
   private async postSettlement(tx: Tx, c: Custody, actorId: number) {

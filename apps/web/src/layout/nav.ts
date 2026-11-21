@@ -108,14 +108,14 @@ export const NAV: NavItem[] = [
     label: 'المصاريف العمومية',
     icon: Receipt,
     group: 'finance',
-    any: ['finance.expenses.manage', 'finance.expenses.report'],
+    any: ['finance.expenses.manage', 'finance.expenses.report', 'finance.bank.record'],
   },
   {
     to: '/custodies',
     label: 'العهد',
     icon: Briefcase,
     group: 'finance',
-    any: ['finance.custody.manage', 'finance.custody.settle', 'finance.fees.pay', 'finance.ledgers.view', 'finance.review', 'finance.manager_approve', 'finance.approve'],
+    any: ['finance.custody.manage', 'finance.custody.settle', 'finance.bank.record', 'finance.fees.pay', 'finance.ledgers.view', 'finance.review', 'finance.manager_approve', 'finance.approve'],
   },
   {
     to: '/ledgers',

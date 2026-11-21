@@ -122,14 +122,20 @@ describe('Finance: internal accounts and personal accounts (e2e)', () => {
 
     it('a payment goes out to the party; past the funding it owes us', async () => {
       const start = await balance(cashEgp);
+      const body = {
+        partyId: transport,
+        accountId: cashEgp,
+        kind: 'PAYMENT',
+        amount: 12500,
+      };
+      // cash is the treasury manager's, not the accountant's
       await ctx
         .api(accountant)
-        .post('/api/finance/party-movements', {
-          partyId: transport,
-          accountId: cashEgp,
-          kind: 'PAYMENT',
-          amount: 12500,
-        })
+        .post('/api/finance/party-movements', body)
+        .expect(403);
+      await ctx
+        .api(treasury)
+        .post('/api/finance/party-movements', body)
         .expect(201);
       expect(await balance(cashEgp)).toBe(start - 12500);
       expect(await balancesOf(transport)).toEqual([
@@ -320,6 +326,8 @@ describe('Finance: internal accounts and personal accounts (e2e)', () => {
           kind: 'SHARED_DEBT',
           amount: 4000,
           payee: 'شركة الكهربا',
+          paymentMethod: 'TRANSFER',
+          reference: 'ib-7781',
         })
         .expect(201);
       expect(await balance(personal)).toBe(-4000);

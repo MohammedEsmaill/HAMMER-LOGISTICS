@@ -13,32 +13,45 @@ import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
 import { useAction } from '@/lib/mutations';
-import { financeKeys, money, STATUS, today, useAccounts, useDocument, type ApprovalStatus } from './api';
-import { useEditable } from './finance-helpers';
+import { EXPENSE_CATEGORIES, financeKeys, money, STATUS, today, useAccounts, useDocument, type ApprovalStatus, type ExpenseCategory } from './api';
+import { BankPaymentFields, bankPaymentBody, bankPaymentOf, bankPaymentProblems, EMPTY_BANK_PAYMENT, type BankPaymentValue } from './BankPaymentFields';
+import { accountOptions, useEditable } from './finance-helpers';
 import { ApprovalTrail } from './MovementDrawers';
 import { officeApi, useExpenseReport, useExpenses, useExpenseTypes, type Expense, type ExpensesQuery } from './office-api';
 
-/** A general expense from the EGP cash box: a new one, or an edit / view. */
+/**
+ * A general expense in EGP: from the cash box (the treasury manager) or a bank account
+ * by transfer or cheque (the accountant). A new one, or an edit / view.
+ */
 export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | null; open: boolean; onClose: () => void }) {
-  const editable = useEditable(expense, 'finance.expenses.manage');
+  const { can } = useAuth();
+  const editable = useEditable(expense, can('finance.expenses.manage') ? 'finance.expenses.manage' : 'finance.bank.record');
   const { data: types = [] } = useExpenseTypes();
   const { data: accounts = [] } = useAccounts();
+  // cash is the treasury manager's; banks the accountant's too
+  const payable = accounts.filter((a) => a.currency === 'EGP' && (a.type === 'BANK' || can('finance.expenses.manage')));
   const box = accounts.find((a) => a.type === 'CASH' && a.currency === 'EGP');
   const listId = useId();
-  const [f, setF] = useState({ expenseType: '', payee: '', amount: '', receiptNo: '', expenseDate: today(), notes: '' });
+  const [f, setF] = useState({ expenseType: '', category: '' as ExpenseCategory | '', accountId: '', payee: '', amount: '', receiptNo: '', expenseDate: today(), notes: '' });
+  const [bank, setBank] = useState<BankPaymentValue>(EMPTY_BANK_PAYMENT);
   const [problems, setProblems] = useState<Record<string, string>>({});
+  const account = expense?.account ? accounts.find((a) => a.id === expense.account!.id) : accounts.find((a) => a.id === Number(f.accountId));
+  const byBank = account?.type === 'BANK';
+  const known = types.find((t) => t.name === f.expenseType.replace(/\s+/g, ' ').trim());
   const save = useAction(
     () => {
       const body = {
         expenseType: f.expenseType.trim(),
+        category: known ? undefined : f.category || undefined,
         payee: f.payee.trim(),
         amount: Number(f.amount),
         receiptNo: f.receiptNo.trim(),
         expenseDate: f.expenseDate,
+        ...(byBank ? { ...bankPaymentBody(bank), reference: bank.reference.trim() } : {}),
       };
       return expense
         ? officeApi.updateExpense(expense.id, { ...body, notes: f.notes.trim() || null, version: expense.version })
-        : officeApi.createExpense({ ...body, notes: f.notes.trim() || undefined });
+        : officeApi.createExpense({ ...body, accountId: account?.id, notes: f.notes.trim() || undefined });
     },
     { success: expense ? 'اتحفظ المصروف' : 'اتصرف المصروف', invalidate: [financeKeys.all] },
   );
@@ -47,8 +60,11 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
     if (!open) return;
     save.reset();
     setProblems({});
+    setBank(bankPaymentOf(expense, expense?.reference));
     setF({
       expenseType: expense?.expenseType.name ?? '',
+      category: expense?.expenseType.category ?? '',
+      accountId: String(expense?.account?.id ?? (can('finance.expenses.manage') ? (box?.id ?? '') : '')),
       payee: expense?.payee ?? '',
       amount: expense?.amount ?? '',
       receiptNo: expense?.receiptNo ?? '',
@@ -68,7 +84,10 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
     if (!(n > 0) || Math.abs(n * 100 - Math.round(n * 100)) > 1e-6) p.amount = 'اكتب مبلغ صحيح (رقمين عشريين بالكتير)';
     if (!/^[A-Za-z0-9/-]{1,30}$/.test(f.receiptNo.trim())) p.receiptNo = 'رقم الإيصال إجباري (حروف وأرقام)';
     if (!f.expenseDate || f.expenseDate > today()) p.expenseDate = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
-    if (!expense && box && n > Number(box.balance)) p.amount = `رصيد خزنة الجنيه ${money(box.balance)} بس`;
+    if (!account) p.accountId = 'اختار الخزنة أو الحساب البنكي';
+    if (!known && f.expenseType.trim().length >= 2 && !f.category) p.category = 'نوع جديد: اختار البند الرئيسي بتاعه';
+    if (!expense && account?.type === 'CASH' && n > Number(account.balance)) p.amount = `رصيد ${account.name} ${money(account.balance)} بس`;
+    if (byBank) Object.assign(p, bankPaymentProblems(bank));
     setProblems(p);
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(onClose, () => undefined);
   };
@@ -78,7 +97,7 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
       open={open}
       onClose={onClose}
       title={expense ? `مصروف #${expense.id}` : 'مصروف جديد'}
-      subtitle={box ? `رصيد خزنة الجنيه: ${money(box.balance)} ج` : undefined}
+      subtitle={account?.type === 'CASH' ? `رصيد ${account.name}: ${money(account.balance)} ج` : undefined}
       footer={
         editable && (
           <div className="flex justify-end gap-2">
@@ -109,10 +128,32 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
               ))}
             </datalist>
           </div>
+          {known ? (
+            <p className="-mt-2 text-xs text-muted">البند الرئيسي: {known.category ? EXPENSE_CATEGORIES[known.category] : '—'}</p>
+          ) : (
+            f.expenseType.trim().length >= 2 && (
+              <SelectField
+                label="البند الرئيسي (نوع جديد)"
+                options={Object.entries(EXPENSE_CATEGORIES).map(([value, label]) => ({ value, label }))}
+                value={f.category}
+                onChange={set('category')}
+                error={problems.category}
+              />
+            )
+          )}
+          <SelectField
+            label="اتصرف من"
+            disabled={!!expense}
+            options={accountOptions(expense?.account && account ? [account] : payable, expense?.account?.id)}
+            value={f.accountId}
+            onChange={set('accountId')}
+            error={problems.accountId}
+          />
           <TextField label="الجهة اللي اتدفعلها" value={f.payee} maxLength={150} onChange={set('payee')} error={problems.payee} />
           <TextField label="المبلغ (جنيه)" type="number" step="0.01" min="0.01" dir="ltr" value={f.amount} onChange={set('amount')} error={problems.amount} />
           <TextField label="رقم الإيصال" dir="ltr" maxLength={30} value={f.receiptNo} onChange={set('receiptNo')} error={problems.receiptNo} />
           <TextField label="التاريخ" type="date" max={today()} value={f.expenseDate} onChange={set('expenseDate')} error={problems.expenseDate} />
+          {byBank && <BankPaymentFields value={bank} onChange={setBank} errors={problems} />}
           <TextField label="ملاحظات (اختياري)" maxLength={500} value={f.notes} onChange={set('notes')} />
         </fieldset>
         {save.error ? <ErrorBox error={save.error} /> : null}
@@ -125,7 +166,7 @@ export function ExpenseDrawer({ expense, open, onClose }: { expense: Expense | n
 function Report({ q }: { q: Omit<ExpensesQuery, 'page'> }) {
   const { data } = useExpenseReport(q, true);
   if (!data) return <div className="h-32 rounded-2xl shimmer" />;
-  const max = Math.max(...data.byType.map((t) => Number(t.total)), 1);
+  const max = Math.max(...data.byCategory.map((t) => Number(t.total)), 1);
   return (
     <section className="card space-y-4 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -139,15 +180,21 @@ function Report({ q }: { q: Omit<ExpensesQuery, 'page'> }) {
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-2">
-          <div className="text-sm text-muted">حسب النوع</div>
-          {data.byType.length === 0 && <EmptyState compact text="مفيش مصاريف" />}
-          {data.byType.map((t, i) => (
-            <div key={t.expenseType.id} className="space-y-1">
+          <div className="text-sm text-muted">حسب البند الرئيسي</div>
+          {data.byCategory.length === 0 && <EmptyState compact text="مفيش مصاريف" />}
+          {data.byCategory.map((t, i) => (
+            <div key={t.category} className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span>
-                  {t.expenseType.name} <span className="text-muted">({t.count})</span>
+                  {t.label} <span className="text-muted">({t.count})</span>
                 </span>
                 <b dir="ltr">{money(t.total)}</b>
+              </div>
+              <div className="text-xs text-muted">
+                {data.byType
+                  .filter((x) => (x.expenseType.category ?? 'GENERAL_EXPENSES') === t.category)
+                  .map((x) => `${x.expenseType.name} ${money(x.total)}`)
+                  .join(' · ')}
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-line">
                 <motion.div
@@ -161,6 +208,12 @@ function Report({ q }: { q: Omit<ExpensesQuery, 'page'> }) {
           ))}
         </div>
         <div className="space-y-2">
+          {Number(data.bankCharges) > 0 && (
+            <div className="flex justify-between rounded-lg bg-surface-2 px-3 py-2 text-sm">
+              <span>مصاريف بنكية على المصروفات</span>
+              <b dir="ltr">{money(data.bankCharges)}</b>
+            </div>
+          )}
           <div className="text-sm text-muted">أعلى الجهات</div>
           {data.byPayee.slice(0, 8).map((p) => (
             <div key={p.payee} className="flex justify-between rounded-lg border border-line px-3 py-2 text-sm">
@@ -209,7 +262,7 @@ export default function ExpensesPage() {
       <PageHeader
         title="المصاريف العمومية"
         actions={
-          can('finance.expenses.manage') && (
+          (can('finance.expenses.manage') || can('finance.bank.record')) && (
             <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
               مصروف جديد
             </Button>

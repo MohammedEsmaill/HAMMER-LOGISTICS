@@ -44,12 +44,19 @@ const READ = [
   'finance.review',
   'finance.manager_approve',
   'finance.approve',
+  'finance.bank.record',
 ] as const;
-const EDIT = ['finance.custody.manage', 'finance.approved.edit'] as const;
+/** Issuing: cash custodies the treasury manager; by bank the accountant too (the service checks). */
+const ISSUE = ['finance.custody.manage', 'finance.bank.record'] as const;
+const EDIT = [...ISSUE, 'finance.approved.edit'] as const;
 /** Settling a custody: the accountant (or the CEO after approval). */
 const SETTLE = ['finance.custody.settle', 'finance.approved.edit'] as const;
 /** Paying clearers' fees: the treasury manager and the accounts manager. */
-const PAY_FEES = ['finance.fees.pay', 'finance.approved.edit'] as const;
+const PAY_FEES = [
+  'finance.fees.pay',
+  'finance.bank.record',
+  'finance.approved.edit',
+] as const;
 
 @Controller('finance/custodies')
 export class CustodiesController {
@@ -78,7 +85,7 @@ export class CustodiesController {
   }
 
   @Post()
-  @RequirePermissions('finance.custody.manage')
+  @RequireAnyPermission(...ISSUE)
   issue(@CurrentUser() actor: AuthUser, @Body() dto: IssueCustodyDto) {
     return this.custodies.issue(actor, dto);
   }
@@ -134,7 +141,7 @@ export class ClearerFeesController {
   }
 
   @Post('payments')
-  @RequirePermissions('finance.fees.pay')
+  @RequireAnyPermission('finance.fees.pay', 'finance.bank.record')
   pay(@CurrentUser() actor: AuthUser, @Body() dto: PayFeeDto) {
     return this.fees.pay(actor, dto);
   }
@@ -207,13 +214,13 @@ export class BeneficiariesController {
   }
 
   @Post()
-  @RequirePermissions('finance.custody.manage')
+  @RequireAnyPermission('finance.custody.manage', 'finance.bank.record')
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateBeneficiaryDto) {
     return this.beneficiaries.create(actor, dto);
   }
 
   @Patch(':id')
-  @RequirePermissions('finance.custody.manage')
+  @RequireAnyPermission('finance.custody.manage', 'finance.bank.record')
   update(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,

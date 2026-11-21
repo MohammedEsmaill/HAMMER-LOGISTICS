@@ -14,6 +14,12 @@ import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { APPROVAL_RESET, assertCanEdit } from './approvals/approval.service';
+import {
+  assertMayRecordOn,
+  bankPayment,
+  BankPayment,
+  postBankCharges,
+} from './bank-payment';
 import { claimDocument } from './document-version';
 import { assertDayEditable, openDate } from './days';
 import {
@@ -210,7 +216,9 @@ export class PartiesService {
       }
       const payee = this.payeeFor(dto.kind, dto.payee);
       const account = await this.account(tx, dto.accountId);
+      assertMayRecordOn(actor, account, 'finance.movements.create');
       const direction = DIRECTION[dto.kind];
+      const bank = this.payment(direction, account, dto);
       const movement = await tx.partyMovement.create({
         data: {
           partyId: party.id,
@@ -221,20 +229,12 @@ export class PartiesService {
           amount: decimal(dto.amount),
           movementDate: await openDate(tx, dto.movementDate, 'تاريخ الحركة'),
           payee,
-          reference: dto.reference,
+          ...bank,
           notes: dto.notes,
           createdById: actor.id,
         },
       });
-      await this.ledger.post(tx, {
-        accountId: account.id,
-        direction,
-        amount: movement.amount,
-        date: movement.movementDate,
-        source: 'PARTY',
-        documentId: movement.id,
-        actorId: actor.id,
-      });
+      await this.post(tx, movement, actor.id);
       await this.audit.log(
         {
           userId: actor.id,
@@ -270,6 +270,25 @@ export class PartiesService {
         );
       }
       const accountId = account?.id ?? before.accountId;
+      const bank = this.payment(
+        before.direction,
+        account ??
+          (await tx.moneyAccount.findUniqueOrThrow({
+            where: { id: before.accountId },
+          })),
+        {
+          paymentMethod:
+            dto.paymentMethod !== undefined
+              ? dto.paymentMethod
+              : before.paymentMethod,
+          bankCharges:
+            dto.bankCharges !== undefined
+              ? dto.bankCharges
+              : before.bankCharges.toNumber(),
+          reference:
+            dto.reference !== undefined ? dto.reference : before.reference,
+        },
+      );
       const amount =
         dto.amount !== undefined ? decimal(dto.amount) : before.amount;
       const movementDate =
@@ -283,6 +302,7 @@ export class PartiesService {
       const moneyChanged =
         accountId !== before.accountId ||
         !amount.equals(before.amount) ||
+        !bank.bankCharges.equals(before.bankCharges) ||
         movementDate.getTime() !== before.movementDate.getTime();
       if (moneyChanged)
         await this.ledger.reverseDocument(tx, 'PARTY', id, actor.id);
@@ -293,22 +313,12 @@ export class PartiesService {
           amount,
           movementDate,
           payee,
-          reference: dto.reference,
+          ...bank,
           notes: dto.notes,
           ...(resetApproval ? APPROVAL_RESET : {}),
         },
       });
-      if (moneyChanged) {
-        await this.ledger.post(tx, {
-          accountId,
-          direction: after.direction,
-          amount,
-          date: movementDate,
-          source: 'PARTY',
-          documentId: id,
-          actorId: actor.id,
-        });
-      }
+      if (moneyChanged) await this.post(tx, after, actor.id);
       await this.audit.log(
         {
           userId: actor.id,
@@ -343,6 +353,60 @@ export class PartiesService {
         out: total('OUT').toFixed(2),
       };
     });
+  }
+
+  /**
+   * Money out of a bank: by transfer or cheque with its reference, and the charges.
+   * Money in (funding): its reference, if any, with no method and no charges.
+   */
+  private payment(
+    direction: MoneyDirection,
+    account: { type: 'CASH' | 'BANK' },
+    input: {
+      paymentMethod?: BankPayment['paymentMethod'];
+      bankCharges?: number;
+      reference?: string | null;
+    },
+  ): BankPayment {
+    if (direction === 'OUT') return bankPayment(account, input);
+    if (input.paymentMethod || (input.bankCharges ?? 0) > 0) {
+      throw new BadRequestException(
+        'طريقة الدفع ومصاريف البنك للفلوس الطالعة بس',
+      );
+    }
+    return {
+      paymentMethod: null,
+      bankCharges: ZERO,
+      reference: input.reference?.toUpperCase() || null,
+    };
+  }
+
+  /** The movement's line, and the bank's charges as a second line on the same account. */
+  private async post(
+    tx: Tx,
+    m: {
+      id: number;
+      accountId: number;
+      direction: MoneyDirection;
+      amount: Prisma.Decimal;
+      bankCharges: Prisma.Decimal;
+      movementDate: Date;
+    },
+    actorId: number,
+  ) {
+    const line = {
+      accountId: m.accountId,
+      date: m.movementDate,
+      source: 'PARTY' as const,
+      documentId: m.id,
+      actorId,
+    };
+    await this.ledger.post(tx, {
+      ...line,
+      direction: m.direction,
+      amount: m.amount,
+    });
+    await postBankCharges(this.ledger, tx, { ...line, charges: m.bankCharges });
   }
 
   private payeeFor(kind: PartyMovementKind, payee?: string | null) {
