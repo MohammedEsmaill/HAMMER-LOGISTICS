@@ -118,6 +118,11 @@ export function ClearerFeesPanel({ clearerId }: { clearerId: number }) {
           <div className="text-success">
             اتصرف <b dir="ltr">{money(f.paid)}</b>
           </div>
+          {Number(f.offset) > 0 && (
+            <div className="text-success" title={f.offsets.map((o) => `${o.custody.custodyNo} (ملف ${o.custody.shipment.fileNo}): ${money(o.amount)}`).join('\n')}>
+              اتخصم من باقي العهد <b dir="ltr">{money(f.offset)}</b>
+            </div>
+          )}
           <div className={Number(f.remaining) > 0 ? 'text-warning' : 'text-muted'}>
             الباقي <b dir="ltr">{money(f.remaining)}</b>
           </div>

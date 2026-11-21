@@ -169,6 +169,7 @@ export class ClearerFeesService {
         createdById: actor.id,
       },
     });
+    await this.allocateKept(tx, fee.clearerId);
     await this.audit.log(
       {
         userId: actor.id,
@@ -181,7 +182,64 @@ export class ClearerFeesService {
     );
   }
 
-  /** A fee with what was adjusted and paid, and what is left to pay. */
+  /**
+   * What the clearer kept of his custodies comes off his fees, worked out again from
+   * scratch: each kept amount, oldest first, goes to its own shipment's fee, then to
+   * his other fees in order (the next shipments), never above what is left to pay on
+   * a fee. What finds no fee yet waits on his statement for his next fee.
+   */
+  async allocateKept(tx: Tx, clearerId: number) {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(7104, ${clearerId}::int)`;
+    await tx.clearerFeeOffset.deleteMany({ where: { fee: { clearerId } } });
+    const kept = await tx.custody.findMany({
+      where: {
+        clearerId,
+        holderType: 'CLEARER',
+        status: 'SETTLED',
+        keptAmount: { gt: 0 },
+      },
+      select: { id: true, shipmentId: true, keptAmount: true },
+      orderBy: [{ settlementDate: 'asc' }, { id: 'asc' }],
+    });
+    if (!kept.length) return;
+    const fees = await tx.clearerFee.findMany({
+      where: { clearerId },
+      include: { adjustments: true, payments: true },
+      orderBy: { id: 'asc' },
+    });
+    // what is still open on each fee before any offset
+    const open = new Map(
+      fees.map((f) => {
+        const fromContainers = f.adjustments
+          .filter((a) => a.reason === 'CONTAINERS_CHANGED')
+          .reduce((s, a) => s.plus(a.amount), ZERO);
+        const total = f.amount
+          .minus(fromContainers)
+          .plus(f.adjustments.reduce((s, a) => s.plus(a.amount), ZERO));
+        const paid = f.payments.reduce((s, p) => s.plus(p.amount), ZERO);
+        const left = total.minus(paid);
+        return [f.id, left.isNegative() ? ZERO : left];
+      }),
+    );
+    for (const c of kept) {
+      let rest = c.keptAmount;
+      const own = fees.filter((f) => f.shipmentId === c.shipmentId);
+      const others = fees.filter((f) => f.shipmentId !== c.shipmentId);
+      for (const fee of [...own, ...others]) {
+        if (!rest.greaterThan(0)) break;
+        const room = open.get(fee.id)!;
+        if (!room.greaterThan(0)) continue;
+        const amount = Prisma.Decimal.min(room, rest);
+        await tx.clearerFeeOffset.create({
+          data: { feeId: fee.id, custodyId: c.id, amount },
+        });
+        open.set(fee.id, room.minus(amount));
+        rest = rest.minus(amount);
+      }
+    }
+  }
+
+  /** A fee with what was adjusted, paid and taken off it, and what is left to pay. */
   private async summary(db: Tx | PrismaService, feeId: number) {
     const fee = await db.clearerFee.findUnique({
       where: { id: feeId },
@@ -198,6 +256,18 @@ export class ClearerFeesService {
           },
         },
         custody: { select: { id: true, custodyNo: true } },
+        offsets: {
+          orderBy: { id: 'asc' },
+          include: {
+            custody: {
+              select: {
+                id: true,
+                custodyNo: true,
+                shipment: { select: { fileNo: true } },
+              },
+            },
+          },
+        },
         adjustments: {
           orderBy: { id: 'asc' },
           include: { createdBy: { select: { id: true, email: true } } },
@@ -229,7 +299,16 @@ export class ClearerFeesService {
     );
     const total = original.plus(adjusted);
     const paid = fee.payments.reduce((s, p) => s.plus(p.amount), ZERO);
-    return { ...fee, original, total, paid, remaining: total.minus(paid) };
+    // what the clearer kept of his custodies, taken off this fee
+    const offset = fee.offsets.reduce((s, o) => s.plus(o.amount), ZERO);
+    return {
+      ...fee,
+      original,
+      total,
+      paid,
+      offset,
+      remaining: total.minus(paid).minus(offset),
+    };
   }
 
   get(feeId: number) {
@@ -431,6 +510,8 @@ export class ClearerFeesService {
           createdById: actor.id,
         },
       });
+      // a smaller fee may leave less room for what the clearer kept
+      await this.allocateKept(tx, fee.clearerId);
       await this.audit.log(
         {
           userId: actor.id,

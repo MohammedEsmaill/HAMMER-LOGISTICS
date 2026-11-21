@@ -44,6 +44,11 @@ export const RECEIPT_KINDS: Record<ReceiptKind, { label: string; line: (no: stri
 
 export interface Custody extends Approval, BankPaid {
   id: number;
+  /** What a clearer kept of it: taken off his fees. */
+  keptAmount?: string;
+  extraAccountId?: number | null;
+  extraPaymentMethod?: BankPaymentMethod | null;
+  extraReference?: string | null;
   custodyNo: string;
   shipment: { id: number; fileNo: string; clearerId: number; client: { id: number; name: string } };
   holderType: HolderType;
@@ -84,6 +89,9 @@ export interface Fee {
   original: string;
   total: string;
   paid: string;
+  /** What the clearer kept of his custodies, taken off this fee. */
+  offset: string;
+  offsets: { id: number; amount: string; custody: { id: number; custodyNo: string; shipment: { fileNo: string } } }[];
   remaining: string;
   adjustments: (Approval & { id: number; amount: string; reason: 'CONTAINERS_CHANGED' | 'CEO_OVERRIDE'; containersFrom: number | null; containersTo: number | null; notes: string | null; adjustmentDate: string })[];
   payments: (Approval & { id: number; amount: string; paymentDate: string; notes: string | null })[];
@@ -242,7 +250,17 @@ export const custodyApi = {
     },
   ) =>
     api.patch<Custody>(`/finance/custodies/${id}`, input),
-  settle: (id: number, input: { version: number; items: ItemInput[]; settlementDate?: string }) =>
+  settle: (
+    id: number,
+    input: {
+      version: number;
+      items: ItemInput[];
+      settlementDate?: string;
+      extraAccountId?: number;
+      extraPaymentMethod?: BankPaymentMethod;
+      extraReference?: string;
+    },
+  ) =>
     api.post<Custody>(`/finance/custodies/${id}/settlement`, input),
   payFee: (input: {
     feeId: number;

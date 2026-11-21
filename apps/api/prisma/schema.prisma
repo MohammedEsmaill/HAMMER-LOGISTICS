@@ -804,6 +804,7 @@ model MoneyAccount {
   collections        Collection[]
   journalDayAccounts JournalDayAccount[]
   partyMovements     PartyMovement[]
+  custodyExtras      Custody[]           @relation("CustodyExtraAccount")
   ownerParty         InternalParty?      @relation(fields: [ownerPartyId], references: [id], onDelete: Restrict)
 
   @@unique([id, currency]) // target of the composite FKs that lock a document's currency
@@ -1098,30 +1099,36 @@ model GeneralExpense {
 // approved once, after settlement.
 
 model Custody {
-  id              Int                @id @default(autoincrement())
-  custodyNo       String             @unique @map("custody_no") // CU26-0001
-  shipmentId      Int                @map("shipment_id")
-  holderType      CustodyHolder      @map("holder_type")
-  agentEmployeeId Int?               @map("agent_employee_id")
-  clearerId       Int?               @map("clearer_id")
-  purpose         CustodyPurpose?
-  sourceAccountId Int                @map("source_account_id")
-  beneficiaryId   Int?               @map("beneficiary_id") // BANK_TRANSFER: the external account paid
-  transferRef     String?            @map("transfer_ref") // the bank transfer / cheque reference
+  id                 Int                @id @default(autoincrement())
+  custodyNo          String             @unique @map("custody_no") // CU26-0001
+  shipmentId         Int                @map("shipment_id")
+  holderType         CustodyHolder      @map("holder_type")
+  agentEmployeeId    Int?               @map("agent_employee_id")
+  clearerId          Int?               @map("clearer_id")
+  purpose            CustodyPurpose?
+  sourceAccountId    Int                @map("source_account_id")
+  beneficiaryId      Int?               @map("beneficiary_id") // BANK_TRANSFER: the external account paid
+  transferRef        String?            @map("transfer_ref") // the bank transfer / cheque reference
   /// Paid from a bank: by transfer or cheque (null when paid in cash).
-  paymentMethod   BankPaymentMethod? @map("payment_method")
+  paymentMethod      BankPaymentMethod? @map("payment_method")
   /// The bank's charges on this payment, taken from the same account with it.
-  bankCharges     Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
-  currency        Currency
-  amount          Decimal            @db.Decimal(14, 2)
-  extraAmount     Decimal            @default(0) @map("extra_amount") @db.Decimal(14, 2) // a clearer's overspend, paid at settlement
-  spentAmount     Decimal            @default(0) @map("spent_amount") @db.Decimal(14, 2)
-  returnedAmount  Decimal            @default(0) @map("returned_amount") @db.Decimal(14, 2)
-  status          CustodyStatus      @default(OPEN)
-  issueDate       DateTime           @map("issue_date") @db.Date
-  settlementDate  DateTime?          @map("settlement_date") @db.Date
-  settledById     Int?               @map("settled_by")
-  notes           String?
+  bankCharges        Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
+  currency           Currency
+  amount             Decimal            @db.Decimal(14, 2)
+  extraAmount        Decimal            @default(0) @map("extra_amount") @db.Decimal(14, 2) // a clearer's overspend, paid at settlement
+  /// A clearer's overspend: the account it was paid from at settlement (cash or bank), and how.
+  extraAccountId     Int?               @map("extra_account_id")
+  extraPaymentMethod BankPaymentMethod? @map("extra_payment_method")
+  extraReference     String?            @map("extra_reference")
+  /// What a clearer kept of his custody: never returned, it is taken off his fees.
+  keptAmount         Decimal            @default(0) @map("kept_amount") @db.Decimal(14, 2)
+  spentAmount        Decimal            @default(0) @map("spent_amount") @db.Decimal(14, 2)
+  returnedAmount     Decimal            @default(0) @map("returned_amount") @db.Decimal(14, 2)
+  status             CustodyStatus      @default(OPEN)
+  issueDate          DateTime           @map("issue_date") @db.Date
+  settlementDate     DateTime?          @map("settlement_date") @db.Date
+  settledById        Int?               @map("settled_by")
+  notes              String?
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1138,20 +1145,22 @@ model Custody {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  shipment      Shipment        @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
-  agent         Employee?       @relation(fields: [agentEmployeeId], references: [id], onDelete: Restrict)
-  clearer       Clearer?        @relation(fields: [clearerId], references: [id], onDelete: Restrict)
-  sourceAccount MoneyAccount    @relation(fields: [sourceAccountId, currency], references: [id, currency], onDelete: Restrict)
-  beneficiary   Beneficiary?    @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
-  settledBy     User?           @relation("CustodySettledBy", fields: [settledById], references: [id], onDelete: Restrict)
+  shipment      Shipment           @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+  agent         Employee?          @relation(fields: [agentEmployeeId], references: [id], onDelete: Restrict)
+  clearer       Clearer?           @relation(fields: [clearerId], references: [id], onDelete: Restrict)
+  sourceAccount MoneyAccount       @relation(fields: [sourceAccountId, currency], references: [id, currency], onDelete: Restrict)
+  beneficiary   Beneficiary?       @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  settledBy     User?              @relation("CustodySettledBy", fields: [settledById], references: [id], onDelete: Restrict)
   items         CustodyItem[]
   movements     MoneyMovement[]
   computedFee   ClearerFee?
-  createdBy     User            @relation("CustodyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  reviewedBy    User?           @relation("CustodyReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
-  managerBy     User?           @relation("CustodyManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
-  approvedBy    User?           @relation("CustodyApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
-  rejectedBy    User?           @relation("CustodyRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+  feeOffsets    ClearerFeeOffset[] @relation("CustodyFeeOffsets")
+  extraAccount  MoneyAccount?      @relation("CustodyExtraAccount", fields: [extraAccountId], references: [id], onDelete: Restrict)
+  createdBy     User               @relation("CustodyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy    User?              @relation("CustodyReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy     User?              @relation("CustodyManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy    User?              @relation("CustodyApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy    User?              @relation("CustodyRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
 
   @@index([shipmentId])
   @@index([clearerId])
@@ -1203,6 +1212,7 @@ model ClearerFee {
   computedBy  User                   @relation("FeeComputedBy", fields: [computedById], references: [id], onDelete: Restrict)
   adjustments ClearerFeeAdjustment[]
   payments    ClearerFeePayment[]
+  offsets     ClearerFeeOffset[]
 
   @@index([clearerId])
   @@map("clearer_fees")
@@ -1758,4 +1768,21 @@ model PartyMovement {
   @@index([partyId, movementDate])
   @@index([approvalStatus])
   @@map("party_movements")
+}
+
+/// What a clearer kept of a custody, taken off a fee: the same shipment's first, then
+/// the next ones. Worked out again from the custodies and fees whenever they change.
+model ClearerFeeOffset {
+  id        Int      @id @default(autoincrement())
+  feeId     Int      @map("fee_id")
+  custodyId Int      @map("custody_id")
+  amount    Decimal  @db.Decimal(14, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  fee     ClearerFee @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  custody Custody    @relation("CustodyFeeOffsets", fields: [custodyId], references: [id], onDelete: Cascade)
+
+  @@index([feeId])
+  @@index([custodyId])
+  @@map("clearer_fee_offsets")
 }

@@ -405,8 +405,13 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
           items: [{ expenseType: 'تخليص', amount: 3800, receiptNo: '1003' }],
         })
         .expect(201);
-      // was 500 over; now 200 back
-      expect(await balance(cashEgp)).toBe(start + 700);
+      // was 500 over, paid back to the box; the 200 left is kept by the clearer
+      expect(await balance(cashEgp)).toBe(start + 500);
+      const custody = await ctx.prisma.custody.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(Number(custody.keptAmount)).toBe(200);
+      expect(Number(custody.returnedAmount)).toBe(0);
       expect(await ctx.prisma.clearerFee.count({ where: { shipmentId } })).toBe(
         1,
       );
@@ -456,11 +461,14 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
         .api(treasury)
         .get(`/api/finance/clearer-fees/${feeId}`)
         .expect(200);
+      // what the clearer kept of his custody comes off his fee
       expect(fee.body).toMatchObject({
         total: '3700',
         paid: '0',
-        remaining: '3700',
+        offset: '200',
+        remaining: '3500',
       });
+      expect(fee.body.offsets[0]).toMatchObject({ amount: '200' });
       expect(fee.body.adjustments[0]).toMatchObject({
         reason: 'CONTAINERS_CHANGED',
         amount: '-700',
@@ -520,10 +528,10 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
         .api(treasury)
         .post('/api/finance/clearer-fees/payments', { feeId, amount: 2000 })
         .expect(400);
-      expect(res.body.message).toContain('1,700.00');
+      expect(res.body.message).toContain('1,500.00');
       await ctx
         .api(treasury)
-        .post('/api/finance/clearer-fees/payments', { feeId, amount: 1700 })
+        .post('/api/finance/clearer-fees/payments', { feeId, amount: 1500 })
         .expect(201);
     });
 
@@ -560,11 +568,11 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
         .api(treasury)
         .get(`/api/finance/ledgers/clearers/${fx.ids.clearer}`)
         .expect(200);
-      // debit: issue 4000 + payments 3700 + the −700 containers adjustment;
-      // credit: items 3800 + rest back 200 + fee 4400 + the CEO's 300
+      // debit: issue 4000 + payments 3500 + the −700 containers adjustment;
+      // credit: items 3800 + fee 4400 + the CEO's 300 (the 200 kept stays in the issue line)
       expect(res.body.totals).toEqual({
-        debit: '8400',
-        credit: '8700',
+        debit: '8200',
+        credit: '8500',
         balance: '-300',
       });
       expect(res.body.lines.at(-1).balance).toBe('-300');

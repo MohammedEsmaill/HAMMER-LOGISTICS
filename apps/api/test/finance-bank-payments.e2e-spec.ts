@@ -262,7 +262,8 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
       expect(await balance(bankEgp)).toBe(start - 4010);
     });
 
-    it('is settled like any clearer custody', async () => {
+    it('is settled like any clearer custody; the rest is kept, never returned', async () => {
+      const start = await balance(bankEgp);
       const custody = await ctx.prisma.custody.findUniqueOrThrow({
         where: { id },
       });
@@ -275,8 +276,98 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
         .expect(201);
       expect(res.body).toMatchObject({
         status: 'SETTLED',
-        returnedAmount: '500',
+        returnedAmount: '0',
+        keptAmount: '500',
       });
+      expect(await balance(bankEgp)).toBe(start);
+    });
+
+    it('takes what was kept off the clearer’s fee', async () => {
+      const fee = await ctx.prisma.clearerFee.findUniqueOrThrow({
+        where: { shipmentId },
+      });
+      const res = await ctx
+        .api(treasury)
+        .get(`/api/finance/clearer-fees/${fee.id}`)
+        .expect(200);
+      expect(res.body.offset).toBe('500');
+      expect(Number(res.body.remaining)).toBe(Number(res.body.total) - 500);
+    });
+
+    it('pays an overspend from any account chosen at settlement', async () => {
+      const custody = await ctx
+        .api(accountant)
+        .post('/api/finance/custodies', {
+          shipmentId,
+          holderType: 'CLEARER',
+          purpose: 'RELEASE',
+          amount: 1000,
+          bankAccountId: bankEgp,
+          beneficiaryId: clearerAccount,
+          paymentMethod: 'TRANSFER',
+          transferRef: 'tr-5050',
+        })
+        .expect(201);
+      const cashStart = await balance(cashEgp);
+      const res = await ctx
+        .api(accountant)
+        .post(`/api/finance/custodies/${custody.body.id}/settlement`, {
+          version: custody.body.version,
+          items: [{ expenseType: 'رسوم صرف', amount: 1300, receiptNo: '9101' }],
+          extraAccountId: cashEgp,
+        })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        extraAmount: '300',
+        extraAccountId: cashEgp,
+      });
+      expect(await balance(cashEgp)).toBe(cashStart - 300);
+    });
+
+    it('a kept rest with no fee left waits for the next fee', async () => {
+      // pay what is left of the fee, then keep more than any fee can take
+      const fee = await ctx.prisma.clearerFee.findUniqueOrThrow({
+        where: { shipmentId },
+      });
+      const now = await ctx
+        .api(treasury)
+        .get(`/api/finance/clearer-fees/${fee.id}`)
+        .expect(200);
+      if (Number(now.body.remaining) > 0) {
+        await ctx
+          .api(treasury)
+          .post('/api/finance/clearer-fees/payments', {
+            feeId: fee.id,
+            amount: Number(now.body.remaining),
+          })
+          .expect(201);
+      }
+      const custody = await ctx
+        .api(treasury)
+        .post('/api/finance/custodies', {
+          shipmentId,
+          holderType: 'CLEARER',
+          purpose: 'RELEASE',
+          amount: 800,
+        })
+        .expect(201);
+      await ctx
+        .api(accountant)
+        .post(`/api/finance/custodies/${custody.body.id}/settlement`, {
+          version: custody.body.version,
+          items: [{ expenseType: 'رسوم صرف', amount: 500, receiptNo: '9201' }],
+        })
+        .expect(201);
+      const offsets = await ctx.prisma.clearerFeeOffset.findMany({
+        where: { custodyId: custody.body.id },
+      });
+      expect(offsets).toEqual([]);
+      // the clearer's statement shows the 300 on him
+      const ledger = await ctx
+        .api(treasury)
+        .get(`/api/finance/ledgers/clearers/${fx.ids.clearer}`)
+        .expect(200);
+      expect(Number(ledger.body.totals.balance)).toBeGreaterThan(0);
     });
   });
 });

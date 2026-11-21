@@ -398,6 +398,19 @@ export class CustodiesService {
       } else {
         returned = before.amount.minus(spent);
       }
+      // a clearer never returns the rest: he keeps it, and it comes off his fees
+      let kept = ZERO;
+      if (before.holderType === 'CLEARER') {
+        kept = returned;
+        returned = ZERO;
+      }
+      const overspend = extra.greaterThan(0)
+        ? await this.overspendAccount(tx, before, dto)
+        : {
+            extraAccountId: null,
+            extraPaymentMethod: null,
+            extraReference: null,
+          };
       // a re-settlement edits the day it was settled on
       if (resettle) await assertDayEditable(tx, actor, before.settlementDate);
       const settlementDate = await openDate(
@@ -424,6 +437,8 @@ export class CustodiesService {
           spentAmount: spent,
           extraAmount: extra,
           returnedAmount: returned,
+          keptAmount: kept,
+          ...overspend,
           settlementDate,
           settledById: resettle ? before.settledById : actor.id,
           ...(resetApproval ? APPROVAL_RESET : {}),
@@ -433,6 +448,7 @@ export class CustodiesService {
       await this.postSettlement(tx, after, actor.id);
       if (after.holderType === 'CLEARER') {
         await this.fees.computeOnce(tx, after.shipmentId, after.id, actor.id);
+        await this.fees.allocateKept(tx, after.clearerId!);
       }
       await this.audit.log(
         {
@@ -553,10 +569,40 @@ export class CustodiesService {
     if (c.extraAmount.greaterThan(0)) {
       await this.ledger.post(tx, {
         ...line,
+        accountId: c.extraAccountId ?? c.sourceAccountId,
         direction: 'OUT',
         amount: c.extraAmount,
       });
     }
+  }
+
+  /**
+   * Where a clearer's overspend is paid from at settlement: any active EGP account,
+   * the custody's own when none is chosen; from a bank by transfer or cheque.
+   */
+  private async overspendAccount(tx: Tx, c: Custody, dto: SettleCustodyDto) {
+    const account = await tx.moneyAccount.findUnique({
+      where: { id: dto.extraAccountId ?? c.sourceAccountId },
+    });
+    if (!account) throw new BadRequestException('الخزنة أو الحساب غير موجود');
+    if (!account.isActive)
+      throw new BadRequestException(`${account.name} موقوف`);
+    if (account.currency !== c.currency) {
+      throw new BadRequestException('الزيادة بتتصرف بعملة العهدة');
+    }
+    // the custody's own bank keeps its method and reference unless new ones are given
+    const sameBank =
+      account.id === c.sourceAccountId && account.type === 'BANK';
+    const pay = bankPayment(account, {
+      paymentMethod:
+        dto.extraPaymentMethod ?? (sameBank ? c.paymentMethod : undefined),
+      reference: dto.extraReference ?? (sameBank ? c.transferRef : undefined),
+    });
+    return {
+      extraAccountId: account.id,
+      extraPaymentMethod: pay.paymentMethod,
+      extraReference: pay.reference,
+    };
   }
 
   /**

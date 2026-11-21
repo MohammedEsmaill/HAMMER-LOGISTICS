@@ -1,5 +1,6 @@
 import {
   ApprovalStatus,
+  BankPaymentMethod,
   CustodyHolder,
   CustodyPurpose,
   CustodyStatus,
@@ -170,6 +171,22 @@ export class SettleCustodyDto {
   @Type(() => Date)
   @IsDate()
   settlementDate?: Date;
+
+  /** A clearer's overspend: the account it is paid from (the custody's own when left out). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  extraAccountId?: number;
+
+  /** From a bank: by transfer or cheque, with its reference. */
+  @IsOptional()
+  @IsEnum(BankPaymentMethod)
+  extraPaymentMethod?: BankPaymentMethod;
+
+  @IsOptional()
+  @Trim()
+  @Matches(/^[A-Za-z0-9/-]{1,40}$/, { message: 'رقم التحويل حروف وأرقام بس' })
+  extraReference?: string;
 }
 
 export class CustodiesQueryDto extends ListQueryDto {

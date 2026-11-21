@@ -11,7 +11,7 @@ import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
 import { useAction } from '@/lib/mutations';
 import { useEmployeeOptions } from '../employees/api';
-import { CURRENCIES, financeKeys, money, today, useAccounts } from './api';
+import { BANK_METHODS, CURRENCIES, financeKeys, money, today, useAccounts } from './api';
 import {
   custodyApi,
   HOLDERS,
@@ -29,6 +29,7 @@ import { usePrices, type SettlementItem } from './prices-api';
 import { BeneficiaryPicker } from './BeneficiaryPicker';
 import { ApprovalTrail } from './MovementDrawers';
 import { BankPaymentFields, bankPaymentBody, bankPaymentProblems, EMPTY_BANK_PAYMENT, type BankPaymentValue } from './BankPaymentFields';
+import { accountOptions } from './finance-helpers';
 
 const cents = (v: number | string) => Math.round(Number(v || 0) * 100);
 const validAmount = (v: number | string) => v !== '' && Number(v) > 0 && Math.abs(Number(v) * 100 - Math.round(Number(v) * 100)) < 1e-6;
@@ -274,6 +275,10 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
   const [settlementDate, setSettlementDate] = useState(today());
   const [problems, setProblems] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState(false);
+  // a clearer's overspend: the account it is paid from (cash or bank) and how
+  const { data: allAccounts = [] } = useAccounts();
+  const [extraAccountId, setExtraAccountId] = useState<number | ''>('');
+  const [extraPay, setExtraPay] = useState<BankPaymentValue>(EMPTY_BANK_PAYMENT);
 
   const settled = custody?.status === 'SETTLED';
   // the first settlement: any accountant; after that, whoever settled it until approval
@@ -296,6 +301,12 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
           receiptKind: i.receiptNo.trim() ? i.receiptKind : undefined,
           description: i.description.trim() || undefined,
         })),
+        ...(totals.diff < 0 && extraAccount
+          ? {
+              extraAccountId: extraAccount.id,
+              ...(extraAccount.type === 'BANK' ? { extraPaymentMethod: extraPay.paymentMethod || undefined, extraReference: extraPay.reference.trim() } : {}),
+            }
+          : {}),
       }),
     { success: settled ? 'اتحفظت التصفية' : 'اتصفت العهدة', invalidate: [financeKeys.all] },
   );
@@ -306,6 +317,8 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     setProblems({});
     setEditing(!settled && canSettle);
     setSettlementDate(custody.settlementDate?.slice(0, 10) ?? today());
+    setExtraAccountId(custody.extraAccountId ?? custody.sourceAccount.id);
+    setExtraPay({ paymentMethod: custody.extraPaymentMethod ?? custody.paymentMethod ?? '', reference: custody.extraReference ?? custody.transferRef ?? '', bankCharges: '' });
     setItems(
       custody.items?.length
         ? custody.items.map((i) => ({
@@ -338,6 +351,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
   }
   const rule = HOLDERS[custody.holderType];
   const cur = custody.currency;
+  const extraAccount = allAccounts.find((a) => a.id === extraAccountId);
   const holderName = custody.agent?.fullName ?? custody.clearer?.fullName ?? rule.label;
 
   const submit = (e: React.FormEvent) => {
@@ -354,6 +368,14 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     if (!rule.overspend && totals.diff < 0) p.items = 'المصروف أكبر من العهدة، والصرف أكتر من العهدة للمستخلص بس';
     if (!settlementDate || settlementDate > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
     if (settlementDate < custody.issueDate.slice(0, 10)) p.date = 'قبل تاريخ صرف العهدة';
+    if (totals.diff < 0 && rule.overspend) {
+      if (!extraAccount) p.extraAccount = 'اختار هتصرف الزيادة منين';
+      else if (extraAccount.type === 'BANK') {
+        const b = bankPaymentProblems({ ...extraPay, bankCharges: '' });
+        if (b.paymentMethod) p.paymentMethod = b.paymentMethod;
+        if (b.reference) p.reference = b.reference;
+      }
+    }
     setProblems(p);
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(() => setEditing(false), () => undefined);
   };
@@ -418,6 +440,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
           <div className="grid gap-3 sm:grid-cols-3">
             <Info label="المصروف" value={money(custody.spentAmount, cur)} ltr />
             {Number(custody.returnedAmount) > 0 && <Info label="رجع للخزنة" value={money(custody.returnedAmount, cur)} ltr tone="text-success" />}
+            {Number(custody.keptAmount ?? 0) > 0 && <Info label="باقي مع المستخلص (يتخصم من أتعابه)" value={money(custody.keptAmount, cur)} ltr tone="text-success" />}
             {Number(custody.extraAmount) > 0 && <Info label="اتصرف زيادة" value={money(custody.extraAmount, cur)} ltr tone="text-warning" />}
             {custody.computedFee && <Info label="أتعاب المستخلص" value={money(custody.computedFee.amount, 'EGP')} ltr />}
           </div>
@@ -515,7 +538,9 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                   {custody.holderType === 'BANK_TRANSFER'
                     ? 'الفرق (لازم يبقى صفر)'
                     : totals.diff >= 0
-                      ? `يرجع لـ ${custody.sourceAccount.name}`
+                      ? custody.holderType === 'CLEARER'
+                        ? 'الباقي مع المستخلص: يتخصم من أتعابه'
+                        : `يرجع لـ ${custody.sourceAccount.name}`
                       : 'يتصرف زيادة'}
                 </span>
                 <span dir="ltr" className={totals.diff >= 0 ? 'text-success' : rule.overspend ? 'text-warning' : 'text-danger'}>
@@ -524,6 +549,38 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
               </div>
               {problems.items && <p className="text-danger">{problems.items}</p>}
             </div>
+            {rule.overspend && totals.diff < 0 && (
+              <div className="space-y-3">
+                <SelectField
+                  label="الزيادة تتصرف من"
+                  options={accountOptions(
+                    allAccounts.filter((a) => a.currency === cur),
+                    custody.extraAccountId ?? undefined,
+                  )}
+                  value={extraAccountId}
+                  onChange={(e) => setExtraAccountId(e.target.value ? Number(e.target.value) : '')}
+                  error={problems.extraAccount}
+                />
+                {extraAccount?.type === 'BANK' && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <SelectField
+                      label="طريقة الدفع"
+                      options={Object.entries(BANK_METHODS).map(([v, l]) => ({ value: v, label: l }))}
+                      value={extraPay.paymentMethod}
+                      onChange={(e) => setExtraPay((v) => ({ ...v, paymentMethod: e.target.value as BankPaymentValue['paymentMethod'] }))}
+                      error={problems.paymentMethod}
+                    />
+                    <TextField
+                      label={extraPay.paymentMethod === 'CHEQUE' ? 'رقم الشيك' : 'الرقم المرجعي للتحويل'}
+                      dir="ltr"
+                      value={extraPay.reference}
+                      onChange={(e) => setExtraPay((v) => ({ ...v, reference: e.target.value }))}
+                      error={problems.reference}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             {save.error ? <ErrorBox error={save.error} /> : null}
           </form>
         ) : (
