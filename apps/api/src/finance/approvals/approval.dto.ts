@@ -63,6 +63,14 @@ export class ApprovalQueryDto extends ListQueryDto {
   )
   @IsBoolean()
   mine?: boolean;
+
+  /** Only the documents waiting for this user's own step (not the ones they recorded). */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  waiting?: boolean;
 }
 
 export class ApprovalActionDto {

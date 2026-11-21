@@ -157,7 +157,7 @@ export interface Operation {
   createdAt: string;
   version: number;
   rejectionReason: string | null;
-  /** TWO_LEVELS: reviewed by the accounts manager, then approved by the general auditor. */
+  /** TWO_LEVELS: reviewed by the general auditor, then approved by the accounts manager. */
   flow: 'TWO_LEVELS' | 'THREE_LEVELS' | 'FINAL_ONLY';
   canAct: boolean;
 }
@@ -212,13 +212,15 @@ export interface ApprovalsQuery extends DateRange {
   status?: ApprovalStatus | '';
   type?: DocType | '';
   mine?: boolean;
+  /** Only what waits for this user's own step. */
+  waiting?: boolean;
   page: number;
 }
 
 export const useApprovals = (q: ApprovalsQuery) =>
   useQuery({
     queryKey: financeKeys.approvals(q),
-    queryFn: () => api.get<Page<Operation>>('/finance/approvals', { ...q, mine: q.mine || undefined, pageSize: 25 }),
+    queryFn: () => api.get<Page<Operation>>('/finance/approvals', { ...q, mine: q.mine || undefined, waiting: q.waiting || undefined, pageSize: 25 }),
     placeholderData: keepPreviousData,
   });
 

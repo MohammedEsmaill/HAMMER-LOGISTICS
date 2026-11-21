@@ -274,6 +274,14 @@ export class ApprovalService {
     if (q.maxAmount !== undefined)
       where.push(Prisma.sql`"amount" <= ${q.maxAmount}`);
     if (q.mine) where.push(Prisma.sql`"created_by" = ${actor.id}`);
+    if (q.waiting) {
+      const turns = this.turnsOf(actor);
+      if (!turns.length)
+        return { items: [], total: 0, page: q.page, pageSize: q.pageSize };
+      where.push(
+        Prisma.sql`"created_by" <> ${actor.id} AND (${Prisma.join(turns, ' OR ')})`,
+      );
+    }
     if (!canSeeRestricted(actor)) {
       where.push(Prisma.sql`"type" NOT IN (${Prisma.join(RESTRICTED_TYPES)})`);
     }
@@ -294,7 +302,7 @@ export class ApprovalService {
         SELECT v.*, u."email" AS "created_by_email"
           FROM "financial_operations_v" v JOIN "users" u ON u."id" = v."created_by"
           ${filter}
-         ORDER BY v."created_at" DESC
+         ORDER BY v."created_at" ${Prisma.raw(q.waiting ? 'ASC' : 'DESC')}
          LIMIT ${q.pageSize} OFFSET ${(q.page - 1) * q.pageSize}`,
       this.prisma.$queryRaw<{ total: bigint }[]>`
         SELECT count(*) AS "total" FROM "financial_operations_v" ${filter}`,
@@ -439,19 +447,7 @@ export class ApprovalService {
 
   /** What waits for this user's step, per document type (not their own documents). */
   async waiting(actor: AuthUser) {
-    const turns: Prisma.Sql[] = [];
-    for (const type of Object.keys(APPROVABLE) as ApprovableType[]) {
-      if (RESTRICTED_TYPES.includes(type) && !canSeeRestricted(actor)) continue;
-      for (const [status, permission] of Object.entries(
-        TURNS[APPROVABLE[type].flow],
-      )) {
-        if (can(actor, permission)) {
-          turns.push(
-            Prisma.sql`("type" = ${type} AND "approval_status" = ${status})`,
-          );
-        }
-      }
-    }
+    const turns = this.turnsOf(actor);
     if (!turns.length) return [];
     const rows = await this.prisma.$queryRaw<
       { type: ApprovableType; status: ApprovalStatus; n: bigint }[]

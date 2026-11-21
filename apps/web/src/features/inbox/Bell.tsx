@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlarmClock, Bell as BellIcon, CheckCheck, ClipboardCheck, Package, Ship } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
@@ -7,15 +7,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import { AR } from '@/lib/format';
 
-type Kind = 'SHIPMENT_NEW' | 'SHIPMENT_ETA' | 'SHIPMENT_STUCK';
-
-interface Inbox {
-  unread: number;
-  items: { id: number; kind: Kind; title: string; body: string; link: string; readAt: string | null; createdAt: string }[];
-  waiting: { type: string; label: string; status: string; count: number }[];
-}
-
-const KEY = ['inbox'] as const;
+import { INBOX_KEY as KEY, useInbox, type InboxKind as Kind } from './use-inbox';
 
 const ICONS: Record<Kind, typeof Package> = { SHIPMENT_NEW: Package, SHIPMENT_ETA: Ship, SHIPMENT_STUCK: AlarmClock };
 
@@ -69,7 +61,7 @@ export function Bell() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const { data } = useQuery({ queryKey: KEY, queryFn: () => api.get<Inbox>('/inbox'), refetchInterval: 30_000 });
+  const { data } = useInbox();
   const seen = useRef<{ id: number; waiting: number } | null>(null);
 
   const waiting = data?.waiting.reduce((n, w) => n + w.count, 0) ?? 0;
@@ -170,7 +162,7 @@ export function Bell() {
                   {groups.map((g) => (
                     <button
                       key={g.type}
-                      onClick={() => go(`/approvals?type=${g.type}&status=${g.statuses.length === 1 ? g.statuses[0] : ''}`)}
+                      onClick={() => go(`/approvals?waiting=1&type=${g.type}`)}
                       className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-start hover:bg-surface-2"
                     >
                       <ClipboardCheck className="size-5 shrink-0 text-gold" />

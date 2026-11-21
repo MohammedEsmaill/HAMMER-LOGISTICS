@@ -36,33 +36,50 @@ const who = (u?: { email: string } | null) => u?.email.split('@')[0] ?? '';
  * or (salaries and advances) a single approval.
  */
 export function ApprovalTrail({ doc }: { doc: Approval }) {
+  const { can, user } = useAuth();
   const singleStep = !!doc.approvedAt && !doc.reviewedAt;
   const steps = [
-    { label: 'التسجيل', by: doc.createdBy, at: doc.createdAt, done: true },
-    ...(singleStep ? [] : [{ label: 'المراجعة', by: doc.reviewedBy, at: doc.reviewedAt, done: !!doc.reviewedAt }]),
-    ...(doc.managerAt ? [{ label: 'موافقة مدير الحسابات', by: doc.managerBy, at: doc.managerAt, done: true }] : []),
-    { label: 'الاعتماد النهائي', by: doc.approvedBy, at: doc.approvedAt, done: !!doc.approvedAt },
+    { label: 'التسجيل', by: doc.createdBy, at: doc.createdAt, done: true, role: '', permission: null },
+    ...(singleStep
+      ? []
+      : [{ label: 'المراجعة', by: doc.reviewedBy, at: doc.reviewedAt, done: !!doc.reviewedAt, role: 'المراجع العام', permission: 'finance.review' as const }]),
+    ...(doc.managerAt ? [{ label: 'موافقة مدير الحسابات', by: doc.managerBy, at: doc.managerAt, done: true, role: '', permission: null }] : []),
+    { label: 'الاعتماد النهائي', by: doc.approvedBy, at: doc.approvedAt, done: !!doc.approvedAt, role: 'مدير الحسابات', permission: 'finance.approve' as const },
   ];
+  // the step it waits at now (none once approved or rejected)
+  const open = doc.approvalStatus === 'APPROVED' || doc.approvalStatus === 'REJECTED' ? -1 : steps.findIndex((s) => !s.done);
+  const mine = (s: (typeof steps)[number]) => !!s.permission && can(s.permission) && doc.createdBy.id !== user?.id;
   return (
     <div className="space-y-3 rounded-xl border border-line p-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">الاعتماد</h3>
+        <h3 className="font-semibold">مسار الاعتماد</h3>
         <Badge tone={STATUS[doc.approvalStatus].tone}>{STATUS[doc.approvalStatus].label}</Badge>
       </div>
-      <ol className="space-y-2">
-        {steps.map((s) => (
-          <li key={s.label} className="flex items-center gap-3 text-sm">
-            <span className={`grid size-6 place-items-center rounded-full ${s.done ? 'gold-fill' : 'bg-surface-2 text-muted'}`}>
-              {s.done ? <Check className="size-3.5" /> : <Circle className="size-2.5" />}
-            </span>
-            <span className={`flex-1 ${s.done ? '' : 'text-muted'}`}>{s.label}</span>
-            {s.done && (
-              <span className="text-xs text-muted">
-                {who(s.by)} · {dateTime(s.at)}
+      <ol className="relative space-y-3">
+        {steps.map((s, i) => {
+          const current = i === open;
+          return (
+            <li key={s.label} className="relative flex items-center gap-3 text-sm">
+              {i < steps.length - 1 && (
+                <span aria-hidden className={`absolute start-3 top-6 h-3 w-px -translate-x-1/2 ${s.done ? 'bg-gold' : 'bg-line'}`} />
+              )}
+              <span
+                className={`grid size-6 shrink-0 place-items-center rounded-full ${
+                  s.done ? 'gold-fill' : current ? 'border-2 border-gold text-gold' : 'bg-surface-2 text-muted'
+                }`}
+              >
+                {s.done ? <Check className="size-3.5" /> : <Circle className={`size-2.5 ${current ? 'fill-current' : ''}`} />}
               </span>
-            )}
-          </li>
-        ))}
+              <span className={`flex-1 ${s.done ? '' : current ? 'font-semibold' : 'text-muted'}`}>{s.label}</span>
+              {s.done && (
+                <span className="text-xs text-muted">
+                  {who(s.by)} · {dateTime(s.at)}
+                </span>
+              )}
+              {current && <Badge tone="gold">{mine(s) ? 'مستنياك' : `مستنية ${s.role}`}</Badge>}
+            </li>
+          );
+        })}
       </ol>
       {doc.approvalStatus === 'REJECTED' && (
         <div className="flex gap-2 rounded-lg bg-danger/10 p-3 text-sm text-danger">

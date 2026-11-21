@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { NavLink, useLocation, useOutlet } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import { Bell } from '@/features/inbox/Bell';
+import { useWaitingCount } from '@/features/inbox/use-inbox';
 import { QuickSearch } from '@/features/search/QuickSearch';
 import { Spinner } from '@/components/ui/Spinner';
 import { useTheme } from '@/lib/use-theme';
@@ -17,6 +18,20 @@ function readCollapsed(): NavGroup[] {
   } catch {
     return [];
   }
+}
+
+/** The number on the approvals link: what waits for this user's step. */
+function WaitingBadge() {
+  const waiting = useWaitingCount();
+  if (!waiting) return null;
+  return (
+    <span
+      className="gold-fill relative ms-auto grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold"
+      aria-label={`${waiting} معاملة مستنية دورك`}
+    >
+      {waiting > 99 ? '99+' : waiting}
+    </span>
+  );
 }
 
 function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
@@ -39,6 +54,7 @@ function SidebarLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => v
           )}
           <Icon className={`relative size-[18px] shrink-0 ${isActive ? 'text-gold' : ''}`} />
           <span className={`relative truncate text-[15px] ${isActive ? 'font-semibold text-ink' : ''}`}>{label}</span>
+          {to === '/approvals' && <WaitingBadge />}
         </>
       )}
     </NavLink>

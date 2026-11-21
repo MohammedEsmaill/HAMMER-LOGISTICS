@@ -534,9 +534,15 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
               بند
             </Button>
             <TextField label="تاريخ التصفية" type="date" className="max-w-56" max={today()} value={settlementDate} onChange={(e) => setSettlementDate(e.target.value)} error={problems.date} />
-            <div className="space-y-1 rounded-xl border border-gold/30 bg-gold/5 p-4 text-sm">
+            <div className="sticky bottom-0 z-10 space-y-1 rounded-xl border border-gold/30 bg-surface p-4 text-sm shadow-lg">
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+                <div
+                  className={`h-full rounded-full transition-all ${totals.diff < 0 ? 'bg-warning' : 'bg-gold'}`}
+                  style={{ width: `${Math.min(100, Number(custody.amount) > 0 ? (totals.spent / Number(custody.amount)) * 100 : 0)}%` }}
+                />
+              </div>
               <Row label="العهدة" value={money(custody.amount, cur)} />
-              <Row label="المصروف" value={money(totals.spent, cur)} />
+              <Row label={`المصروف (${items.length} بند)`} value={money(totals.spent, cur)} />
               <div className="flex justify-between border-t border-gold/20 pt-2 font-bold">
                 <span>
                   {custody.holderType === 'BANK_TRANSFER'
@@ -551,6 +557,10 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
                   {money(Math.abs(totals.diff), cur)}
                 </span>
               </div>
+              {custody.holderType === 'CLEARER' && totals.diff > 0 && (
+                <p className="text-xs text-muted">بيتخصم من أتعاب الشحنة دي الأول، واللي يفضل من أتعاب الشحنات الجاية</p>
+              )}
+              {rule.overspend && totals.diff < 0 && <p className="text-xs text-muted">الزيادة بتتصرف دلوقتي وتتضاف لعهد الشحنة: اختار هتتصرف منين تحت</p>}
               {problems.items && <p className="text-danger">{problems.items}</p>}
             </div>
             {rule.overspend && totals.diff < 0 && (
