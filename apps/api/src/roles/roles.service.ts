@@ -10,6 +10,8 @@ import { AuthUser } from '../auth/auth-user';
 import {
   CEO_ONLY_PERMISSIONS,
   isPermission,
+  MODERATOR_PERMISSIONS,
+  MODERATOR_ROLE,
   Permission,
   PERMISSIONS,
 } from '../auth/permissions';
@@ -28,6 +30,8 @@ export class RolesService {
       key,
       label,
       ceoOnly: CEO_ONLY_PERMISSIONS.has(key as Permission),
+      /** only the CEO and the moderator role hold it */
+      moderatorOnly: MODERATOR_PERMISSIONS.has(key as Permission),
     }));
   }
 
@@ -48,7 +52,7 @@ export class RolesService {
   }
 
   async create(actor: AuthUser, dto: CreateRoleDto) {
-    const permissions = this.validatePermissions(dto.permissions);
+    const permissions = this.validatePermissions(dto.permissions, dto.name);
     return this.prisma.$transaction(async (tx) => {
       const role = await tx.role.create({
         data: { name: dto.name, description: dto.description, permissions },
@@ -69,10 +73,18 @@ export class RolesService {
 
   async update(actor: AuthUser, id: number, dto: UpdateRoleDto) {
     const before = await this.findEditable(id);
+    // the moderator's own permissions hang on its name
+    if (
+      before.name === MODERATOR_ROLE &&
+      dto.name !== undefined &&
+      dto.name !== MODERATOR_ROLE
+    ) {
+      throw new BadRequestException('اسم دور الموديريتور مبيتغيرش');
+    }
     const permissions =
       dto.permissions === undefined
         ? undefined
-        : this.validatePermissions(dto.permissions);
+        : this.validatePermissions(dto.permissions, dto.name ?? before.name);
     return this.prisma.$transaction(async (tx) => {
       const role = await tx.role.update({
         where: { id },
@@ -130,7 +142,7 @@ export class RolesService {
     return role;
   }
 
-  private validatePermissions(input: string[]): Permission[] {
+  private validatePermissions(input: string[], roleName: string): Permission[] {
     const unknown = input.filter((p) => !isPermission(p));
     if (unknown.length) {
       throw new BadRequestException(
@@ -142,6 +154,14 @@ export class RolesService {
     if (reserved.length) {
       throw new BadRequestException(
         `الصلاحيات دي للـ CEO بس: ${reserved.map((p) => PERMISSIONS[p]).join('، ')}`,
+      );
+    }
+    const moderatorOnly = permissions.filter(
+      (p) => MODERATOR_PERMISSIONS.has(p) && roleName !== MODERATOR_ROLE,
+    );
+    if (moderatorOnly.length) {
+      throw new BadRequestException(
+        `الصلاحيات دي للـ CEO والموديريتور بس: ${moderatorOnly.map((p) => PERMISSIONS[p]).join('، ')}`,
       );
     }
     if (

@@ -104,4 +104,35 @@ describe('The moderator role (e2e)', () => {
       })
       .expect(403);
   });
+
+  it('its five reserved permissions go to no other role', async () => {
+    await ctx
+      .api(ctx.ceoToken)
+      .post('/api/roles', {
+        name: 'دور تجربة',
+        permissions: ['clients.view', 'clearers.manage'],
+      })
+      .expect(400);
+    const hr = await ctx.prisma.role.findUniqueOrThrow({
+      where: { name: 'HR' },
+    });
+    const res = await ctx
+      .api(ctx.ceoToken)
+      .patch(`/api/roles/${hr.id}`, {
+        permissions: [...hr.permissions, 'finance.prices.manage'],
+      })
+      .expect(400);
+    expect(res.body.message).toContain('الموديريتور');
+    const mod = await ctx.prisma.role.findUniqueOrThrow({
+      where: { name: 'MODERATOR' },
+    });
+    await ctx
+      .api(ctx.ceoToken)
+      .patch(`/api/roles/${mod.id}`, { permissions: mod.permissions })
+      .expect(200);
+    await ctx
+      .api(ctx.ceoToken)
+      .patch(`/api/roles/${mod.id}`, { name: 'مشرف' })
+      .expect(400);
+  });
 });

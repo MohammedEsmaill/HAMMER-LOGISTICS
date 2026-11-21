@@ -21,6 +21,8 @@ export interface CatalogEntry {
   key: string;
   label: string;
   ceoOnly: boolean;
+  /** held by the CEO and the MODERATOR role only */
+  moderatorOnly: boolean;
 }
 
 export interface RoleInput {

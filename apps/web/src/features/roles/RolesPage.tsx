@@ -38,10 +38,13 @@ function PermissionChecklist({
   catalog,
   value,
   onChange,
+  isModerator,
 }: {
   catalog: CatalogEntry[];
   value: string[];
   onChange: (next: string[]) => void;
+  /** the MODERATOR role may hold the five permissions reserved to it and the CEO */
+  isModerator: boolean;
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, CatalogEntry[]>();
@@ -71,26 +74,29 @@ function PermissionChecklist({
             {PERMISSION_GROUPS[group] ?? group}
           </legend>
           <div className="space-y-1">
-            {entries.map((entry) => (
-              <label
-                key={entry.key}
-                className={`flex items-center gap-3 rounded-lg px-2 py-2 ${entry.ceoOnly ? 'opacity-55' : 'cursor-pointer hover:bg-gold/5'}`}
-              >
-                <input
-                  type="checkbox"
-                  className="size-4 accent-[var(--gold-2)]"
-                  checked={selected.has(entry.key)}
-                  disabled={entry.ceoOnly}
-                  onChange={() => toggle(entry.key)}
-                />
-                <span className="flex-1 text-sm">{entry.label}</span>
-                {entry.ceoOnly && (
-                  <span className="flex items-center gap-1 text-xs text-muted">
-                    <Lock className="size-3" /> للـ CEO بس
-                  </span>
-                )}
-              </label>
-            ))}
+            {entries.map((entry) => {
+              const locked = entry.ceoOnly || (entry.moderatorOnly && !isModerator);
+              return (
+                <label
+                  key={entry.key}
+                  className={`flex items-center gap-3 rounded-lg px-2 py-2 ${locked ? 'opacity-55' : 'cursor-pointer hover:bg-gold/5'}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 accent-[var(--gold-2)]"
+                    checked={selected.has(entry.key)}
+                    disabled={locked}
+                    onChange={() => toggle(entry.key)}
+                  />
+                  <span className="flex-1 text-sm">{entry.label}</span>
+                  {(entry.ceoOnly || entry.moderatorOnly) && (
+                    <span className="flex items-center gap-1 text-xs text-muted">
+                      <Lock className="size-3" /> {entry.ceoOnly ? 'للـ CEO بس' : 'للـ CEO والموديريتور بس'}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
           </div>
         </fieldset>
       ))}
@@ -139,13 +145,19 @@ function RoleDrawer({ role, open, onClose }: { role: Role | null; open: boolean;
         className="space-y-4"
         onSubmit={handleSubmit((form) => save.mutateAsync(form).then(onClose).catch(() => undefined))}
       >
-        <TextField label="اسم الدور" error={formState.errors.name?.message} {...register('name')} />
+        <TextField
+          label="اسم الدور"
+          readOnly={role?.name === 'MODERATOR'}
+          title={role?.name === 'MODERATOR' ? 'اسم دور الموديريتور مبيتغيرش' : undefined}
+          error={formState.errors.name?.message}
+          {...register('name')}
+        />
         <TextField label="الوصف" error={formState.errors.description?.message} {...register('description')} />
         <Controller
           control={control}
           name="permissions"
           render={({ field }) => (
-            <PermissionChecklist catalog={catalog} value={field.value} onChange={field.onChange} />
+            <PermissionChecklist catalog={catalog} value={field.value} onChange={field.onChange} isModerator={role?.name === 'MODERATOR'} />
           )}
         />
         {save.error ? <ErrorBox error={save.error} /> : null}

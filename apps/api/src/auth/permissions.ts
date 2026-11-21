@@ -65,6 +65,23 @@ export type Permission = keyof typeof PERMISSIONS;
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSIONS) as Permission[];
 
+/** The moderator role: it alone (beside the CEO) may hold the permissions below. */
+export const MODERATOR_ROLE = 'MODERATOR';
+
+/** Held by the CEO and the moderator role only. */
+export const MODERATOR_PERMISSIONS: ReadonlySet<Permission> = new Set([
+  'clearers.manage',
+  'shipments.reassign',
+  'finance.prices.manage',
+  'finance.accounts.manage',
+  'finance.parties.manage',
+]);
+
+/** Whether a role may hold a permission (the CEO role holds them all). */
+export const mayHold = (roleName: string, p: Permission) =>
+  !CEO_ONLY_PERMISSIONS.has(p) &&
+  (!MODERATOR_PERMISSIONS.has(p) || roleName === MODERATOR_ROLE);
+
 /** Held only by the system (CEO) role: no other role may be given these. */
 export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'roles.manage',

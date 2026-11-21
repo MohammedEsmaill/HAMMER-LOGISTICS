@@ -9,11 +9,7 @@ import { ARGON2_OPTIONS } from '../src/auth/password.service';
 import countries from 'i18n-iso-countries';
 import arabic from 'i18n-iso-countries/langs/ar.json';
 import english from 'i18n-iso-countries/langs/en.json';
-import {
-  CEO_ONLY_PERMISSIONS,
-  isPermission,
-  Permission,
-} from '../src/auth/permissions';
+import { mayHold, isPermission, Permission } from '../src/auth/permissions';
 import {
   AIRLINES,
   EGYPT_AIRPORTS,
@@ -448,12 +444,12 @@ async function main() {
       create: role,
     });
   }
-  // drop permissions that left the catalog or became CEO-only
+  // drop permissions that left the catalog, became CEO-only or the moderator's only
   for (const role of await prisma.role.findMany({
     where: { isSystem: false },
   })) {
     const kept = role.permissions.filter(
-      (p) => isPermission(p) && !CEO_ONLY_PERMISSIONS.has(p),
+      (p) => isPermission(p) && mayHold(role.name, p),
     );
     if (kept.length !== role.permissions.length) {
       await prisma.role.update({
