@@ -2,6 +2,7 @@ import { ArrowRight, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -114,7 +115,7 @@ export default function PartyPage() {
         <BalanceTile title={to ? `الرصيد في ${formatDate(to)}` : 'الرصيد دلوقتي'} balances={data.closing} />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <FilterBar active={[from, to, currency].filter(Boolean).length}>
         <div className="w-44">
           <TextField label="من" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
@@ -135,7 +136,7 @@ export default function PartyPage() {
             ))}
           </div>
         )}
-      </div>
+      </FilterBar>
 
       <DataTable
         columns={columns}

@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Badge, PageHeader } from '@/components/ui/misc';
@@ -81,14 +82,16 @@ export default function ShipmentsPage() {
           )
         }
       />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-64 flex-1">
+      <FilterBar
+        search={
           <SearchInput
             value={q.search}
             onChange={(search) => set({ search })}
             placeholder="رقم الملف، البوليصة، الرقم التعريفي، رقم 46، الحاوية أو العميل"
           />
-        </div>
+        }
+        active={[q.kind, q.stage].filter(Boolean).length}
+      >
         <div className="w-44">
           <SelectField
             label="النوع"
@@ -111,7 +114,7 @@ export default function ShipmentsPage() {
             onChange={(e) => set({ stage: e.target.value })}
           />
         </div>
-      </div>
+      </FilterBar>
       <DataTable
         columns={columns}
         rows={data?.items}

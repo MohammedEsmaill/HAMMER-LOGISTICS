@@ -379,7 +379,15 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
     setProblems(p);
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(() => setEditing(false), () => undefined);
   };
-  const setItem = (i: number, patch: Partial<ItemRow>) => setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const setItem = (i: number, patch: Partial<ItemRow>) => {
+    setItems((l) => l.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+    // a line's error goes once the line is edited; the next save checks again
+    setProblems((p) => {
+      const rest = { ...p };
+      for (const k of [`type${i}`, `amount${i}`, `receipt${i}`, 'items']) delete rest[k];
+      return rest;
+    });
+  };
   // price-list items still free on this shipment: each one once per shipment
   const containers = custody.shipmentContainers ?? 1;
   const taken = new Set([...(custody.usedSettlementItemIds ?? []), ...items.map((i) => i.settlementItemId)]);

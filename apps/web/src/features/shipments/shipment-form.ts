@@ -240,8 +240,31 @@ export const FIELD_TABS: Record<string, 'basic' | 'shipping' | 'containers'> = {
   containers: 'containers',
 };
 
+/** The registration form's sections, one card each. */
+export type FormSection = 'parties' | 'goods' | 'shipping' | 'containers';
+
+const GOODS_FIELDS = new Set(['commodity', 'customsRegime', 'notificationDate', 'packagesCount', 'totalWeight']);
+
+/** The section of a field path ("containers.0.weight" → containers). */
+export function sectionOf(path: string): FormSection | undefined {
+  const field = path.split('.')[0];
+  const tab = FIELD_TABS[field];
+  if (tab === 'basic') return GOODS_FIELDS.has(field) ? 'goods' : 'parties';
+  return tab;
+}
+
+/** How many problems each section holds, from zod issue paths or form error paths. */
+export function countBySection(paths: string[]): Map<FormSection, number> {
+  const counts = new Map<FormSection, number>();
+  for (const path of paths) {
+    const section = sectionOf(path);
+    if (section) counts.set(section, (counts.get(section) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** Every field path that holds an error, in form order: "clientId", "containers.0.containerNo". */
-function errorPaths(errors: object, prefix = ''): string[] {
+export function errorPaths(errors: object, prefix = ''): string[] {
   const out: string[] = [];
   for (const [key, value] of Object.entries(errors)) {
     if (!value || typeof value !== 'object') continue;

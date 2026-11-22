@@ -2,6 +2,7 @@ import { Briefcase, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Badge, PageHeader } from '@/components/ui/misc';
@@ -85,10 +86,12 @@ export default function CustodiesPage() {
           )
         }
       />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-60 flex-1">
+      <FilterBar
+        search={
           <SearchInput value={q.search ?? ''} onChange={(search) => set({ search: search || undefined })} placeholder="رقم العهدة أو رقم الملف" />
-        </div>
+        }
+        active={[q.status, q.holderType].filter(Boolean).length}
+      >
         <div className="w-44">
           <SelectField
             label="الحالة"
@@ -110,7 +113,7 @@ export default function CustodiesPage() {
             onChange={(e) => set({ holderType: e.target.value as HolderType | '' })}
           />
         </div>
-      </div>
+      </FilterBar>
       <DataTable columns={columns} rows={data?.items} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش عهد" onRowClick={(c) => setOpenId(c.id)} />
       <div className="mt-4">
         <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />

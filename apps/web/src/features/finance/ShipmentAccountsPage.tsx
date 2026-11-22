@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Badge, PageHeader } from '@/components/ui/misc';
 import { Pagination } from '@/components/ui/Pagination';
@@ -64,10 +65,12 @@ export default function ShipmentAccountsPage() {
   return (
     <>
       <PageHeader title="حسابات الشحنات" />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-60 flex-1">
+      <FilterBar
+        search={
           <SearchInput value={q.search} onChange={(search) => set({ search })} placeholder="رقم الملف أو العميل أو رقم الشهادة" />
-        </div>
+        }
+        active={[q.status, q.paymentStatus].filter(Boolean).length}
+      >
         <div className="w-40">
           <SelectField
             label="الحساب"
@@ -98,7 +101,7 @@ export default function ShipmentAccountsPage() {
             onChange={(e) => set({ accountantId: e.target.value })}
           />
         </div>
-      </div>
+      </FilterBar>
       <DataTable columns={columns} rows={data?.items} rowKey={(r) => r.id} loading={isLoading} error={error} empty="مفيش شحنات" onRowClick={(r) => navigate(`/shipment-accounts/${r.id}`)} />
       <div className="mt-4">
         <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />

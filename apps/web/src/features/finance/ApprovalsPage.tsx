@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth/auth-context';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Drawer } from '@/components/ui/Drawer';
@@ -319,7 +320,7 @@ export default function ApprovalsPage() {
           </div>
         )}
       </div>
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <FilterBar active={[q.status, q.type, q.from, q.to, q.mine].filter(Boolean).length}>
         {tab === 'all' && (
           <div className="w-52">
             <SelectField
@@ -342,7 +343,7 @@ export default function ApprovalsPage() {
             اللي أنا سجلتها بس
           </label>
         )}
-      </div>
+      </FilterBar>
       <DataTable
         columns={columns}
         rows={data?.items}

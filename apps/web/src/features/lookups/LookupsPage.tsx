@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -358,10 +359,11 @@ export default function LookupsPage() {
         <PriceListsTab tab={tab} />
       ) : (
         <>
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-56 flex-1">
+      <FilterBar
+        search={
           <SearchInput value={search} onChange={setSearch} placeholder="بحث بالاسم أو الكود" />
-        </div>
+        }
+      >
         {meta.kinded && (
           <div className="w-36">
             <SelectField
@@ -387,7 +389,7 @@ export default function LookupsPage() {
             />
           </div>
         )}
-      </div>
+      </FilterBar>
 
       {tab === 'countries' ? (
         <DataTable columns={countryColumns} rows={paged.items as Country[] | undefined} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش نتايج" />

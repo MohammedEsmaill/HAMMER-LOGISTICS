@@ -65,7 +65,13 @@ function Combo({
   );
 }
 
-export function BasicFields({ form, rules }: { form: ShipmentForm; rules: TypeRules }) {
+/**
+ * The shipment's basic data. The registration form shows it in two sections: who it is
+ * for (`parties`) and what it carries (`goods`); without `part`, all of it (editing).
+ */
+export function BasicFields({ form, rules, part }: { form: ShipmentForm; rules: TypeRules; part?: 'parties' | 'goods' }) {
+  const parties = part !== 'goods';
+  const goods = part !== 'parties';
   const { register } = form;
   const labels = partyLabels(rules.direction);
   const clientId = useWatch({ control: form.control, name: 'clientId' });
@@ -87,6 +93,8 @@ export function BasicFields({ form, rules }: { form: ShipmentForm; rules: TypeRu
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {parties && (
+        <>
       <Combo
         form={form}
         name="clientId"
@@ -107,6 +115,10 @@ export function BasicFields({ form, rules }: { form: ShipmentForm; rules: TypeRu
       <Combo form={form} name="countryId" label={labels.country} options={countries.map((c) => ({ value: c.id, label: `${c.nameAr} · ${c.nameEn}` }))} />
       <TextField label={labels.foreignParty} error={errorAt(form, 'foreignPartyName')} {...register('foreignPartyName')} />
       <TextField label={labels.consignee} error={errorAt(form, 'consignee')} {...register('consignee')} />
+        </>
+      )}
+      {goods && (
+        <>
       <TextField label="نوع البضاعة" className="sm:col-span-2" error={errorAt(form, 'commodity')} {...register('commodity')} />
       {rules.customsRegime && (
         <SelectField label="النظام الجمركي" options={REGIME_OPTIONS} error={errorAt(form, 'customsRegime')} {...register('customsRegime')} />
@@ -123,6 +135,8 @@ export function BasicFields({ form, rules }: { form: ShipmentForm; rules: TypeRu
           error={errorAt(form, 'totalWeight')}
           {...register('totalWeight')}
         />
+      )}
+        </>
       )}
     </div>
   );

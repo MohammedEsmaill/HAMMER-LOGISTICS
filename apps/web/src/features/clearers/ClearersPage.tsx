@@ -3,6 +3,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -294,8 +295,8 @@ export default function ClearersPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-60 flex-1">
+      <FilterBar
+        search={
           <SearchInput
             value={search}
             onChange={(s) => {
@@ -304,7 +305,9 @@ export default function ClearersPage() {
             }}
             placeholder="بحث بالاسم أو الرقم القومي أو التليفون"
           />
-        </div>
+        }
+        active={[place].filter(Boolean).length}
+      >
         <div className="w-64">
           <SelectField
             label="جهة التخليص"
@@ -317,7 +320,7 @@ export default function ClearersPage() {
             }}
           />
         </div>
-      </div>
+      </FilterBar>
       <DataTable columns={columns} rows={data?.items} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش مستخلصين" onRowClick={setEditing} />
       <div className="mt-4">
         <Pagination page={page} pageSize={25} total={data?.total ?? 0} onChange={setPage} />

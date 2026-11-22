@@ -2,6 +2,7 @@ import { Plus, Receipt } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useId, useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { FilterBar } from '@/components/ui/FilterBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -269,7 +270,7 @@ export default function ExpensesPage() {
           )
         }
       />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <FilterBar active={[q.from, q.to, q.expenseTypeId, q.payee, q.status].filter(Boolean).length}>
         <TextField label="من" type="date" className="w-44" value={q.from ?? ''} onChange={(e) => set({ from: e.target.value || undefined })} />
         <TextField label="إلى" type="date" className="w-44" value={q.to ?? ''} onChange={(e) => set({ to: e.target.value || undefined })} />
         <div className="w-48">
@@ -291,7 +292,7 @@ export default function ExpensesPage() {
             onChange={(e) => set({ status: e.target.value as ApprovalStatus | '' })}
           />
         </div>
-      </div>
+      </FilterBar>
       {can('finance.expenses.report') && (
         <div className="mb-5">
           <Report q={filters} />
