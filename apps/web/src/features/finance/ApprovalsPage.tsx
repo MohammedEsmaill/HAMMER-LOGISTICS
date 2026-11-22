@@ -163,7 +163,7 @@ export default function ApprovalsPage() {
     Promise.all([queryClient.invalidateQueries({ queryKey: financeKeys.all }), queryClient.invalidateQueries({ queryKey: ['inbox'] })]);
   const tab = tabOf(q);
   const tabs: { key: Tab; label: string; patch: Partial<ApprovalsQuery> }[] = [
-    ...(approver ? [{ key: 'waiting' as const, label: `Waiting${waitingCount ? ` · ${waitingCount}` : ''}`, patch: { waiting: true, status: '' as const, mine: false } }] : []),
+    ...(approver ? [{ key: 'waiting' as const, label: `قيد الانتظار${waitingCount ? ` · ${waitingCount}` : ''}`, patch: { waiting: true, status: '' as const, mine: false } }] : []),
     { key: 'rejected', label: 'مرفوضة', patch: { waiting: false, status: 'REJECTED' } },
     { key: 'approved', label: 'معتمدة', patch: { waiting: false, status: 'APPROVED' } },
     { key: 'all', label: 'الكل', patch: { waiting: false, status: '' } },
@@ -315,7 +315,7 @@ export default function ApprovalsPage() {
               اختار الكل ({actable.length})
             </label>
             <Button icon={<Check className="size-4" />} disabled={picked.size === 0} loading={bulkBusy} onClick={bulk}>
-              نفّذ خطوتي على المختار{picked.size ? ` (${picked.size})` : ''}
+              {picked.size > 1 ? `تنفيذ للكل (${picked.size})` : 'تنفيذ'}
             </Button>
           </div>
         )}
