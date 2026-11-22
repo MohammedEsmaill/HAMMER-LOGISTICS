@@ -136,7 +136,7 @@ function ApprovalQueue({ items, onOpen }: { items: NonNullable<Dashboard['approv
     });
   return (
     <Panel
-      title="Waiting"
+      title="قيد الانتظار"
       action={
         <Button
           className="h-8 px-3 text-xs"
@@ -148,7 +148,7 @@ function ApprovalQueue({ items, onOpen }: { items: NonNullable<Dashboard['approv
         </Button>
       }
     >
-      {items.length === 0 && <Empty text="مفيش حاجة في Waiting" />}
+      {items.length === 0 && <Empty text="مفيش حاجة قيد الانتظار" />}
       {items.map((i) => (
         <Row key={keyOf(i)}>
           <input

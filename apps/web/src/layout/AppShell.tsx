@@ -27,7 +27,7 @@ function WaitingBadge() {
   return (
     <span
       className="gold-fill relative ms-auto grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold"
-      aria-label={`${waiting} معاملة في Waiting`}
+      aria-label={`${waiting} معاملة قيد الانتظار`}
     >
       {waiting > 99 ? '99+' : waiting}
     </span>

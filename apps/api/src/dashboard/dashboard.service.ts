@@ -93,7 +93,7 @@ export class DashboardService {
       const queue = await this.approvals.queue(actor, 8);
       kpis.push({
         key: 'approvals',
-        label: 'Waiting',
+        label: 'قيد الانتظار',
         value: queue.total,
         hint: queue.today
           ? { text: `+${queue.today} النهارده`, tone: 'gold' }

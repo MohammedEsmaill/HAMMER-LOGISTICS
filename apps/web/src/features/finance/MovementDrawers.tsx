@@ -76,11 +76,7 @@ export function ApprovalTrail({ doc }: { doc: Approval }) {
                   {who(s.by)} · {dateTime(s.at)}
                 </span>
               )}
-              {current && (
-                <span dir="ltr">
-                  <Badge tone="gold">{mine(s) ? 'Waiting' : `Waiting for ${s.role}`}</Badge>
-                </span>
-              )}
+              {current && <Badge tone="gold">{mine(s) ? 'قيد الانتظار' : `قيد الانتظار عند ${s.role}`}</Badge>}
             </li>
           );
         })}

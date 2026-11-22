@@ -70,9 +70,9 @@ const tabOf = (q: ApprovalsQuery): Tab =>
 
 /** Where each status waits, in words. */
 const WAITS: Partial<Record<ApprovalStatus, string>> = {
-  PENDING: 'Waiting for المراجع العام',
-  REVIEWED: 'Waiting for مدير الحسابات',
-  MANAGER_APPROVED: 'Waiting for مدير الحسابات',
+  PENDING: 'قيد الانتظار عند المراجع العام',
+  REVIEWED: 'قيد الانتظار عند مدير الحسابات',
+  MANAGER_APPROVED: 'قيد الانتظار عند مدير الحسابات',
 };
 
 function RejectDrawer({ op, onClose, onDone }: { op: Operation | null; onClose: () => void; onDone: () => void }) {
@@ -258,8 +258,8 @@ export default function ApprovalsPage() {
       header: 'الخطوة',
       cell: (o) =>
         WAITS[o.approvalStatus] ? (
-          <span dir="ltr" className={`text-xs whitespace-nowrap ${o.canAct ? 'font-semibold text-gold' : 'text-muted'}`}>
-            {o.canAct ? 'Waiting' : WAITS[o.approvalStatus]}
+          <span className={`text-xs whitespace-nowrap ${o.canAct ? 'font-semibold text-gold' : 'text-muted'}`}>
+            {o.canAct ? 'قيد الانتظار' : WAITS[o.approvalStatus]}
           </span>
         ) : null,
     },
@@ -350,7 +350,7 @@ export default function ApprovalsPage() {
         rowKey={(o) => `${o.type}-${o.id}`}
         loading={isLoading}
         error={error}
-        empty={tab === 'waiting' ? 'مفيش حاجة في Waiting' : 'مفيش حركات بالفلتر ده'}
+        empty={tab === 'waiting' ? 'مفيش حاجة قيد الانتظار' : 'مفيش حركات بالفلتر ده'}
         onRowClick={(o) => setOpen({ type: o.type, id: o.id })}
       />
       <div className="mt-4">
