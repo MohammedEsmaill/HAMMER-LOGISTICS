@@ -182,6 +182,8 @@ describe('WhatsApp group alerts (e2e)', () => {
     expect(today.text).toContain(stuck.fileNo);
     expect(today.text).toContain('تجاوزت 48 ساعة في مرحلة جاري الكشف');
     expect(today.text).toContain('عدد الطرود: 10');
+    // the certificate number opens each shipment's lines
+    expect(today.text).toContain('• رقم الشهادة: *لسه ما اتسجلش*');
     expect(today.mentions).toEqual(['201000000000@s.whatsapp.net']);
     expect(today.text.trim().endsWith('@201000000000')).toBe(true);
     for (const s of [fresh, registered, cleared])

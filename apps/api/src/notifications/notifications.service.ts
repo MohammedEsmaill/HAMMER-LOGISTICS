@@ -54,6 +54,7 @@ const SHIPMENT_INFO = {
   mblNumber: true,
   hblNumber: true,
   packagesCount: true,
+  certificateNo: true,
   operationEmployeeId: true,
   currentStage: true,
   stageHistory: true,
@@ -334,7 +335,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       const who = mention(list[0].s.operationEmployee);
       const blocks = list.map(({ s, since }) =>
         [
-          `• *${s.fileNo}* — ${s.client.name}`,
+          // the certificate number first: the team finds the file by it at customs
+          `• رقم الشهادة: *${s.certificateNo ?? 'لسه ما اتسجلش'}*`,
+          `  *${s.fileNo}* — ${s.client.name}`,
           ...(billOf(s) ? [`  البوليصة: ${billOf(s)}`] : []),
           `  عدد الطرود: ${s.packagesCount}`,
           `  تجاوزت ${STUCK_HOURS} ساعة في مرحلة ${stageLabel(shipmentKind(s.direction, s.mode), s.currentStage)} (منذ ${duration(now.getTime() - since.getTime())})`,
