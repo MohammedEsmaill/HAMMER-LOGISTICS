@@ -51,6 +51,7 @@ export type Permission =
   | 'finance.prices.manage'
   | 'finance.bank.record'
   | 'finance.parties.view'
+  | 'finance.profit.view'
   | 'finance.parties.record'
   | 'finance.parties.manage'
   | 'settings.manage'

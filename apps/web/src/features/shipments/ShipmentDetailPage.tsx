@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import NotFoundPage from '@/pages/NotFoundPage';
 import { ApiError } from '@/lib/api-error';
 import { ShipmentAuditTab } from '../audit/ShipmentAuditTab';
+import { ShipmentProfitTab } from '../finance/ShipmentProfitTab';
 import { useShipment, type Shipment } from './api';
 import { CustomsTab } from './CustomsTab';
 import { DocumentsTab } from './DocumentsTab';
@@ -21,7 +22,7 @@ import { OverviewTab } from './OverviewTab';
 import { SHIPMENT_TYPES, STAGE_LABELS } from './rules';
 import { StageSelect } from './StagePanel';
 
-type Tab = 'overview' | 'customs' | 'documents' | 'history' | 'audit';
+type Tab = 'overview' | 'customs' | 'documents' | 'history' | 'profit' | 'audit';
 
 const dateTime = (iso: string) => new Intl.DateTimeFormat(AR, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
 
@@ -81,6 +82,8 @@ export default function ShipmentDetailPage() {
     { key: 'customs', label: 'النافذة', count: shipment.inspections.length || undefined },
     { key: 'documents', label: 'المستندات', count: shipment.documents.length },
     { key: 'history', label: 'سجل المراحل' },
+    // the CEO, the accounts manager and financial relations
+    ...(can('finance.profit.view') ? [{ key: 'profit' as const, label: 'الربحية' }] : []),
     ...(can('audit.view') ? [{ key: 'audit' as const, label: 'السجل' }] : []),
   ];
 
@@ -150,6 +153,7 @@ export default function ShipmentDetailPage() {
             )}
             {tab === 'documents' && <DocumentsTab shipment={shipment} />}
             {tab === 'history' && <HistoryTab shipment={shipment} />}
+            {tab === 'profit' && <ShipmentProfitTab shipmentId={shipment.id} />}
             {tab === 'audit' && <ShipmentAuditTab shipmentId={shipment.id} />}
           </motion.div>
         </AnimatePresence>

@@ -225,6 +225,31 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
     expect(res.body.message).toContain('رقم الشهادة');
   });
 
+  it('shows the shipment profit as an estimate while the account is open, to its holders only', async () => {
+    const res = await ctx
+      .api(relations)
+      .get(`/api/finance/shipment-accounts/${shipmentId}/profit`)
+      .expect(200);
+    expect(res.body.status).toBe('ESTIMATE');
+    const egp = res.body.currencies.find(
+      (c: { currency: string }) => c.currency === 'EGP',
+    );
+    // revenue = the draft statement + the client's clearance price
+    expect(Number(egp.revenue.total)).toBeCloseTo(
+      Number(egp.revenue.statement) + Number(egp.revenue.clearance),
+    );
+    expect(Number(egp.net)).toBeCloseTo(
+      Number(egp.revenue.total) - Number(egp.cost.total),
+    );
+    // the accountants and the treasury do not see it
+    for (const token of [settler, accountant, treasury]) {
+      await ctx
+        .api(token)
+        .get(`/api/finance/shipment-accounts/${shipmentId}/profit`)
+        .expect(403);
+    }
+  });
+
   it('finishes: STATEMENT per currency and CLEARANCE from the quote with VAT', async () => {
     const res = await ctx
       .api(accountant)
@@ -268,6 +293,40 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
     expect(
       clearance.lines.map((l: { description: string }) => l.description),
     ).toEqual(['CLEARANCE', 'مصاريف عرض مخدرات']);
+  });
+
+  it('takes the profit from the invoices once finished, before VAT, with the custody costs', async () => {
+    const res = await ctx
+      .api(ctx.ceoToken)
+      .get(`/api/finance/shipment-accounts/${shipmentId}/profit`)
+      .expect(200);
+    expect(res.body.status).toBe('FINAL');
+    const egp = res.body.currencies.find(
+      (c: { currency: string }) => c.currency === 'EGP',
+    );
+    expect(egp.revenue).toMatchObject({
+      statement: '3800.00',
+      clearance: '7500.00', // the VAT is not ours
+      total: '11300.00',
+    });
+    const custodies = await ctx.prisma.custody.findMany({
+      where: {
+        shipmentId,
+        currency: 'EGP',
+        approvalStatus: { not: 'REJECTED' },
+      },
+    });
+    const spent = custodies
+      .filter((c) => c.status === 'SETTLED')
+      .reduce((t, c) => t + Number(c.spentAmount) + Number(c.bankCharges), 0);
+    expect(Number(egp.cost.spent) + Number(egp.cost.bankCharges)).toBeCloseTo(
+      spent,
+    );
+    expect(Number(egp.expenseProfit)).toBeCloseTo(
+      3800 - Number(egp.cost.spent) - Number(egp.cost.bankCharges),
+    );
+    expect(Number(egp.net)).toBeCloseTo(11300 - Number(egp.cost.total));
+    expect(egp.billed).toBe('12050.00'); // 3800 + 8250 with VAT
   });
 
   it('freezes the statement and the custodies once finished', async () => {

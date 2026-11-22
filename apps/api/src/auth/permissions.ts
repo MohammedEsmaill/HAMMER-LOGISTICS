@@ -50,6 +50,8 @@ export const PERMISSIONS = {
     'كشف حساب الشحنة: إنهاؤه وإصدار فواتير العميل وطباعتها',
   'finance.collections.manage': 'تسجيل التحصيل من العملاء',
   'finance.client-ledger.view': 'كشوف حساب العملاء',
+  'finance.profit.view':
+    'ربحية الشحنات (الإيراد والتكلفة وصافي الربح لكل شحنة)',
   'finance.journal.view': 'عرض اليوميات والتقارير المالية',
   'finance.prices.manage': 'تعديل أسعار أتعاب المستخلص وبنود التصفية',
   'finance.bank.record': 'تسجيل الصرف من الحسابات البنكية (التحويلات والشيكات)',

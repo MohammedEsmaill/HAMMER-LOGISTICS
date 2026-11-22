@@ -28,6 +28,7 @@ import {
   UpdateCollectionDto,
 } from './dto/shipment-account.dto';
 import { ShipmentAccountService } from './shipment-account.service';
+import { ShipmentProfitService } from './shipment-profit.service';
 
 const READ = [
   'finance.shipment-account.view',
@@ -40,7 +41,10 @@ const READ = [
 
 @Controller('finance/shipment-accounts')
 export class ShipmentAccountsController {
-  constructor(private readonly accounts: ShipmentAccountService) {}
+  constructor(
+    private readonly accounts: ShipmentAccountService,
+    private readonly profit: ShipmentProfitService,
+  ) {}
 
   @Get()
   @RequireAnyPermission(...READ)
@@ -52,6 +56,13 @@ export class ShipmentAccountsController {
   @RequireAnyPermission(...READ)
   get(@Param('shipmentId', ParseIntPipe) shipmentId: number) {
     return this.accounts.get(shipmentId);
+  }
+
+  /** The shipment's revenue, cost and net profit (the CEO and the managers who hold the permission). */
+  @Get(':shipmentId/profit')
+  @RequirePermissions('finance.profit.view')
+  profitOf(@Param('shipmentId', ParseIntPipe) shipmentId: number) {
+    return this.profit.get(shipmentId);
   }
 
   /** Drop a settlement item from the client statement, or change its amount / line. */
@@ -111,7 +122,10 @@ export class ShipmentAccountsController {
 
 @Controller('finance/invoices')
 export class InvoicesController {
-  constructor(private readonly accounts: ShipmentAccountService) {}
+  constructor(
+    private readonly accounts: ShipmentAccountService,
+    private readonly profit: ShipmentProfitService,
+  ) {}
 
   /** One invoice with the shipment header it prints with. */
   @Get(':id')

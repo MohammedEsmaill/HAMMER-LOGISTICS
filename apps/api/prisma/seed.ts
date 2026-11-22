@@ -142,6 +142,7 @@ const ROLES: {
       'finance.client-ledger.view',
       'finance.journal.view',
       'finance.parties.view',
+      'finance.profit.view',
     ],
   },
   {
@@ -157,6 +158,7 @@ const ROLES: {
       'finance.collections.manage',
       'finance.client-ledger.view',
       'finance.journal.view',
+      'finance.profit.view',
     ],
   },
   {
@@ -356,6 +358,14 @@ const GRANTS: {
     roles: {
       OPERATION: ['documents.view.own', 'documents.manage'],
       NAFEZA: ['documents.view.all', 'documents.manage'],
+    },
+  },
+  {
+    // each shipment's profit: the CEO, the accounts manager and the financial relations manager
+    id: 'shipment-profit',
+    roles: {
+      ACCOUNTS_MANAGER: ['finance.profit.view'],
+      FINANCIAL_RELATIONS: ['finance.profit.view'],
     },
   },
 ];

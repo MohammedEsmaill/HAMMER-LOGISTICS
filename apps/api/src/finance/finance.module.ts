@@ -17,6 +17,7 @@ import {
   ShipmentAccountsController,
 } from './shipment-account.controller';
 import { ShipmentAccountService } from './shipment-account.service';
+import { ShipmentProfitService } from './shipment-profit.service';
 import {
   BeneficiariesController,
   ClearerFeesController,
@@ -79,6 +80,7 @@ import { JournalDaysService } from './journal-days.service';
     HolderLedgerService,
     BeneficiariesService,
     ShipmentAccountService,
+    ShipmentProfitService,
     CollectionsService,
     ClientLedgerService,
     JournalService,
