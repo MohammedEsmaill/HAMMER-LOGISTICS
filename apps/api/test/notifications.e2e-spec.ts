@@ -18,7 +18,7 @@ function cairoDay(offset: number): string {
 describe('WhatsApp group alerts (e2e)', () => {
   let ctx: TestContext;
   let fx: ShipmentFixtures;
-  const sent: { jid: string; text: string }[] = [];
+  const sent: { jid: string; text: string; mentions: string[] }[] = [];
   const service = () => ctx.app.get(NotificationsService);
 
   const register = async (extra: object = {}) =>
@@ -67,8 +67,8 @@ describe('WhatsApp group alerts (e2e)', () => {
     // a fake linked number: records what would be sent
     const wa = ctx.app.get(WhatsappService);
     Object.defineProperty(wa, 'ready', { get: () => true });
-    wa.send = (jid: string, text: string) => {
-      sent.push({ jid, text });
+    wa.send = (jid: string, text: string, mentions: string[] = []) => {
+      sent.push({ jid, text, mentions });
       return Promise.resolve();
     };
   });
@@ -101,26 +101,13 @@ describe('WhatsApp group alerts (e2e)', () => {
       .expect(200);
   });
 
-  it('a new shipment is announced once', async () => {
+  it('a new shipment goes to the bell only, not to the group', async () => {
     const s = await register();
     const rows = (await queued('NEW_SHIPMENT')).filter(
       (n) => n.shipmentId === s.id,
     );
-    expect(rows).toHaveLength(1);
-    expect(rows[0].text).toContain(s.fileNo);
-    expect(rows[0].text).toContain('شحنة جديدة');
+    expect(rows).toHaveLength(0);
   });
-
-  it('sends the queue to the group in order', async () => {
-    sent.length = 0;
-    // older test files' shipments may be queued too: send until empty
-    while ((await service().sendPending()) > 0);
-    expect(sent.length).toBeGreaterThan(0);
-    expect(sent.every((m) => m.jid === '120363000000000001@g.us')).toBe(true);
-    expect(
-      await ctx.prisma.notification.count({ where: { status: 'PENDING' } }),
-    ).toBe(0);
-  }, 120_000);
 
   it('a vessel due tomorrow is announced the day before, and again after its ETA moves', async () => {
     const s = await register({ eta: cairoDay(1) });
@@ -131,6 +118,8 @@ describe('WhatsApp group alerts (e2e)', () => {
       (n) => n.shipmentId === s.id,
     );
     expect(mine).toHaveLength(1);
+    expect(mine[0].text).toContain('البوليصة: FX');
+    expect(mine[0].text).toContain('عدد الطرود: 10');
     expect(
       (await queued('ETA_TOMORROW')).some((n) => n.shipmentId === far.id),
     ).toBe(false);
@@ -145,6 +134,21 @@ describe('WhatsApp group alerts (e2e)', () => {
     expect(mine).toHaveLength(2);
     expect(mine[1].dedupeKey).toBe(`ETA:${s.id}:${cairoDay(3)}`);
   });
+
+  it('sends the queue to the group in order', async () => {
+    sent.length = 0;
+    // older test files' shipments may be queued too: send until empty
+    while ((await service().sendPending()) > 0);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.every((m) => m.jid === '120363000000000001@g.us')).toBe(true);
+    // the operation employee is mentioned by their mobile
+    const eta = sent.find((m) => m.text.includes('وصول متوقع بكرة'))!;
+    expect(eta.mentions).toEqual(['201000000000@s.whatsapp.net']);
+    expect(eta.text).toContain('@201000000000');
+    expect(
+      await ctx.prisma.notification.count({ where: { status: 'PENDING' } }),
+    ).toBe(0);
+  }, 120_000);
 
   it('a shipment past its registration is not announced for its ETA', async () => {
     const s = await register({ eta: cairoDay(1) });
@@ -167,19 +171,28 @@ describe('WhatsApp group alerts (e2e)', () => {
 
     expect(await service().stuck()).toBeGreaterThanOrEqual(1);
     expect(await service().stuck()).toBe(0); // already done today
-    const today = (await queued('STUCK')).at(-1)!;
-    expect(today.dedupeKey).toBe(`STUCK:${cairoDay(0)}`);
+    // one message per operation employee: find the one holding this shipment
+    const mineToday = async (day: string) =>
+      (await queued('STUCK')).find(
+        (n) =>
+          n.dedupeKey.startsWith(`STUCK:${day}:`) &&
+          n.text.includes(stuck.fileNo),
+      )!;
+    const today = await mineToday(cairoDay(0));
     expect(today.text).toContain(stuck.fileNo);
-    expect(today.text).toContain('جاري الكشف');
+    expect(today.text).toContain('تجاوزت 48 ساعة في مرحلة جاري الكشف');
+    expect(today.text).toContain('عدد الطرود: 10');
+    expect(today.mentions).toEqual(['201000000000@s.whatsapp.net']);
+    expect(today.text.trim().endsWith('@201000000000')).toBe(true);
     for (const s of [fresh, registered, cleared])
       expect(today.text).not.toContain(s.fileNo);
 
     // still stuck the next morning: listed again
     await service().stuck(new Date(Date.now() + DAY));
-    const next = (await queued('STUCK')).at(-1)!;
-    expect(next.dedupeKey).toBe(`STUCK:${cairoDay(1)}`);
+    const next = await mineToday(cairoDay(1));
     expect(next.text).toContain(stuck.fileNo);
-    expect(next.text).toContain(fresh.fileNo); // 30 hours in, a day later it is over 48 too
+    // the same operation employee: both shipments in the one message, 30 hours in and a day later over 48 too
+    expect(next.text).toContain(fresh.fileNo);
   });
 
   it('the CEO sees the log of alerts', async () => {

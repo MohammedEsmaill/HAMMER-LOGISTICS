@@ -1624,6 +1624,8 @@ model Notification {
   /// once per event: NEW:<id>, ETA:<id>:<eta>, STUCK:<id>:<stage>:<day>
   dedupeKey  String             @unique @map("dedupe_key")
   text       String
+  /// WhatsApp ids (2010…@s.whatsapp.net) the message mentions, each written as @2010… in the text
+  mentions   String[]           @default([])
   status     NotificationStatus @default(PENDING)
   attempts   Int                @default(0)
   error      String?

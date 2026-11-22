@@ -18,7 +18,10 @@ export type WhatsappState = 'DISCONNECTED' | 'CONNECTING' | 'QR' | 'CONNECTED';
 interface Socket {
   user?: { id: string; name?: string };
   ev: { on(event: string, listener: (arg: never) => void): void };
-  sendMessage(jid: string, content: { text: string }): Promise<unknown>;
+  sendMessage(
+    jid: string,
+    content: { text: string; mentions?: string[] },
+  ): Promise<unknown>;
   groupFetchAllParticipating(): Promise<
     Record<string, { id: string; subject: string; size?: number }>
   >;
@@ -173,9 +176,13 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
     return this.state === 'CONNECTED' && !!this.socket;
   }
 
-  async send(jid: string, text: string) {
+  /** `mentions`: the WhatsApp ids written as @2010… in the text, so they get notified. */
+  async send(jid: string, text: string, mentions: string[] = []) {
     if (!this.socket || this.state !== 'CONNECTED')
       throw new Error('واتساب غير متصل');
-    await this.socket.sendMessage(jid, { text });
+    await this.socket.sendMessage(
+      jid,
+      mentions.length ? { text, mentions } : { text },
+    );
   }
 }

@@ -51,10 +51,14 @@ const SHIPMENT_INFO = {
   mode: true,
   vesselName: true,
   eta: true,
+  mblNumber: true,
+  hblNumber: true,
+  packagesCount: true,
+  operationEmployeeId: true,
   currentStage: true,
   stageHistory: true,
   client: { select: { name: true } },
-  operationEmployee: { select: { fullName: true } },
+  operationEmployee: { select: { fullName: true, phone: true } },
   loadingPort: { select: { name: true } },
   dischargePort: { select: { name: true } },
   freeZone: { select: { name: true } },
@@ -96,6 +100,32 @@ function header(s: ShipmentInfo): string[] {
   ];
 }
 
+/**
+ * An Egyptian mobile as WhatsApp knows it: 01012345678 → 201012345678. Anything else
+ * (a landline, a typo) gives null, and the message names the person without a mention.
+ */
+export function whatsappNumber(
+  phone: string | null | undefined,
+): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  const local = digits.startsWith('20')
+    ? digits.slice(2)
+    : digits.replace(/^0/, '');
+  return /^1[0125]\d{8}$/.test(local) ? `20${local}` : null;
+}
+
+/** "@201012345678" in the text with its id beside it, or the plain name when there is no number. */
+function mention(person: { fullName: string; phone: string | null }) {
+  const number = whatsappNumber(person.phone);
+  return number
+    ? { text: `@${number}`, jid: `${number}@s.whatsapp.net` }
+    : { text: person.fullName, jid: null };
+}
+
+/** The bill of lading the team knows the shipment by (the master, or the house one). */
+const billOf = (s: Pick<ShipmentInfo, 'mblNumber' | 'hblNumber'>) =>
+  s.mblNumber ?? s.hblNumber;
+
 /** When the shipment entered its current stage. */
 export function stageSince(
   s: Pick<ShipmentInfo, 'currentStage' | 'stageHistory'>,
@@ -131,8 +161,8 @@ function duration(ms: number): string {
 }
 
 /**
- * The staff WhatsApp group alerts: a new shipment, a vessel arriving tomorrow, and
- * shipments stuck in one stage. Alerts are queued in the database (once per event, by
+ * The staff WhatsApp group alerts: a vessel arriving tomorrow, shipments stuck in one
+ * stage (one message per operation employee, who is mentioned), and expiring papers. Alerts are queued in the database (once per event, by
  * dedupe key) and sent in order while the number is linked, so none is lost on a restart.
  */
 @Injectable()
@@ -167,26 +197,22 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     dedupeKey: string,
     text: string,
     shipmentId?: number,
+    mentions: string[] = [],
   ): Promise<boolean> {
     const { count } = await tx.notification.createMany({
-      data: [{ kind, dedupeKey, text, shipmentId }],
+      data: [{ kind, dedupeKey, text, shipmentId, mentions }],
       skipDuplicates: true,
     });
     return count > 0;
   }
 
-  /** Called in the registration transaction: queued only if the shipment is saved. */
+  /** Called in the registration transaction: the team's bell, only if the shipment is saved. */
   async newShipment(tx: Tx, shipmentId: number, actorId?: number) {
     const s = await tx.shipment.findUniqueOrThrow({
       where: { id: shipmentId },
       select: SHIPMENT_INFO,
     });
-    const text = [
-      '🆕 *شحنة جديدة*',
-      ...header(s),
-      ...(s.eta ? [`تاريخ الوصول المتوقع: ${dmy(s.eta)}`] : []),
-    ].join('\n');
-    await this.enqueue(tx, 'NEW_SHIPMENT', `NEW:${s.id}`, text, s.id);
+    // the bell only: the group does not get a message for a new shipment
     await this.inbox.forShipment(tx, s.id, {
       kind: 'SHIPMENT_NEW',
       key: `NEW:${s.id}`,
@@ -233,10 +259,15 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         title: `وصول متوقع غدًا ${s.fileNo}`,
         body: `${s.client.name}${s.vesselName ? ` · ${s.vesselName}` : ''} · ${dmy(tomorrow)}`,
       });
+      const who = mention(s.operationEmployee);
       const text = [
-        '🚢 *وصول متوقع غدًا*',
-        ...header(s),
+        '🚢 *وصول متوقع بكرة*',
+        ...header(s).filter((l) => !l.startsWith('مسؤول التشغيل')),
+        ...(billOf(s) ? [`البوليصة: ${billOf(s)}`] : []),
+        `عدد الطرود: ${s.packagesCount}`,
         `تاريخ الوصول المتوقع: ${dmy(tomorrow)}`,
+        '',
+        `مسؤول التشغيل: ${who.text}`,
       ].join('\n');
       if (
         await this.enqueue(
@@ -245,6 +276,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
           `ETA:${s.id}:${day(tomorrow)}`,
           text,
           s.id,
+          who.jid ? [who.jid] : [],
         )
       )
         queued++;
@@ -290,20 +322,39 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
         body: `${s.client.name} · ${stageLabel(shipmentKind(s.direction, s.mode), s.currentStage)} منذ ${duration(now.getTime() - since.getTime())}`,
       });
     }
-    if (late.length) {
-      const blocks = late.map(({ s, since }) =>
+    // one message per operation employee, with all their late shipments and a
+    // mention of them at the end
+    const byEmployee = new Map<number, { s: ShipmentInfo; since: Date }[]>();
+    for (const x of late) {
+      const list = byEmployee.get(x.s.operationEmployeeId) ?? [];
+      list.push(x);
+      byEmployee.set(x.s.operationEmployeeId, list);
+    }
+    for (const [employeeId, list] of byEmployee) {
+      const who = mention(list[0].s.operationEmployee);
+      const blocks = list.map(({ s, since }) =>
         [
           `• *${s.fileNo}* — ${s.client.name}`,
-          `  المرحلة: ${stageLabel(shipmentKind(s.direction, s.mode), s.currentStage)} منذ ${duration(now.getTime() - since.getTime())}`,
-          `  مسؤول التشغيل: ${s.operationEmployee.fullName}`,
+          ...(billOf(s) ? [`  البوليصة: ${billOf(s)}`] : []),
+          `  عدد الطرود: ${s.packagesCount}`,
+          `  تجاوزت ${STUCK_HOURS} ساعة في مرحلة ${stageLabel(shipmentKind(s.direction, s.mode), s.currentStage)} (منذ ${duration(now.getTime() - since.getTime())})`,
         ].join('\n'),
       );
       const text = [
-        `⏳ *شحنات متأخرة* (تجاوزت ${STUCK_HOURS} ساعة في المرحلة نفسها): ${late.length}`,
+        `⏳ *شحنات متأخرة*: ${list.length}`,
         '',
         ...blocks,
+        '',
+        `مسؤول التشغيل: ${who.text}`,
       ].join('\n');
-      await this.enqueue(this.prisma, 'STUCK', `STUCK:${today}`, text);
+      await this.enqueue(
+        this.prisma,
+        'STUCK',
+        `STUCK:${today}:${employeeId}`,
+        text,
+        undefined,
+        who.jid ? [who.jid] : [],
+      );
     }
     await this.prisma.setting.upsert({
       where: { key: STUCK_SCAN_KEY },
@@ -486,7 +537,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       });
       for (const n of queue) {
         try {
-          await this.whatsapp.send(group.jid, n.text);
+          await this.whatsapp.send(group.jid, n.text, n.mentions);
           await this.prisma.notification.update({
             where: { id: n.id },
             data: {

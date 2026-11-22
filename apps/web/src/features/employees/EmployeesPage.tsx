@@ -43,7 +43,8 @@ const schema = z
     code: z.string().trim().min(1, 'اكتب رقم البصمة').max(20, '20 حرف بالكتير'),
     fullName: z.string().trim().min(3, 'الاسم 3 حروف على الأقل').max(120),
     nationalId,
-    phone: z.string().trim().min(1, 'اكتب التليفون').max(20),
+    // the WhatsApp alerts mention the operation employee by this number
+    phone: z.string().trim().regex(/^(\+?20|0)1[0125]\d{8}$/, 'اكتب موبايل مصري صحيح (زي 01012345678)'),
     address: optionalText(255),
     department: z.enum(Object.keys(DEPARTMENTS) as [Department, ...Department[]], {
       errorMap: () => ({ message: 'اختار القسم' }),
@@ -147,7 +148,7 @@ function EmployeeDrawer({
         <TextField label="الاسم بالكامل" className="sm:col-span-2" error={formState.errors.fullName?.message} {...register('fullName')} />
         <TextField label="رقم البصمة (الكود)" dir="ltr" error={formState.errors.code?.message} {...register('code')} />
         <TextField label="الرقم القومي" dir="ltr" inputMode="numeric" maxLength={14} error={formState.errors.nationalId?.message} {...register('nationalId')} />
-        <TextField label="التليفون" dir="ltr" inputMode="tel" error={formState.errors.phone?.message} {...register('phone')} />
+        <TextField label="رقم الموبايل (واتساب)" dir="ltr" inputMode="tel" placeholder="01012345678" error={formState.errors.phone?.message} {...register('phone')} />
         <SelectField label="القسم" options={departmentOptions} error={formState.errors.department?.message} {...register('department')} />
         <TextField label="المسمى الوظيفي" error={formState.errors.jobTitle?.message} {...register('jobTitle')} />
         <TextField label="تاريخ التعيين" type="date" error={formState.errors.hireDate?.message} {...register('hireDate')} />
@@ -215,7 +216,7 @@ export default function EmployeesPage() {
     },
     { header: 'الكود', cell: (e) => <span dir="ltr">{e.code}</span> },
     { header: 'القسم', cell: (e) => <Badge>{DEPARTMENTS[e.department]}</Badge> },
-    { header: 'التليفون', cell: (e) => <span dir="ltr">{e.phone}</span> },
+    { header: 'الموبايل', cell: (e) => <span dir="ltr">{e.phone}</span> },
     { header: 'التعيين', cell: (e) => <span className="text-muted">{formatDate(e.hireDate)}</span> },
     ...(can('employees.salary.view')
       ? [{ header: 'المرتب', cell: (e: Employee) => formatMoney(e.basicSalary) }]

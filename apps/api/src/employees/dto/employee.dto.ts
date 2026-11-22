@@ -10,6 +10,11 @@ import {
   MinLength,
 } from 'class-validator';
 import { ListQueryDto } from '../../common/dto/list-query.dto';
+
+/** An Egyptian mobile (01012345678, or with +20): the WhatsApp alerts mention it. */
+const EGYPT_MOBILE = /^(\+?20|0)1[0125]\d{8}$/;
+const MOBILE_MESSAGE =
+  'رقم الموبايل لازم يكون موبايل مصري صحيح (زي 01012345678): بيتعمل بيه منشن في تنبيهات الواتساب';
 import { Money, NATIONAL_ID, Trim, NotFuture } from '../../common/validation';
 
 export class CreateEmployeeDto {
@@ -30,8 +35,7 @@ export class CreateEmployeeDto {
   nationalId!: string;
 
   @Trim()
-  @IsString()
-  @MaxLength(20)
+  @Matches(EGYPT_MOBILE, { message: MOBILE_MESSAGE })
   phone!: string;
 
   @IsOptional()
@@ -86,8 +90,7 @@ export class UpdateEmployeeDto {
 
   @IsOptional()
   @Trim()
-  @IsString()
-  @MaxLength(20)
+  @Matches(EGYPT_MOBILE, { message: MOBILE_MESSAGE })
   phone?: string;
 
   @IsOptional()
