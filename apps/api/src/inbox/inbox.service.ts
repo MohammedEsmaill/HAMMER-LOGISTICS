@@ -96,6 +96,26 @@ export class InboxService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * The active users whose own roles (main or extra) hold this permission. The CEO's
+   * all-powerful role is left out: its alerts would be everyone's.
+   */
+  async usersWith(
+    db: Tx | PrismaService,
+    permission: string,
+  ): Promise<number[]> {
+    const role = { isSystem: false, permissions: { has: permission } };
+    const users = await db.user.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        OR: [{ role }, { extraRoles: { some: { role } } }],
+      },
+      select: { id: true },
+    });
+    return users.map((u) => u.id);
+  }
+
   /** One alert to each of these users, once per key. */
   async forUsers(
     db: Tx | PrismaService,

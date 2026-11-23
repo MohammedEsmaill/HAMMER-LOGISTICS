@@ -31,6 +31,9 @@ const STUCK_SCAN_KEY = 'notifications.stuck-scan';
 /** The morning alerts go out from 9 AM, Cairo time. */
 export const MORNING_HOUR = 9;
 export const STUCK_HOURS = 48;
+/** A custody open this many days is a reminder in the bell, then again every week. */
+export const OPEN_CUSTODY_DAYS = 5;
+const CUSTODY_REPEAT_DAYS = 7;
 const MAX_ATTEMPTS = 5;
 /** Messages still unsent after this long are dropped, not sent late. */
 const STALE_MS = 36 * 3600_000;
@@ -231,7 +234,9 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
     this.scanning = true;
     try {
       await this.etaTomorrow(now);
+      await this.etaPassed(now);
       await this.stuck(now);
+      await this.openCustodies(now);
       await this.documentsDue(now);
     } catch (error) {
       this.logger.error(`Notification scan failed: ${String(error)}`);
@@ -368,6 +373,112 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Once a day: registered shipments whose ETA has passed, so no one has marked them
+   * arrived. One group message per operation employee (mentioned at the end), and the
+   * shipment team's bell.
+   */
+  async etaPassed(now = new Date()): Promise<number> {
+    const today = todayCairo(now);
+    const rows = await this.prisma.shipment.findMany({
+      where: { currentStage: 'REGISTERED', eta: { lt: today } },
+      select: SHIPMENT_INFO,
+      orderBy: { eta: 'asc' },
+    });
+    const byEmployee = new Map<number, ShipmentInfo[]>();
+    for (const s of rows) {
+      const late = Math.round((today.getTime() - s.eta!.getTime()) / DAY_MS);
+      await this.inbox.forShipment(this.prisma, s.id, {
+        kind: 'SHIPMENT_ETA_PASSED',
+        key: `ETA_PASSED:${s.id}:${day(today)}`,
+        title: `${s.fileNo} عدّى ميعاد وصولها`,
+        body: `${s.client.name} · كان متوقع ${dmy(s.eta!)} (من ${count(late, 'يوم', 'يومين', 'أيام', 'يومًا')}) ولسه في التسجيل`,
+      });
+      const list = byEmployee.get(s.operationEmployeeId) ?? [];
+      list.push(s);
+      byEmployee.set(s.operationEmployeeId, list);
+    }
+    for (const [employeeId, list] of byEmployee) {
+      const who = mention(list[0].operationEmployee);
+      const blocks = list.map((s) =>
+        [
+          `• *${s.fileNo}* — ${s.client.name}`,
+          ...(billOf(s) ? [`  البوليصة: ${billOf(s)}`] : []),
+          ...(s.vesselName ? [`  اسم السفينة: ${s.vesselName}`] : []),
+          `  الوصول المتوقع كان: ${dmy(s.eta!)}`,
+        ].join('\n'),
+      );
+      const text = [
+        `🕓 *عدّى ميعاد وصولها ولسه في التسجيل*: ${list.length}`,
+        'لو وصلت حدّث المرحلة، ولو اتأخرت حدّث تاريخ الوصول المتوقع.',
+        '',
+        ...blocks,
+        '',
+        `مسؤول التشغيل: ${who.text}`,
+      ].join('\n');
+      await this.enqueue(
+        this.prisma,
+        'ETA_PASSED',
+        `ETA_PASSED:${day(today)}:${employeeId}`,
+        text,
+        undefined,
+        who.jid ? [who.jid] : [],
+      );
+    }
+    return rows.length;
+  }
+
+  /**
+   * Custodies open over OPEN_CUSTODY_DAYS: the bell only (no WhatsApp), to who settles
+   * custodies and to who issued it; again every week while it stays open.
+   */
+  async openCustodies(now = new Date()): Promise<number> {
+    const today = todayCairo(now);
+    const custodies = await this.prisma.custody.findMany({
+      where: {
+        status: 'OPEN',
+        approvalStatus: { not: 'REJECTED' },
+        issueDate: {
+          lte: new Date(today.getTime() - OPEN_CUSTODY_DAYS * DAY_MS),
+        },
+      },
+      select: {
+        id: true,
+        custodyNo: true,
+        issueDate: true,
+        amount: true,
+        currency: true,
+        createdById: true,
+        agent: { select: { fullName: true } },
+        clearer: { select: { fullName: true } },
+        beneficiary: { select: { name: true } },
+        shipment: { select: { id: true, fileNo: true } },
+      },
+    });
+    if (!custodies.length) return 0;
+    const settlers = await this.inbox.usersWith(
+      this.prisma,
+      'finance.custody.settle',
+    );
+    for (const c of custodies) {
+      const age = Math.round(
+        (today.getTime() - c.issueDate.getTime()) / DAY_MS,
+      );
+      const round = Math.floor((age - OPEN_CUSTODY_DAYS) / CUSTODY_REPEAT_DAYS);
+      const holder =
+        c.clearer?.fullName ?? c.agent?.fullName ?? c.beneficiary?.name ?? '';
+      await this.inbox.forUsers(this.prisma, [...settlers, c.createdById], {
+        kind: 'CUSTODY_OPEN',
+        key: `CUSTODY_OPEN:${c.id}:${round}`,
+        title: `عهدة ${c.custodyNo} مفتوحة من ${count(age, 'يوم', 'يومين', 'أيام', 'يومًا')}`,
+        body: `${holder ? `${holder} · ` : ''}ملف ${c.shipment.fileNo} · ${c.amount.toFixed(2)} ${c.currency === 'EGP' ? 'ج' : '$'} · محتاجة تصفية`,
+        link: `/custodies?search=${encodeURIComponent(c.custodyNo)}`,
+        shipmentId: c.shipment.id,
+      });
+    }
+    return custodies.length;
+  }
+
+  /**
    * Client and factory papers: 30 days, 7 days and one day before they expire, and on
    * the day. Each step once per expiry date (a renewal starts over), to the client's
    * operation team and to Nafeza, in the bell and in the group.
@@ -402,31 +513,10 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       },
     });
     if (!docs.length) return 0;
-    const nafeza = await this.prisma.user.findMany({
-      where: {
-        deletedAt: null,
-        isActive: true,
-        OR: [
-          {
-            role: {
-              isSystem: false,
-              permissions: { has: 'documents.view.all' },
-            },
-          },
-          {
-            extraRoles: {
-              some: {
-                role: {
-                  isSystem: false,
-                  permissions: { has: 'documents.view.all' },
-                },
-              },
-            },
-          },
-        ],
-      },
-      select: { id: true },
-    });
+    const nafeza = await this.inbox.usersWith(
+      this.prisma,
+      'documents.view.all',
+    );
     let sent = 0;
     for (const d of docs) {
       const left = Math.round(
@@ -462,7 +552,7 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
       });
       await this.inbox.forUsers(
         this.prisma,
-        [...team, ...nafeza].map((u) => u.id),
+        [...team.map((u) => u.id), ...nafeza],
         {
           kind: 'DOCUMENT_EXPIRY',
           key,

@@ -1604,6 +1604,7 @@ model JournalDayAccount {
 enum NotificationKind {
   NEW_SHIPMENT
   ETA_TOMORROW
+  ETA_PASSED
   STUCK
   DOCUMENT_EXPIRY
   TEST
@@ -1642,7 +1643,9 @@ enum InboxKind {
   SHIPMENT_NEW
   SHIPMENT_ETA
   SHIPMENT_STUCK
+  SHIPMENT_ETA_PASSED
   DOCUMENT_EXPIRY
+  CUSTODY_OPEN
 }
 
 /// The bell: one alert for one user, once per event (dedupe key), read or not.

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 
-export type InboxKind = 'SHIPMENT_NEW' | 'SHIPMENT_ETA' | 'SHIPMENT_STUCK';
+export type InboxKind = 'SHIPMENT_NEW' | 'SHIPMENT_ETA' | 'SHIPMENT_STUCK' | 'SHIPMENT_ETA_PASSED' | 'DOCUMENT_EXPIRY' | 'CUSTODY_OPEN';
 
 export interface Inbox {
   unread: number;

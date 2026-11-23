@@ -1,3 +1,4 @@
+import { NotificationsService } from '../src/notifications/notifications.service';
 import { shipmentFixtures, ShipmentFixtures } from './fixtures';
 import { closeTestContext, createTestContext, TestContext } from './helpers';
 
@@ -160,6 +161,42 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
       expect(res.body.custodyNo).toMatch(/^CU\d{2}-\d{4}$/);
       expect(res.body.currency).toBe('EGP');
       expect(await balance(cashEgp)).toBe(start - 5000);
+    });
+
+    it('reminds in the bell (no WhatsApp) of a custody open over 5 days, once a week', async () => {
+      const notifications = ctx.app.get(NotificationsService);
+      const custody = await ctx.prisma.custody.findUniqueOrThrow({
+        where: { id },
+      });
+      const issued = custody.issueDate;
+      await ctx.prisma.custody.update({
+        where: { id },
+        data: { issueDate: new Date(issued.getTime() - 6 * 86_400_000) },
+      });
+      try {
+        await notifications.openCustodies();
+        await notifications.openCustodies(); // once per week
+        const items = await ctx.prisma.inboxItem.findMany({
+          where: { dedupeKey: `CUSTODY_OPEN:${id}:0` },
+        });
+        const users = items.map((i) => i.userId);
+        // who issued it, and who settles custodies
+        expect(users).toContain(custody.createdById);
+        expect(items.length).toBeGreaterThanOrEqual(2);
+        expect(new Set(users).size).toBe(users.length);
+        expect(items[0]).toMatchObject({ kind: 'CUSTODY_OPEN' });
+        expect(items[0].title).toContain(custody.custodyNo);
+        expect(
+          await ctx.prisma.notification.count({
+            where: { text: { contains: custody.custodyNo } },
+          }),
+        ).toBe(0);
+      } finally {
+        await ctx.prisma.custody.update({
+          where: { id },
+          data: { issueDate: issued },
+        });
+      }
     });
 
     it('refuses an employee outside the agents department, and a clearer purpose', async () => {

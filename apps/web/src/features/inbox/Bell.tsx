@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { AlarmClock, Bell as BellIcon, CheckCheck, ClipboardCheck, Package, Ship } from 'lucide-react';
+import { AlarmClock, Bell as BellIcon, Briefcase, CalendarClock, CheckCheck, ClipboardCheck, FileWarning, Package, Ship } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -9,7 +9,16 @@ import { AR } from '@/lib/format';
 
 import { INBOX_KEY as KEY, useInbox, type InboxKind as Kind } from './use-inbox';
 
-const ICONS: Record<Kind, typeof Package> = { SHIPMENT_NEW: Package, SHIPMENT_ETA: Ship, SHIPMENT_STUCK: AlarmClock };
+const ICONS: Record<Kind, typeof Package> = {
+  SHIPMENT_NEW: Package,
+  SHIPMENT_ETA: Ship,
+  SHIPMENT_STUCK: AlarmClock,
+  SHIPMENT_ETA_PASSED: CalendarClock,
+  DOCUMENT_EXPIRY: FileWarning,
+  CUSTODY_OPEN: Briefcase,
+};
+/** Alerts that need doing something soon show in red. */
+const URGENT: Kind[] = ['SHIPMENT_STUCK', 'SHIPMENT_ETA_PASSED', 'CUSTODY_OPEN'];
 
 /** Whose step each status waits for, in words. */
 const STEP: Record<string, string> = {
@@ -176,14 +185,14 @@ export function Bell() {
                 </div>
               )}
               {data?.items.map((i) => {
-                const Icon = ICONS[i.kind];
+                const Icon = ICONS[i.kind] ?? Package;
                 return (
                   <button
                     key={i.id}
                     onClick={() => go(i.link, i.readAt ? undefined : i.id)}
                     className={`flex w-full items-start gap-3 border-b border-line/60 px-4 py-3 text-start hover:bg-surface-2 ${i.readAt ? 'opacity-60' : ''}`}
                   >
-                    <Icon className={`mt-0.5 size-5 shrink-0 ${i.kind === 'SHIPMENT_STUCK' ? 'text-danger' : 'text-gold'}`} />
+                    <Icon className={`mt-0.5 size-5 shrink-0 ${URGENT.includes(i.kind) ? 'text-danger' : 'text-gold'}`} />
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold">{i.title}</span>
                       <span className="block text-xs text-muted">{i.body}</span>

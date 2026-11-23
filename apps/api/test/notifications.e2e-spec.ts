@@ -159,6 +159,34 @@ describe('WhatsApp group alerts (e2e)', () => {
     ).toBe(false);
   });
 
+  it('a registered shipment past its ETA: one message per operation employee, and the bell', async () => {
+    const late = await register({ eta: cairoDay(1) });
+    await ctx.prisma.shipment.update({
+      where: { id: late.id },
+      data: { eta: new Date(`${cairoDay(-2)}T00:00:00.000Z`) },
+    });
+    const onTime = await register({ eta: cairoDay(2) });
+    await service().etaPassed();
+    await service().etaPassed(); // once a day
+    const rows = (await queued('ETA_PASSED')).filter((n) =>
+      n.text.includes(late.fileNo),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].text).toContain('عدّى ميعاد وصولها');
+    expect(rows[0].text).not.toContain(onTime.fileNo);
+    expect(rows[0].mentions).toEqual(['201000000000@s.whatsapp.net']);
+    const bell = await ctx.prisma.inboxItem.findMany({
+      where: { shipmentId: late.id, kind: 'SHIPMENT_ETA_PASSED' },
+    });
+    expect(bell.length).toBeGreaterThan(0);
+    // once it arrives it is no longer listed
+    await parkIn(late.id, 'ARRIVED', 1);
+    await service().etaPassed(new Date(Date.now() + DAY));
+    expect(
+      (await queued('ETA_PASSED')).filter((n) => n.text.includes(late.fileNo)),
+    ).toHaveLength(1);
+  });
+
   it('lists shipments stuck over 48 hours once a day, not registered or cleared ones', async () => {
     const stuck = await register();
     const fresh = await register();
