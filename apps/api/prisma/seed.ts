@@ -369,6 +369,14 @@ const GRANTS: {
       FINANCIAL_RELATIONS: ['finance.profit.view'],
     },
   },
+  {
+    // the general ledger and trial balance: the accounts manager and the general auditor
+    id: 'general-ledger',
+    roles: {
+      ACCOUNTS_MANAGER: ['finance.gl.view'],
+      GENERAL_AUDITOR: ['finance.gl.view'],
+    },
+  },
 ];
 
 /** The price lists the office started with; the CEO changes them later. */

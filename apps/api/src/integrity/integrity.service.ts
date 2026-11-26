@@ -5,10 +5,11 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { GeneralLedgerService } from '../finance/general-ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface IntegrityProblem {
-  kind: 'BALANCE' | 'LAST_LINE' | 'CHAIN' | 'CLOSED_DAY';
+  kind: 'BALANCE' | 'LAST_LINE' | 'CHAIN' | 'CLOSED_DAY' | 'GL';
   severity: 'danger' | 'warning';
   title: string;
   detail: string;
@@ -41,7 +42,10 @@ export class IntegrityService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private running: Promise<IntegrityReport> | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gl: GeneralLedgerService,
+  ) {}
 
   onModuleInit() {
     if (process.env.NODE_ENV === 'test') return;
@@ -178,6 +182,17 @@ export class IntegrityService implements OnModuleInit, OnModuleDestroy {
         title: `يومية ${day} اتغيرت بعد قفلها (${d.name})`,
         detail: `الرصيد وقت القفل ${money(d.closing)}، ودلوقتي ${money(d.now)}`,
         link: `/journal?tab=archive&day=${day}`,
+      });
+    }
+
+    // the general ledger: debits equal credits, and each account stands at its balance
+    for (const p of await this.gl.check()) {
+      problems.push({
+        kind: 'GL',
+        severity: 'danger',
+        title: 'دفتر الأستاذ العام مش متزن',
+        detail: p,
+        link: '/general-ledger',
       });
     }
 

@@ -45,6 +45,8 @@ import { ReportsService } from './reports.service';
 import { PricesController } from './prices.controller';
 import { PricesService } from './prices.service';
 import { JournalDaysService } from './journal-days.service';
+import { GeneralLedgerController } from './general-ledger.controller';
+import { GeneralLedgerService } from './general-ledger.service';
 
 @Module({
   controllers: [
@@ -66,6 +68,7 @@ import { JournalDaysService } from './journal-days.service';
     PricesController,
     PartiesController,
     PartyMovementsController,
+    GeneralLedgerController,
   ],
   providers: [
     LedgerService,
@@ -88,6 +91,7 @@ import { JournalDaysService } from './journal-days.service';
     PricesService,
     JournalDaysService,
     PartiesService,
+    GeneralLedgerService,
   ],
   exports: [
     LedgerService,
@@ -98,6 +102,7 @@ import { JournalDaysService } from './journal-days.service';
     ClientLedgerService,
     HolderLedgerService,
     PartiesService,
+    GeneralLedgerService,
   ],
 })
 export class FinanceModule {}

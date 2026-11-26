@@ -1,6 +1,7 @@
 import {
   BadgeCheck,
   Calculator,
+  Scale,
   Contact,
   Settings,
   BookOpenText,
@@ -137,6 +138,13 @@ export const NAV: NavItem[] = [
     icon: Contact,
     group: 'finance',
     any: ['finance.client-ledger.view'],
+  },
+  {
+    to: '/general-ledger',
+    label: 'دفتر الأستاذ العام',
+    icon: Scale,
+    group: 'finance',
+    any: ['finance.gl.view'],
   },
   {
     to: '/reports',

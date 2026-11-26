@@ -53,6 +53,7 @@ export type Permission =
   | 'finance.bank.record'
   | 'finance.parties.view'
   | 'finance.profit.view'
+  | 'finance.gl.view'
   | 'finance.parties.record'
   | 'finance.parties.manage'
   | 'settings.manage'
