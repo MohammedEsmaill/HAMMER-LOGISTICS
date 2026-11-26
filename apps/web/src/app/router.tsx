@@ -46,6 +46,7 @@ const AccountPage = lazy(() => import('@/features/finance/AccountPage'));
 const PartyPage = lazy(() => import('@/features/finance/PartyPage'));
 const InvoicePrintPage = lazy(() => import('@/features/finance/InvoicePrintPage'));
 const ShipmentPrintPage = lazy(() => import('@/features/shipments/ShipmentPrintPage'));
+const ShipmentsReportPage = lazy(() => import('@/features/shipments/ShipmentsReportPage'));
 const ClientLedgerPage = lazy(() => import('@/features/finance/ClientLedgerPage'));
 const ClientStatementPrintPage = lazy(() => import('@/features/finance/ClientStatementPrintPage'));
 const ACCOUNT_VIEW = [
@@ -88,6 +89,19 @@ export const router = createBrowserRouter([
         <RequirePermission any={[...ACCOUNT_VIEW]}>
           <Suspense fallback={null}>
             <InvoicePrintPage />
+          </Suspense>
+        </RequirePermission>
+      </RequireAuth>
+    ),
+  },
+  {
+    // every shipment the list's filters match, on paper or in Excel, for whoever sees the list
+    path: '/print/shipments-report',
+    element: (
+      <RequireAuth>
+        <RequirePermission any={[...SHIPMENT_VIEW]}>
+          <Suspense fallback={null}>
+            <ShipmentsReportPage />
           </Suspense>
         </RequirePermission>
       </RequireAuth>

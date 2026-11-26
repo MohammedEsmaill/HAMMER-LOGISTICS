@@ -186,22 +186,47 @@ export const shipmentKeys = {
   one: (id: number) => ['shipments', 'one', id] as const,
 };
 
+/** The list's filters as the API reads them (the list and its report share them). */
+export function shipmentFilters(q: Pick<ShipmentsQuery, 'search' | 'kind' | 'stage' | 'declarantId'>) {
+  const [direction, ...mode] = q.kind ? q.kind.split('_') : [];
+  return {
+    search: q.search || undefined,
+    stage: q.stage || undefined,
+    declarantId: q.declarantId || undefined,
+    direction,
+    mode: mode.join('_') || undefined,
+  };
+}
+
 export const useShipments = (q: ShipmentsQuery) =>
   useQuery({
     queryKey: shipmentKeys.list(q),
-    queryFn: () => {
-      const [direction, ...mode] = q.kind ? q.kind.split('_') : [];
-      return api.get<Page<ShipmentListItem>>('/shipments', {
-        search: q.search,
-        stage: q.stage,
-        declarantId: q.declarantId || undefined,
-        direction,
-        mode: mode.join('_') || undefined,
-        page: q.page,
-        pageSize: q.pageSize ?? 25,
-      });
-    },
+    queryFn: () => api.get<Page<ShipmentListItem>>('/shipments', { ...shipmentFilters(q), page: q.page, pageSize: q.pageSize ?? 25 }),
     placeholderData: keepPreviousData,
+  });
+
+export interface ReportShipment extends Omit<ShipmentListItem, 'containersCount'> {
+  factory: Named;
+  carrier: Named | null;
+  declarant: Named | null;
+  place: Named | null;
+  vesselName: string | null;
+  certificateNo: string | null;
+  packagesCount: number;
+  totalWeight: string;
+  containers: ContainerType[];
+}
+
+export interface ShipmentsReport {
+  items: ReportShipment[];
+  summary: { count: number; containers: Partial<Record<ContainerType, number>>; packages: number; weight: string };
+}
+
+/** Every shipment the filters match (not one page), for the printed and Excel report. */
+export const useShipmentsReport = (q: Pick<ShipmentsQuery, 'search' | 'kind' | 'stage' | 'declarantId'>) =>
+  useQuery({
+    queryKey: [...shipmentKeys.all, 'report', q],
+    queryFn: () => api.get<ShipmentsReport>('/shipments/report', shipmentFilters(q)),
   });
 
 export const useShipment = (id: number) =>

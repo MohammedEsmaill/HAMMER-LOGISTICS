@@ -422,6 +422,47 @@ describe('Shipment registration (e2e)', () => {
       ).body.id;
     });
 
+    it('the report holds every shipment the filters match, not one page, within the user scope', async () => {
+      // the CEO: as many rows as the list's total, beyond one page
+      const all = await ctx
+        .api(ctx.ceoToken)
+        .get('/api/shipments')
+        .query({ direction: 'IMPORT', mode: 'SEA', pageSize: 1 })
+        .expect(200);
+      const report = await ctx
+        .api(ctx.ceoToken)
+        .get('/api/shipments/report')
+        .query({ direction: 'IMPORT', mode: 'SEA', pageSize: 1 })
+        .expect(200);
+      expect(report.body.items).toHaveLength(all.body.total);
+      expect(report.body.summary.count).toBe(all.body.total);
+      expect(
+        report.body.items.every(
+          (s: { direction: string; mode: string }) =>
+            s.direction === 'IMPORT' && s.mode === 'SEA',
+        ),
+      ).toBe(true);
+      const packages = report.body.items.reduce(
+        (t: number, s: { packagesCount: number }) => t + s.packagesCount,
+        0,
+      );
+      expect(report.body.summary.packages).toBe(packages);
+      // an operation employee: their own shipments only
+      const mine = await ctx
+        .api(opsA.token)
+        .get('/api/shipments/report')
+        .expect(200);
+      expect(
+        mine.body.items.every(
+          (s: { operationEmployee: { id: number } }) =>
+            s.operationEmployee.id === opsA.employeeId,
+        ),
+      ).toBe(true);
+      expect(
+        mine.body.items.some((s: { id: number }) => s.id === clientBShipment),
+      ).toBe(false);
+    });
+
     it('an operation employee sees only their own shipments; others read as not found', async () => {
       const list = await ctx
         .api(opsA.token)

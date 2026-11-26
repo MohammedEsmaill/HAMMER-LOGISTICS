@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import { FilterBar } from '@/components/ui/FilterBar';
@@ -32,6 +32,10 @@ export default function ShipmentsPage() {
   );
   const { data, isLoading, error } = useShipments({ ...q, pageSize });
   const { data: declarants = [] } = useLookup('declarants');
+  // the report takes the same filters as the list, from the address
+  const reportParams = new URLSearchParams(
+    Object.entries({ search: q.search, kind: q.kind, stage: q.stage, declarantId: q.declarantId }).filter(([, v]) => v !== '' && v !== undefined).map(([k, v]) => [k, String(v)]),
+  ).toString();
 
   const columns: Column<ShipmentListItem>[] = [
     {
@@ -80,11 +84,22 @@ export default function ShipmentsPage() {
       <PageHeader
         title="الشحنات"
         actions={
-          can('shipments.create') && (
-            <Button icon={<Plus className="size-4" />} onClick={() => navigate('/shipments/new')}>
-              شحنة جديدة
-            </Button>
-          )
+          <>
+            {/* every shipment the filters match, not this page only */}
+            <a
+              href={`/print/shipments-report?${reportParams}`}
+              target="_blank"
+              rel="noreferrer"
+              className="focus-ring inline-flex h-11 items-center gap-2 rounded-xl border border-line px-4 text-sm hover:border-gold/60 hover:text-gold"
+            >
+              <FileText className="size-4" /> تقرير{data ? ` (${data.total})` : ''}
+            </a>
+            {can('shipments.create') && (
+              <Button icon={<Plus className="size-4" />} onClick={() => navigate('/shipments/new')}>
+                شحنة جديدة
+              </Button>
+            )}
+          </>
         }
       />
       <FilterBar

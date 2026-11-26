@@ -171,6 +171,22 @@ body {
   }
 }
 
+/* printed wide reports (the shipments report): A4 landscape */
+@media print {
+  .report-print-landscape {
+    page: report-landscape;
+  }
+  @page report-landscape {
+    size: A4 landscape;
+    margin: 10mm 8mm 12mm;
+    @bottom-center {
+      content: 'صفحة ' counter(page) ' من ' counter(pages);
+      font-size: 9px;
+      color: #666;
+    }
+  }
+}
+
 /* printed reports: A4 with margins and page numbers on every page */
 @media print {
   .report-print {

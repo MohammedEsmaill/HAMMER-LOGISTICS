@@ -63,6 +63,13 @@ export class ShipmentsController {
     return this.shipments.list(actor, query);
   }
 
+  /** Every shipment the list's filters match, for the printed / Excel report. */
+  @Get('report')
+  @RequireAnyPermission('shipments.view.all', 'shipments.view.own')
+  report(@CurrentUser() actor: AuthUser, @Query() query: ShipmentsQueryDto) {
+    return this.shipments.report(actor, query);
+  }
+
   @Get(':id')
   @RequireAnyPermission('shipments.view.all', 'shipments.view.own')
   get(@CurrentUser() actor: AuthUser, @Param('id', ParseIntPipe) id: number) {

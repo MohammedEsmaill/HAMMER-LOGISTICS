@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuthUser } from '../auth/auth-user';
 import { Page, pageArgs } from '../common/dto/list-query.dto';
@@ -33,6 +37,24 @@ const LIST_SELECT = {
   clearer: FULL_NAME,
 } satisfies Prisma.ShipmentSelect;
 
+/** The most rows one shipments report holds. */
+const REPORT_MAX = 5000;
+
+const REPORT_SELECT = {
+  ...LIST_SELECT,
+  packagesCount: true,
+  totalWeight: true,
+  vesselName: true,
+  certificateNo: true,
+  factory: NAME,
+  carrier: NAME,
+  declarant: NAME,
+  dischargePort: NAME,
+  loadingPort: NAME,
+  freeZone: NAME,
+  containers: { select: { type: true }, orderBy: { seq: 'asc' } },
+} satisfies Prisma.ShipmentSelect;
+
 const DETAIL_INCLUDE = {
   client: NAME,
   factory: NAME,
@@ -62,8 +84,32 @@ export class ShipmentsService {
     actor: AuthUser,
     query: ShipmentsQueryDto,
   ): Promise<Page<unknown>> {
+    const where = this.listWhere(actor, query);
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.shipment.findMany({
+        where,
+        select: LIST_SELECT,
+        orderBy: { createdAt: 'desc' },
+        ...pageArgs(query),
+      }),
+      this.prisma.shipment.count({ where }),
+    ]);
+    const items = rows.map((s) => ({
+      ...s,
+      stageLabel: stageLabel(shipmentKind(s.direction, s.mode), s.currentStage),
+      // an empty HB/L shows and prints as the MB/L (spec section 17)
+      hblDisplay: s.hblNumber ?? s.mblNumber,
+    }));
+    return { items, total, page: query.page, pageSize: query.pageSize };
+  }
+
+  /** The list's filters and the user's scope, shared by the list and its report. */
+  private listWhere(
+    actor: AuthUser,
+    query: ShipmentsQueryDto,
+  ): Prisma.ShipmentWhereInput {
     const search = query.search?.toUpperCase();
-    const where: Prisma.ShipmentWhereInput = {
+    return {
       AND: [
         shipmentScope(actor),
         {
@@ -92,22 +138,54 @@ export class ShipmentsService {
           : {},
       ],
     };
-    const [rows, total] = await this.prisma.$transaction([
-      this.prisma.shipment.findMany({
-        where,
-        select: LIST_SELECT,
-        orderBy: { createdAt: 'desc' },
-        ...pageArgs(query),
-      }),
-      this.prisma.shipment.count({ where }),
-    ]);
-    const items = rows.map((s) => ({
-      ...s,
-      stageLabel: stageLabel(shipmentKind(s.direction, s.mode), s.currentStage),
-      // an empty HB/L shows and prints as the MB/L (spec section 17)
-      hblDisplay: s.hblNumber ?? s.mblNumber,
-    }));
-    return { items, total, page: query.page, pageSize: query.pageSize };
+  }
+
+  /**
+   * Every shipment the filters match (not one page), with a summary: the shipments
+   * report, printed or as Excel. Refused past REPORT_MAX rows: narrow the filters.
+   */
+  async report(actor: AuthUser, query: ShipmentsQueryDto) {
+    const where = this.listWhere(actor, query);
+    const total = await this.prisma.shipment.count({ where });
+    if (total > REPORT_MAX) {
+      throw new BadRequestException(
+        `الفلتر جايب ${total} شحنة، والتقرير بيطلع لحد ${REPORT_MAX}: ضيّق الفلتر`,
+      );
+    }
+    const rows = await this.prisma.shipment.findMany({
+      where,
+      select: REPORT_SELECT,
+      orderBy: { createdAt: 'desc' },
+    });
+    const containers: Record<string, number> = {};
+    let packages = 0;
+    let weight = new Prisma.Decimal(0);
+    const items = rows.map((s) => {
+      for (const c of s.containers)
+        containers[c.type] = (containers[c.type] ?? 0) + 1;
+      packages += s.packagesCount;
+      weight = weight.plus(s.totalWeight);
+      const { containers: boxes, ...rest } = s;
+      return {
+        ...rest,
+        containers: boxes.map((c) => c.type),
+        stageLabel: stageLabel(
+          shipmentKind(s.direction, s.mode),
+          s.currentStage,
+        ),
+        hblDisplay: s.hblNumber ?? s.mblNumber,
+        place: s.dischargePort ?? s.loadingPort ?? s.freeZone,
+      };
+    });
+    return {
+      items,
+      summary: {
+        count: items.length,
+        containers,
+        packages,
+        weight: weight.toFixed(3),
+      },
+    };
   }
 
   async get(actor: AuthUser, id: number) {
