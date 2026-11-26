@@ -377,6 +377,16 @@ const GRANTS: {
       GENERAL_AUDITOR: ['finance.gl.view'],
     },
   },
+  {
+    // closing the months: the accounts manager; reconciling the banks: the accountant,
+    // the treasury manager and the accounts manager (the CEO holds everything)
+    id: 'months-and-bank-reconciliation',
+    roles: {
+      ACCOUNTS_MANAGER: ['finance.months.close', 'finance.bank.reconcile'],
+      TREASURY_MANAGER: ['finance.bank.reconcile'],
+      ACCOUNTANT: ['finance.bank.reconcile'],
+    },
+  },
 ];
 
 /** The price lists the office started with; the CEO changes them later. */

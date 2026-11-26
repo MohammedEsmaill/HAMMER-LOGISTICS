@@ -356,19 +356,23 @@ model User {
   clearer   Clearer?  @relation("UserClearer", fields: [clearerId], references: [id], onDelete: Restrict)
   deletedBy User?     @relation("UserDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
 
-  deletedUsers      User[]             @relation("UserDeletedBy")
-  inboxItems        InboxItem[]
-  extraRoles        UserRole[]
-  partyDocsCreated  PartyDocument[]    @relation("PartyDocumentCreatedBy")
-  partyDocsUpdated  PartyDocument[]    @relation("PartyDocumentUpdatedBy")
-  deletedEmployees  Employee[]         @relation("EmployeeDeletedBy")
-  deletedClearers   Clearer[]          @relation("ClearerDeletedBy")
-  deletedClients    Client[]           @relation("ClientDeletedBy")
-  deletedFactories  Factory[]          @relation("FactoryDeletedBy")
-  createdShipments  Shipment[]         @relation("ShipmentCreatedBy")
-  uploadedDocuments ShipmentDocument[] @relation("DocumentUploadedBy")
-  deletedDocuments  ShipmentDocument[] @relation("DocumentDeletedBy")
-  auditLogs         AuditLog[]
+  deletedUsers          User[]               @relation("UserDeletedBy")
+  inboxItems            InboxItem[]
+  extraRoles            UserRole[]
+  partyDocsCreated      PartyDocument[]      @relation("PartyDocumentCreatedBy")
+  monthsClosed          FiscalMonth[]        @relation("FiscalMonthClosedBy")
+  monthsReopened        FiscalMonth[]        @relation("FiscalMonthReopenedBy")
+  reconciliations       BankReconciliation[] @relation("ReconciliationCreatedBy")
+  reconciliationsEdited BankReconciliation[] @relation("ReconciliationUpdatedBy")
+  partyDocsUpdated      PartyDocument[]      @relation("PartyDocumentUpdatedBy")
+  deletedEmployees      Employee[]           @relation("EmployeeDeletedBy")
+  deletedClearers       Clearer[]            @relation("ClearerDeletedBy")
+  deletedClients        Client[]             @relation("ClientDeletedBy")
+  deletedFactories      Factory[]            @relation("FactoryDeletedBy")
+  createdShipments      Shipment[]           @relation("ShipmentCreatedBy")
+  uploadedDocuments     ShipmentDocument[]   @relation("DocumentUploadedBy")
+  deletedDocuments      ShipmentDocument[]   @relation("DocumentDeletedBy")
+  auditLogs             AuditLog[]
 
   moneyMovements         MoneyMovement[]        @relation("MovementCreatedBy")
   createdTransfers       Transfer[]             @relation("TransferCreatedBy")
@@ -810,8 +814,10 @@ model MoneyAccount {
   updatedAt      DateTime         @updatedAt @map("updated_at")
 
   movements          MoneyMovement[]
-  transfersOut       Transfer[]          @relation("TransferFrom")
-  transfersIn        Transfer[]          @relation("TransferTo")
+  reconciliations    BankReconciliation[]
+  reconciledItems    BankReconciliationItem[]
+  transfersOut       Transfer[]               @relation("TransferFrom")
+  transfersIn        Transfer[]               @relation("TransferTo")
   otherMovements     OtherMovement[]
   salaryPayments     SalaryPayment[]
   employeeAdvances   EmployeeAdvance[]
@@ -821,8 +827,8 @@ model MoneyAccount {
   collections        Collection[]
   journalDayAccounts JournalDayAccount[]
   partyMovements     PartyMovement[]
-  custodyExtras      Custody[]           @relation("CustodyExtraAccount")
-  ownerParty         InternalParty?      @relation(fields: [ownerPartyId], references: [id], onDelete: Restrict)
+  custodyExtras      Custody[]                @relation("CustodyExtraAccount")
+  ownerParty         InternalParty?           @relation(fields: [ownerPartyId], references: [id], onDelete: Restrict)
 
   @@unique([id, currency]) // target of the composite FKs that lock a document's currency
   @@map("money_accounts")
@@ -1825,4 +1831,91 @@ model ClearerFeeOffset {
   @@index([feeId])
   @@index([custodyId])
   @@map("clearer_fee_offsets")
+}
+
+enum FiscalMonthStatus {
+  OPEN
+  CLOSED
+}
+
+/// A closed month: nobody but the CEO records or changes a document dated in it. Its
+/// trial balance and profit are kept as they stood at the close (snapshot, per currency);
+/// the profit of the closed months shows as retained earnings on the balance sheet.
+model FiscalMonth {
+  /// the month's first day
+  month        DateTime          @id @db.Date
+  status       FiscalMonthStatus @default(CLOSED)
+  closedById   Int?              @map("closed_by")
+  closedAt     DateTime?         @map("closed_at")
+  reopenedById Int?              @map("reopened_by")
+  reopenedAt   DateTime?         @map("reopened_at")
+  reopenReason String?           @map("reopen_reason")
+  /// { EGP: { revenues, expenses, net, debit, credit, accounts: { key: closing } }, USD: … }
+  snapshot     Json?
+  /// the warnings shown when it was closed (open custodies …)
+  warnings     Json?
+
+  closedBy   User? @relation("FiscalMonthClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  reopenedBy User? @relation("FiscalMonthReopenedBy", fields: [reopenedById], references: [id], onDelete: Restrict)
+
+  @@map("fiscal_months")
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  DIFFERENCE
+}
+
+/// A bank account's balance in our books matched against the bank's statement at the
+/// end of a period. The lines ticked as shown in the bank are kept (items); the ones
+/// left out stay outstanding and come first in the next reconciliation.
+model BankReconciliation {
+  id               Int                  @id @default(autoincrement())
+  accountId        Int                  @map("account_id")
+  fromDate         DateTime             @map("from_date") @db.Date
+  toDate           DateTime             @map("to_date") @db.Date
+  statementBalance Decimal              @map("statement_balance") @db.Decimal(14, 2)
+  systemBalance    Decimal              @map("system_balance") @db.Decimal(14, 2)
+  /// deposits in our books not in the bank yet
+  outstandingIn    Decimal              @map("outstanding_in") @db.Decimal(14, 2)
+  /// cheques and payments not cleared by the bank yet
+  outstandingOut   Decimal              @map("outstanding_out") @db.Decimal(14, 2)
+  /// statement − (system − outstanding in + outstanding out)
+  difference       Decimal              @db.Decimal(14, 2)
+  status           ReconciliationStatus
+  note             String?
+  /// the statement rows uploaded and not found in our books
+  bankLines        Json?                @map("bank_lines")
+  version          Int                  @default(0)
+  createdById      Int                  @map("created_by")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedById      Int?                 @map("updated_by")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  account   MoneyAccount             @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  createdBy User                     @relation("ReconciliationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User?                    @relation("ReconciliationUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  items     BankReconciliationItem[]
+
+  @@index([accountId, toDate])
+  @@map("bank_reconciliations")
+}
+
+/// A line of the account's ledger the bank showed. The key names the document's leg
+/// (OTHER:12:C:150.00#1), so it survives an edit that posts the same amount again.
+model BankReconciliationItem {
+  id               Int      @id @default(autoincrement())
+  reconciliationId Int      @map("reconciliation_id")
+  accountId        Int      @map("account_id")
+  lineKey          String   @map("line_key")
+  entryDate        DateTime @map("entry_date") @db.Date
+  /// signed: + money in, − money out
+  amount           Decimal  @db.Decimal(14, 2)
+
+  reconciliation BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  account        MoneyAccount       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@unique([accountId, lineKey])
+  @@index([reconciliationId])
+  @@map("bank_reconciliation_items")
 }

@@ -5,11 +5,12 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { FiscalMonthsService } from '../finance/fiscal-months.service';
 import { GeneralLedgerService } from '../finance/general-ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface IntegrityProblem {
-  kind: 'BALANCE' | 'LAST_LINE' | 'CHAIN' | 'CLOSED_DAY' | 'GL';
+  kind: 'BALANCE' | 'LAST_LINE' | 'CHAIN' | 'CLOSED_DAY' | 'GL' | 'CLOSED_MONTH';
   severity: 'danger' | 'warning';
   title: string;
   detail: string;
@@ -45,6 +46,7 @@ export class IntegrityService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gl: GeneralLedgerService,
+    private readonly months: FiscalMonthsService,
   ) {}
 
   onModuleInit() {
@@ -193,6 +195,17 @@ export class IntegrityService implements OnModuleInit, OnModuleDestroy {
         title: 'دفتر الأستاذ العام مش متزن',
         detail: p,
         link: '/general-ledger',
+      });
+    }
+
+    // a closed month whose figures moved after it closed (the CEO's edits)
+    for (const m of await this.months.changedMonths()) {
+      problems.push({
+        kind: 'CLOSED_MONTH',
+        severity: 'warning',
+        title: `شهر ${m.month} اتغيّر بعد قفله`,
+        detail: m.changes.slice(0, 5).join(' · '),
+        link: '/general-ledger?tab=months',
       });
     }
 

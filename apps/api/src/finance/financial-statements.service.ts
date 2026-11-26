@@ -73,8 +73,25 @@ export class FinancialStatementsService {
     const equity = topTotal(lines, '3', closing);
     const profit = topTotal(lines, '4', closing).minus(topTotal(lines, '5', closing));
     const equityLines = section(lines, '3', closing);
-    if (!profit.isZero())
-      equityLines.push({ key: 'PROFIT', code: '39', name: 'صافي الأرباح المتراكمة', level: 0, group: false, amount: profit.toFixed(2) });
+    // the closed months' profit is retained; what follows them is the open months' profit
+    const closedEnd = await this.lastClosedEnd(asOf);
+    let retained = new Prisma.Decimal(0);
+    if (closedEnd) {
+      const upTo = (await this.gl.trialBalance(currency, undefined, closedEnd)).lines;
+      retained = topTotal(upTo, '4', closing).minus(topTotal(upTo, '5', closing));
+    }
+    const open = profit.minus(retained);
+    if (!retained.isZero())
+      equityLines.push({ key: 'RETAINED', code: '38', name: 'أرباح مرحّلة (الشهور المقفولة)', level: 0, group: false, amount: retained.toFixed(2) });
+    if (!open.isZero())
+      equityLines.push({
+        key: 'PROFIT',
+        code: '39',
+        name: closedEnd ? 'أرباح الشهور المفتوحة' : 'صافي الأرباح المتراكمة',
+        level: 0,
+        group: false,
+        amount: open.toFixed(2),
+      });
     const right = liabilities.plus(equity).plus(profit);
     return {
       currency,
@@ -85,6 +102,16 @@ export class FinancialStatementsService {
       totalLiabilitiesAndEquity: right.toFixed(2),
       balanced: assets.equals(right),
     };
+  }
+
+  /** The last day of the latest closed month ending on or before the date. */
+  private async lastClosedEnd(asOf?: Date): Promise<Date | null> {
+    const rows = await this.prisma.fiscalMonth.findMany({ where: { status: 'CLOSED' }, orderBy: { month: 'desc' }, select: { month: true } });
+    for (const r of rows) {
+      const end = new Date(Date.UTC(r.month.getUTCFullYear(), r.month.getUTCMonth() + 1, 0));
+      if (!asOf || end <= asOf) return end;
+    }
+    return null;
   }
 
   /** The VAT on the invoices issued in the period, by rate, with each invoice. */

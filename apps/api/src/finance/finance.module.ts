@@ -48,6 +48,10 @@ import { JournalDaysService } from './journal-days.service';
 import { GeneralLedgerController } from './general-ledger.controller';
 import { GeneralLedgerService } from './general-ledger.service';
 import { FinancialStatementsService } from './financial-statements.service';
+import { FiscalMonthsController } from './fiscal-months.controller';
+import { FiscalMonthsService } from './fiscal-months.service';
+import { BankReconciliationController } from './bank-reconciliation.controller';
+import { BankReconciliationService } from './bank-reconciliation.service';
 
 @Module({
   controllers: [
@@ -70,6 +74,8 @@ import { FinancialStatementsService } from './financial-statements.service';
     PartiesController,
     PartyMovementsController,
     GeneralLedgerController,
+    FiscalMonthsController,
+    BankReconciliationController,
   ],
   providers: [
     LedgerService,
@@ -94,6 +100,8 @@ import { FinancialStatementsService } from './financial-statements.service';
     PartiesService,
     GeneralLedgerService,
     FinancialStatementsService,
+    FiscalMonthsService,
+    BankReconciliationService,
   ],
   exports: [
     LedgerService,
@@ -105,6 +113,7 @@ import { FinancialStatementsService } from './financial-statements.service';
     HolderLedgerService,
     PartiesService,
     GeneralLedgerService,
+    FiscalMonthsService,
   ],
 })
 export class FinanceModule {}

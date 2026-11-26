@@ -12,6 +12,7 @@ import { AuthUser } from '../auth/auth-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { canSeeRestricted } from './approvals/approval.service';
 import { JournalDaysQueryDto } from './dto/journal.dto';
+import { isMonthClosed } from './days';
 import { todayCairo } from './money';
 
 const fixed = (v: Prisma.Decimal | number | null) =>
@@ -224,6 +225,10 @@ export class JournalDaysService implements OnModuleInit, OnModuleDestroy {
     const today = todayCairo();
     if (date >= today)
       throw new BadRequestException('يومية النهاردة مفتوحة أصلاً');
+    if (await isMonthClosed(this.prisma, date))
+      throw new BadRequestException(
+        'اليوم ده في شهر مقفول، ومينفعش يتفتح. المدير التنفيذي يقدر يعدّل عليه من غير فتح',
+      );
     await this.closeDue(); // a day not closed yet gets its figures first
     await this.prisma.$transaction(async (tx) => {
       const before = await tx.journalDay.findUnique({ where: { date } });
