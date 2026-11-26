@@ -91,3 +91,65 @@ export const useGlLedger = (key: string | null, q: GlPeriod) =>
     queryFn: () => api.get<GlLedger>(`/finance/gl/ledger?${params(q, { account: key ?? '' })}`),
     enabled: !!key,
   });
+
+export interface StatementLine {
+  key: string;
+  code: string;
+  name: string;
+  level: number;
+  group: boolean;
+  amount: string;
+}
+
+export interface StatementSection {
+  lines: StatementLine[];
+  total: string;
+}
+
+export interface IncomeStatement {
+  currency: Currency;
+  revenues: StatementSection;
+  expenses: StatementSection;
+  net: string;
+  margin: string | null;
+}
+
+export interface BalanceSheet {
+  currency: Currency;
+  assets: StatementSection;
+  liabilities: StatementSection;
+  equity: StatementSection;
+  totalLiabilitiesAndEquity: string;
+  balanced: boolean;
+}
+
+export interface VatReport {
+  currency: Currency;
+  rates: { rate: string; count: number; subtotal: string; vat: string; total: string }[];
+  totals: { count: number; subtotal: string; vat: string; total: string };
+  invoices: {
+    id: number;
+    invoiceNo: string;
+    date: string;
+    client: string;
+    fileNo: string;
+    shipmentId: number;
+    rate: string;
+    subtotal: string;
+    vat: string;
+    total: string;
+  }[];
+}
+
+export const useIncomeStatement = (q: GlPeriod) =>
+  useQuery({ queryKey: [...glKeys.all, 'income', q], queryFn: () => api.get<IncomeStatement>(`/finance/gl/income-statement?${params(q)}`) });
+
+export const useBalanceSheet = (q: GlPeriod) =>
+  useQuery({
+    queryKey: [...glKeys.all, 'balance', q.currency, q.to],
+    queryFn: () =>
+      api.get<BalanceSheet>(`/finance/gl/balance-sheet?${new URLSearchParams({ currency: q.currency, ...(q.to ? { asOf: q.to } : {}) })}`),
+  });
+
+export const useVatReport = (q: GlPeriod) =>
+  useQuery({ queryKey: [...glKeys.all, 'vat', q], queryFn: () => api.get<VatReport>(`/finance/gl/vat?${params(q)}`) });

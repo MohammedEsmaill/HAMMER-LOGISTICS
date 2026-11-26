@@ -8,9 +8,10 @@ import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
 import { FormTabs } from '../shipments/FormTabs';
 import { CURRENCIES, money, type Currency } from './api';
+import { BalanceSheetView, IncomeStatementView, VatView } from './FinancialStatements';
 import { GL_TYPES, useGlChart, useGlLedger, useTrialBalance, type GlAccount, type GlPeriod, type TrialLine } from './gl-api';
 
-type View = 'trial' | 'chart';
+type View = 'trial' | 'income' | 'balance' | 'vat' | 'chart';
 
 const num = (v: string) => (Number(v) === 0 ? '—' : money(v));
 
@@ -30,19 +31,23 @@ export default function GeneralLedgerPage() {
 
   return (
     <>
-      <PageHeader title="دفتر الأستاذ العام" />
+      <PageHeader title="الحسابات العامة" />
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="mb-3">
         <FormTabs
           tabs={[
             { key: 'trial', label: 'ميزان المراجعة' },
+            { key: 'income', label: 'قائمة الدخل' },
+            { key: 'balance', label: 'الميزانية' },
+            { key: 'vat', label: 'ضريبة القيمة المضافة' },
             { key: 'chart', label: 'دليل الحسابات' },
           ]}
           active={view}
           onChange={setView}
           layoutId="gl-view"
         />
-        <div className="flex-1" />
+      </div>
+      <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="flex gap-1 rounded-xl border border-line bg-surface p-1" role="group" aria-label="العملة">
           {(Object.keys(CURRENCIES) as Currency[]).map((c) => (
             <button
@@ -56,15 +61,26 @@ export default function GeneralLedgerPage() {
             </button>
           ))}
         </div>
-        {view === 'trial' && (
-          <>
-            <TextField label="من" type="date" className="w-40" value={period.from} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
-            <TextField label="إلى" type="date" className="w-40" value={period.to} min={period.from} onChange={(e) => setPeriod({ ...period, to: e.target.value })} />
-          </>
+        {view !== 'chart' && view !== 'balance' && (
+          <TextField label="من" type="date" className="w-40" value={period.from} onChange={(e) => setPeriod({ ...period, from: e.target.value })} />
+        )}
+        {view !== 'chart' && (
+          <TextField
+            label={view === 'balance' ? 'في تاريخ' : 'إلى'}
+            type="date"
+            className="w-40"
+            value={period.to}
+            min={view === 'balance' ? undefined : period.from}
+            onChange={(e) => setPeriod({ ...period, to: e.target.value })}
+          />
         )}
       </div>
 
-      {view === 'trial' ? <TrialBalanceView period={period} onOpen={setOpen} /> : <ChartView onOpen={setOpen} />}
+      {view === 'trial' && <TrialBalanceView period={period} onOpen={setOpen} />}
+      {view === 'income' && <IncomeStatementView period={period} />}
+      {view === 'balance' && <BalanceSheetView period={period} />}
+      {view === 'vat' && <VatView period={period} />}
+      {view === 'chart' && <ChartView onOpen={setOpen} />}
 
       <LedgerDrawer account={open} period={period} onClose={() => setOpen(null)} />
     </>

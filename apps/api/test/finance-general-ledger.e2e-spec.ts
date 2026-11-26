@@ -68,6 +68,36 @@ describe('General ledger (e2e)', () => {
     await ctx.api(ctx.ceoToken).get('/api/finance/gl/ledger?account=NOPE&currency=EGP').expect(404);
   });
 
+  it('makes the income statement: revenues less expenses, as the trial balance says', async () => {
+    const res = await ctx.api(ctx.ceoToken).get('/api/finance/gl/income-statement?currency=EGP').expect(200);
+    const tb = (await ctx.api(ctx.ceoToken).get('/api/finance/gl/trial-balance?currency=EGP').expect(200)).body as { lines: Line[] };
+    const top = (code: string) => Number(tb.lines.find((l) => l.code === code)?.closing ?? 0);
+    expect(Number(res.body.revenues.total)).toBeCloseTo(top('4'), 2);
+    expect(Number(res.body.expenses.total)).toBeCloseTo(top('5'), 2);
+    expect(Number(res.body.net)).toBeCloseTo(top('4') - top('5'), 2);
+  });
+
+  it('balances the balance sheet in each currency: assets = liabilities + equity + profit', async () => {
+    for (const currency of ['EGP', 'USD'] as const) {
+      const res = await ctx.api(ctx.ceoToken).get(`/api/finance/gl/balance-sheet?currency=${currency}`).expect(200);
+      expect(res.body.balanced).toBe(true);
+      expect(res.body.assets.total).toBe(res.body.totalLiabilitiesAndEquity);
+    }
+    const past = await ctx.api(ctx.ceoToken).get('/api/finance/gl/balance-sheet?currency=EGP&asOf=2000-01-01').expect(200);
+    expect(past.body.assets.total).toBe('0.00');
+  });
+
+  it('reports the VAT of the live invoices by rate, matching the VAT account', async () => {
+    const res = await ctx.api(ctx.ceoToken).get('/api/finance/gl/vat?currency=EGP').expect(200);
+    const live = await ctx.prisma.invoice.findMany({ where: { voidedAt: null, currency: 'EGP', type: { not: 'STATEMENT' } } });
+    expect(res.body.totals.count).toBe(live.length);
+    const vat = live.reduce((s, i) => s + Number(i.vatAmount), 0);
+    expect(Number(res.body.totals.vat)).toBeCloseTo(vat, 2);
+    const tb = (await ctx.api(ctx.ceoToken).get('/api/finance/gl/trial-balance?currency=EGP').expect(200)).body as { lines: Line[] };
+    expect(Number(tb.lines.find((l) => l.key === 'VAT_PAYABLE')?.closing ?? 0)).toBeCloseTo(vat, 2);
+    for (const r of res.body.rates) expect(r.count).toBeGreaterThan(0);
+  });
+
   it('is for the accounts manager and the general auditor', async () => {
     const auditor = (await ctx.userWithRole('983', 'GENERAL_AUDITOR', 'ACCOUNTS')).token;
     await ctx.api(auditor).get('/api/finance/gl/trial-balance?currency=EGP').expect(200);

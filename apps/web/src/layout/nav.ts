@@ -141,7 +141,7 @@ export const NAV: NavItem[] = [
   },
   {
     to: '/general-ledger',
-    label: 'دفتر الأستاذ العام',
+    label: 'الحسابات العامة',
     icon: Scale,
     group: 'finance',
     any: ['finance.gl.view'],

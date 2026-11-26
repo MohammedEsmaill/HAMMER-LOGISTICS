@@ -23,3 +23,13 @@ export class LedgerQueryDto extends TrialBalanceQueryDto {
   @Matches(/^[A-Z_]+(:[A-Z0-9_]+)?$/)
   account!: string;
 }
+
+export class BalanceSheetQueryDto {
+  @IsEnum(Currency)
+  currency!: Currency;
+
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  asOf?: Date;
+}
