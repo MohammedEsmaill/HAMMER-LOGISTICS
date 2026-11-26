@@ -78,7 +78,7 @@ export function IncomeStatementView({ period }: { period: GlPeriod }) {
         <Stat label="الإيرادات" value={money(data.revenues.total, period.currency)} />
         <Stat label="المصروفات" value={money(data.expenses.total, period.currency)} />
         <Stat
-          label={net >= 0 ? `صافي الربح${data.margin ? ` · ${data.margin}% من الإيرادات` : ''}` : 'صافي الخسارة'}
+          label={net >= 0 ? `صافي الربح${net > 0 && data.margin ? ` · ${data.margin}% من الإيرادات` : ''}` : 'صافي الخسارة'}
           value={money(Math.abs(net), period.currency)}
           tone={net >= 0 ? 'text-success' : 'text-danger'}
         />

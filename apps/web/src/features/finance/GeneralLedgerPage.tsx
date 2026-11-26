@@ -1,4 +1,5 @@
-import { CheckCircle2, ChevronLeft, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, Printer, TriangleAlert } from 'lucide-react';
+import { Link } from 'react-router';
 import { useState } from 'react';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -31,7 +32,20 @@ export default function GeneralLedgerPage() {
 
   return (
     <>
-      <PageHeader title="الحسابات العامة" />
+      <PageHeader
+        title="الحسابات العامة"
+        actions={
+          view !== 'chart' && (
+            <Link
+              to={`/print/statements?${new URLSearchParams({ view, currency: period.currency, ...(view !== 'balance' && period.from ? { from: period.from } : {}), ...(period.to ? { to: period.to } : {}) })}`}
+              target="_blank"
+              className="focus-ring inline-flex items-center gap-2 rounded-xl border border-gold/40 px-4 py-2 text-sm font-semibold text-gold hover:bg-gold/10"
+            >
+              <Printer className="size-4" /> طباعة / PDF / Excel
+            </Link>
+          )
+        }
+      />
 
       <div className="mb-3">
         <FormTabs

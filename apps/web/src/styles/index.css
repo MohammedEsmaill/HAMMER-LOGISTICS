@@ -201,6 +201,10 @@ body {
       color: #666;
     }
   }
+  /* the toasts' container after a report would open an empty last page */
+  section[aria-label^='Notifications'] {
+    display: none !important;
+  }
   .report-page {
     width: auto !important;
     min-height: auto !important;
