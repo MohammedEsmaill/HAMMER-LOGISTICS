@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Pagination } from '@/components/ui/Pagination';
@@ -8,6 +7,7 @@ import { formatDate } from '@/lib/format';
 import { usePageOf } from '@/lib/use-page-of';
 import { FormTabs } from '../shipments/FormTabs';
 import { useClientBalances, type ClientBalance } from './account-api';
+import { useListState } from '@/lib/use-list-state';
 import { money, type Currency } from './api';
 
 type Filter = 'all' | 'owes' | 'credit' | 'settled';
@@ -37,12 +37,13 @@ function Owed({ b, c }: { b: ClientBalance; c: Currency }) {
 export default function ClientLedgersPage() {
   const navigate = useNavigate();
   const { data, isLoading, error } = useClientBalances();
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [{ search, filter }, setFilters] = useListState({ search: '', filter: 'all' as Filter, page: 1 });
+  const setSearch = (s: string) => setFilters({ search: s });
+  const setFilter = (f: Filter) => setFilters({ filter: f });
   const rows = data
     ?.filter((b) => matches(b, filter) && (!search || b.client.name.toLowerCase().includes(search.toLowerCase())))
     .sort((a, b) => owed(b, 'EGP') - owed(a, 'EGP') || owed(b, 'USD') - owed(a, 'USD'));
-  const paged = usePageOf(rows, 25, `${filter}|${search}`);
+  const paged = usePageOf(rows, `${filter}|${search}`);
   const count = (f: Filter) => data?.filter((b) => matches(b, f)).length;
 
   const columns: Column<ClientBalance>[] = [
@@ -103,7 +104,7 @@ export default function ClientLedgersPage() {
         onRowClick={(b) => navigate(`/client-ledgers/${b.client.id}`)}
       />
       <div className="mt-3">
-        <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} />
+        <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} onPageSizeChange={paged.setPageSize} />
       </div>
     </>
   );

@@ -112,6 +112,8 @@ export interface ExpensesQuery {
   payee?: string;
   status?: ApprovalStatus | '';
   page: number;
+  /** Rows per page (the user's choice). */
+  pageSize?: number;
 }
 
 export const officeKeys = {
@@ -125,10 +127,10 @@ export const officeKeys = {
   types: ['finance', 'expense-types'] as const,
 };
 
-export const useSalaries = (q: { month?: string; employeeId?: number | ''; status?: ApprovalStatus | ''; page: number }) =>
+export const useSalaries = (q: { month?: string; employeeId?: number | ''; status?: ApprovalStatus | ''; page: number; pageSize?: number }) =>
   useQuery({
     queryKey: officeKeys.salaries(q),
-    queryFn: () => api.get<Page<Salary> & { totalNet: string }>('/finance/salaries', { ...q, pageSize: 50 }),
+    queryFn: () => api.get<Page<Salary> & { totalNet: string }>('/finance/salaries', { pageSize: 50, ...q }),
     placeholderData: keepPreviousData,
   });
 
@@ -139,10 +141,10 @@ export const useSalaryPreview = (employeeId: number | undefined, month: string) 
     enabled: !!employeeId && /^\d{4}-\d{2}$/.test(month),
   });
 
-export const useAdvances = (q: { employeeId?: number | ''; page: number }) =>
+export const useAdvances = (q: { employeeId?: number | ''; page: number; pageSize?: number }) =>
   useQuery({
     queryKey: officeKeys.advances(q),
-    queryFn: () => api.get<Page<Advance>>('/finance/advances', { ...q, pageSize: 20 }),
+    queryFn: () => api.get<Page<Advance>>('/finance/advances', { pageSize: 20, ...q }),
     placeholderData: keepPreviousData,
   });
 
@@ -159,7 +161,7 @@ export const useAdvanceStatement = (employeeId: number | null) =>
 export const useExpenses = (q: ExpensesQuery) =>
   useQuery({
     queryKey: officeKeys.expenses(q),
-    queryFn: () => api.get<Page<Expense>>('/finance/expenses', { ...q, pageSize: 25 }),
+    queryFn: () => api.get<Page<Expense>>('/finance/expenses', { pageSize: 25, ...q }),
     placeholderData: keepPreviousData,
   });
 

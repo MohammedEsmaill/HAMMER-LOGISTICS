@@ -2,6 +2,7 @@ import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, Building2, FileBarCh
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import type { Permission } from '@/auth/permissions';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -19,7 +20,6 @@ import { ExpenseDrawer } from './ExpensesPage';
 import { PartyMovementDrawer } from './PartyDrawers';
 import {
   FLOWS,
-  JOURNAL_PAGE_SIZE,
   JOURNAL_TYPES,
   useJournal,
   useJournalAuthors,
@@ -120,16 +120,32 @@ export default function JournalPage() {
   // a link may open a closed day: /journal?tab=archive&day=2026-11-14
   const [params] = useSearchParams();
   const [view, setView] = useState<'today' | 'archive'>(params.get('tab') === 'archive' ? 'archive' : 'today');
-  const [q, setQ] = useState<JournalQuery>(EMPTY);
+  const [pageSize, setPageSize] = usePageSize();
+  // the filters live in the address; the types as a comma list
+  const [list, setList] = useListState(
+    {
+      page: 1,
+      types: '',
+      accountId: '' as number | '',
+      currency: '' as Currency | '',
+      status: '' as ApprovalStatus | '',
+      flow: '' as Flow | '',
+      createdBy: '' as number | '',
+      search: '',
+    },
+    { numbers: ['accountId', 'createdBy'] },
+  );
+  const q: JournalQuery = { ...list, types: list.types ? (list.types.split(',') as JournalType[]) : [] };
   const day = today();
   // today's journal: only what happened today
-  const { data, isLoading, error } = useJournal({ ...q, from: day, to: day });
+  const { data, isLoading, error } = useJournal({ ...q, from: day, to: day, pageSize });
   const { data: accounts = [] } = useAccounts();
   const { data: authors = [] } = useJournalAuthors();
   const [open, setOpen] = useState<OpenDocument | null>(null);
   const [picker, setPicker] = useState(false);
   const [creating, setCreating] = useState<NewKind | null>(null);
-  const set = (patch: Partial<JournalQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
+  const set = (patch: Partial<JournalQuery>) =>
+    setList({ ...patch, ...(patch.types ? { types: patch.types.join(',') } : {}) } as Partial<typeof list>);
   const newKinds = NEW_KINDS.filter((k) => k.any.some((p) => can(p)));
   const typeOptions = (Object.keys(JOURNAL_TYPES) as JournalType[])
     .filter((t) => salaryData || !JOURNAL_TYPES[t].restricted)
@@ -216,7 +232,7 @@ export default function JournalPage() {
             onChange={(types) => set({ types })}
           />
           {filtered && (
-            <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setQ(EMPTY)}>
+            <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setList({ ...EMPTY, types: '' })}>
               مسح الفلاتر
             </Button>
           )}
@@ -268,7 +284,7 @@ export default function JournalPage() {
         onOpen={(r) => setOpen({ type: r.type, id: r.id })}
       />
       <div className="mt-4">
-        <Pagination page={q.page} pageSize={JOURNAL_PAGE_SIZE} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
+        <Pagination page={q.page} pageSize={pageSize} total={data?.total ?? 0} onChange={(page) => set({ page })} onPageSizeChange={(n) => (setPageSize(n), set({ page: 1 }))} />
       </div>
         </>
       )}

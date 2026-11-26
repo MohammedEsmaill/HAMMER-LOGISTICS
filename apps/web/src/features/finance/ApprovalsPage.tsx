@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth/auth-context';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -65,7 +65,7 @@ const TYPE_OPTIONS = [
 
 type Tab = 'waiting' | 'rejected' | 'approved' | 'all';
 
-const tabOf = (q: ApprovalsQuery): Tab =>
+const tabOf = (q: Pick<ApprovalsQuery, 'waiting' | 'status'>): Tab =>
   q.waiting ? 'waiting' : q.status === 'REJECTED' ? 'rejected' : q.status === 'APPROVED' ? 'approved' : 'all';
 
 /** Where each status waits, in words. */
@@ -131,38 +131,33 @@ export default function ApprovalsPage() {
   const approver = canAny('finance.review', 'finance.manager_approve', 'finance.approve', 'finance.approved.edit');
   const salaryData = canAny('finance.payroll.manage', 'finance.approve');
   const queryClient = useQueryClient();
-  // the bell links here with ?status=…&type=… (what waits for this user)
-  const [params] = useSearchParams();
-  const fromLink = (): ApprovalsQuery => {
-    const status = params.get('status') as ApprovalStatus | null;
-    const waiting = approver && (params.get('waiting') === '1' || (!status && !params.has('type')) || (!!status && status !== 'REJECTED' && status !== 'APPROVED'));
-    return {
-      page: 1,
-      waiting,
-      status: waiting ? '' : (status ?? ''),
-      type: (params.get('type') as ApprovalsQuery['type'] | null) ?? '',
-    };
-  };
-  const [q, setQ] = useState<ApprovalsQuery>(fromLink);
-  useEffect(() => {
-    if (params.has('status') || params.has('type') || params.has('waiting')) setQ(fromLink());
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- follow a new link only
-  }, [params]);
-  const { data, isLoading, error } = useApprovals(q);
+  // the page, tab and filters live in the address; the bell links here with ?type=…
+  const [pageSize, setPageSize] = usePageSize();
+  const [q, setQuery] = useListState({
+    page: 1,
+    // an approver opens on what waits for their step
+    waiting: approver,
+    status: '' as ApprovalStatus | '',
+    type: '' as DocType | '',
+    from: '',
+    to: '',
+    mine: false,
+  });
+  const { data, isLoading, error } = useApprovals({ ...q, from: q.from || undefined, to: q.to || undefined, pageSize });
   const waitingCount = useWaitingCount();
   const [busy, setBusy] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<Operation | null>(null);
   const [open, setOpen] = useState<{ type: DocType; id: number } | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
-  const set = (patch: Partial<ApprovalsQuery>) => {
+  const set = (patch: Partial<typeof q>) => {
     setPicked(new Set());
-    setQ((p) => ({ ...p, page: 1, ...patch }));
+    setQuery(patch);
   };
   const refresh = () =>
     Promise.all([queryClient.invalidateQueries({ queryKey: financeKeys.all }), queryClient.invalidateQueries({ queryKey: ['inbox'] })]);
   const tab = tabOf(q);
-  const tabs: { key: Tab; label: string; patch: Partial<ApprovalsQuery> }[] = [
+  const tabs: { key: Tab; label: string; patch: Partial<typeof q> }[] = [
     ...(approver ? [{ key: 'waiting' as const, label: `قيد الانتظار${waitingCount ? ` · ${waitingCount}` : ''}`, patch: { waiting: true, status: '' as const, mine: false } }] : []),
     { key: 'rejected', label: 'مرفوضة', patch: { waiting: false, status: 'REJECTED' } },
     { key: 'approved', label: 'معتمدة', patch: { waiting: false, status: 'APPROVED' } },
@@ -354,10 +349,13 @@ export default function ApprovalsPage() {
         onRowClick={(o) => setOpen({ type: o.type, id: o.id })}
       />
       <div className="mt-4">
-        <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => {
-            setPicked(new Set());
-            setQ((p) => ({ ...p, page }));
-          }} />
+        <Pagination
+          page={q.page}
+          pageSize={pageSize}
+          total={data?.total ?? 0}
+          onChange={(page) => set({ page })}
+          onPageSizeChange={(n) => (setPageSize(n), set({ page: 1 }))}
+        />
       </div>
       <RejectDrawer op={rejecting} onClose={() => setRejecting(null)} onDone={refresh} />
       <DocumentDrawers open={open} onClose={() => setOpen(null)} />

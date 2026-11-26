@@ -1,5 +1,6 @@
 import { FileBarChart, LockOpen, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -15,7 +16,6 @@ import type { OpenDocument } from './DocumentDrawers';
 import {
   DAY_STATUS,
   dayTitle,
-  JOURNAL_PAGE_SIZE,
   journalDaysApi,
   openJournalReport,
   useJournal,
@@ -30,8 +30,9 @@ import { JournalTable } from './JournalPage';
 function DayDrawer({ date, search, onClose, onOpen }: { date: string | null; search: string; onClose: () => void; onOpen: (d: OpenDocument) => void }) {
   const { can } = useAuth();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize();
   const { data: day, error } = useJournalDay(date);
-  const ops = useJournal({ page, from: date ?? undefined, to: date ?? undefined, search: search || undefined });
+  const ops = useJournal({ page, pageSize, from: date ?? undefined, to: date ?? undefined, search: search || undefined });
   const reopen = useAction(() => journalDaysApi.reopen(date!), { success: 'اليومية اتفتحت لحد آخر النهاردة', invalidate: [financeKeys.all] });
 
   return (
@@ -94,7 +95,7 @@ function DayDrawer({ date, search, onClose, onOpen }: { date: string | null; sea
           <section className="space-y-2">
             <h3 className="font-bold">المعاملات{search ? ` · ${search}` : ''}</h3>
             <JournalTable rows={ops.data?.items} loading={ops.isLoading} error={ops.error} empty="مفيش معاملات" onOpen={(r) => onOpen({ type: r.type, id: r.id })} />
-            <Pagination page={page} pageSize={JOURNAL_PAGE_SIZE} total={ops.data?.total ?? 0} onChange={setPage} />
+            <Pagination page={page} pageSize={pageSize} total={ops.data?.total ?? 0} onChange={setPage} onPageSizeChange={(n) => (setPageSize(n), setPage(1))} />
           </section>
         </div>
       )}
@@ -104,10 +105,11 @@ function DayDrawer({ date, search, onClose, onOpen }: { date: string | null; sea
 
 /** سجل اليوميات: every day with operations, newest first; a file number or a party narrows them. */
 export function JournalArchive({ onOpen, initialDay = null }: { onOpen: (d: OpenDocument) => void; initialDay?: string | null }) {
-  const [q, setQ] = useState<JournalDaysQuery>({ page: 1, search: '' });
+  // one month of days a page; the page and search live in the address
+  const [q, setList] = useListState({ page: 1, search: '' }, { prefix: 'd' });
   const { data, isLoading, error } = useJournalDays(q);
   const [open, setOpen] = useState<string | null>(initialDay && /^\d{4}-\d{2}-\d{2}$/.test(initialDay) ? initialDay : null);
-  const set = (patch: Partial<JournalDaysQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
+  const set = (patch: Partial<JournalDaysQuery>) => setList(patch as Partial<typeof q>);
   const filtered = !!(q.from || q.to || q.search);
 
   const columns: Column<JournalDayRow>[] = [
@@ -134,7 +136,7 @@ export function JournalArchive({ onOpen, initialDay = null }: { onOpen: (d: Open
           </Button>
         )}
         {filtered && (
-          <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setQ({ page: 1, search: '' })}>
+          <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setList({ page: 1, search: '' })}>
             مسح الفلاتر
           </Button>
         )}
@@ -149,7 +151,7 @@ export function JournalArchive({ onOpen, initialDay = null }: { onOpen: (d: Open
         onRowClick={(d) => setOpen(d.date)}
       />
       <div className="mt-4">
-        <Pagination page={q.page} pageSize={31} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
+        <Pagination page={q.page} pageSize={31} total={data?.total ?? 0} onChange={(page) => setList({ page })} />
       </div>
       <DayDrawer date={open} search={q.search ?? ''} onClose={() => setOpen(null)} onOpen={onOpen} />
     </>

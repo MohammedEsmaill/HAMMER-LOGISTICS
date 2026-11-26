@@ -1,5 +1,4 @@
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
 import { FilterBar } from '@/components/ui/FilterBar';
@@ -10,6 +9,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { SelectField } from '@/components/ui/SelectField';
 import { formatDate } from '@/lib/format';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { useLookup } from '../lookups/api';
 import { useShipments, type ShipmentListItem, type ShipmentsQuery } from './api';
 import { MODE_ICONS } from './mode-icons';
@@ -25,10 +25,13 @@ const stageOptions = (kind: string) => {
 export default function ShipmentsPage() {
   const { can } = useAuth();
   const navigate = useNavigate();
-  const [q, setQ] = useState<ShipmentsQuery>({ search: '', kind: '', stage: '', page: 1 });
-  const { data, isLoading, error } = useShipments(q);
+  const [pageSize, setPageSize] = usePageSize();
+  const [q, set] = useListState<ShipmentsQuery & { declarantId: number | '' }>(
+    { search: '', kind: '', stage: '', declarantId: '', page: 1 },
+    { numbers: ['declarantId'] },
+  );
+  const { data, isLoading, error } = useShipments({ ...q, pageSize });
   const { data: declarants = [] } = useLookup('declarants');
-  const set = (patch: Partial<ShipmentsQuery>) => setQ((prev) => ({ ...prev, page: 1, ...patch }));
 
   const columns: Column<ShipmentListItem>[] = [
     {
@@ -136,7 +139,13 @@ export default function ShipmentsPage() {
         onRowClick={(s) => navigate(`/shipments/${s.id}`)}
       />
       <div className="mt-4">
-        <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
+        <Pagination
+          page={q.page}
+          pageSize={pageSize}
+          total={data?.total ?? 0}
+          onChange={(page) => set({ page })}
+          onPageSizeChange={(n) => (setPageSize(n), set({ page: 1 }))}
+        />
       </div>
     </>
   );

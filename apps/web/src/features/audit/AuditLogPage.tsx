@@ -13,6 +13,7 @@ import { toastError } from '@/lib/mutations';
 import { useCompany } from '../finance/account-api';
 import { FormTabs } from '../shipments/FormTabs';
 import { fetchAuditAll, useAudit, useAuditUsers, type AuditQuery, type AuditRow } from './api';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { downloadAuditExcel } from './audit-excel';
 import { Changes } from './Changes';
 import { subject, when, who } from './format';
@@ -55,13 +56,28 @@ export function AuditDrawer({ row, onClose }: { row: AuditRow | null; onClose: (
 
 /** The audit log: every change and every sign-in, filtered, with what changed. */
 export default function AuditLogPage() {
-  const [q, setQ] = useState<AuditQuery>({ tab: 'operations', page: 1 });
-  const { data, isLoading, error } = useAudit(q);
+  const [pageSize, setPageSize] = usePageSize();
+  const [list, setList] = useListState(
+    { tab: 'operations' as AuditQuery['tab'], page: 1, userId: '' as number | '', section: '', action: '', from: '', to: '', search: '' },
+    { numbers: ['userId'] },
+  );
+  // the API takes no empty filters
+  const q: AuditQuery = {
+    tab: list.tab,
+    page: list.page,
+    userId: list.userId || undefined,
+    section: list.section || undefined,
+    action: list.action || undefined,
+    from: list.from || undefined,
+    to: list.to || undefined,
+    search: list.search || undefined,
+  };
+  const { data, isLoading, error } = useAudit({ ...q, pageSize });
   const { data: users = [] } = useAuditUsers();
   const { data: company } = useCompany();
   const [open, setOpen] = useState<AuditRow | null>(null);
   const [exporting, setExporting] = useState(false);
-  const set = (patch: Partial<AuditQuery>) => setQ((x) => ({ ...x, ...patch, page: 1 }));
+  const set = (patch: Partial<AuditQuery>) => setList({ ...patch, userId: 'userId' in patch ? (patch.userId ?? '') : list.userId } as Partial<typeof list>);
   const logins = q.tab === 'logins';
 
   const actions = Object.entries(ACTIONS).filter(([k]) => LOGIN_ACTIONS.includes(k) === logins);
@@ -104,7 +120,7 @@ export default function AuditLogPage() {
             { key: 'logins', label: 'الدخول' },
           ]}
           active={q.tab}
-          onChange={(tab) => setQ({ tab, page: 1 })}
+          onChange={(tab) => setList({ tab, userId: '', section: '', action: '', from: '', to: '', search: '' })}
           layoutId="audit-tab"
         />
       </div>
@@ -143,7 +159,7 @@ export default function AuditLogPage() {
       <DataTable columns={columns} rows={data?.items} rowKey={(r) => r.id} loading={isLoading} error={error} empty="لا توجد عمليات" onRowClick={setOpen} />
       {data && (
         <div className="mt-3">
-          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} onChange={(page) => setQ((x) => ({ ...x, page }))} />
+          <Pagination page={data.page} pageSize={pageSize} total={data.total} onChange={(page) => setList({ page })} onPageSizeChange={(n) => (setPageSize(n), setList({ page: 1 }))} />
         </div>
       )}
       <AuditDrawer row={open} onClose={() => setOpen(null)} />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { useNavigate } from 'react-router';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -12,10 +12,10 @@ import { useEmployeeOptions } from '../employees/api';
 
 export default function ShipmentAccountsPage() {
   const navigate = useNavigate();
-  const [q, setQ] = useState({ search: '', status: '', paymentStatus: '', accountantId: '', page: 1 });
+  const [pageSize, setPageSize] = usePageSize();
+  const [q, set] = useListState({ search: '', status: '', paymentStatus: '', accountantId: '', page: 1 });
   const { data: accountants = [] } = useEmployeeOptions('ACCOUNTS');
-  const { data, isLoading, error } = useShipmentAccounts(q);
-  const set = (patch: Partial<typeof q>) => setQ((p) => ({ ...p, page: 1, ...patch }));
+  const { data, isLoading, error } = useShipmentAccounts({ ...q, pageSize });
 
   const columns: Column<AccountRow>[] = [
     {
@@ -104,7 +104,7 @@ export default function ShipmentAccountsPage() {
       </FilterBar>
       <DataTable columns={columns} rows={data?.items} rowKey={(r) => r.id} loading={isLoading} error={error} empty="مفيش شحنات" onRowClick={(r) => navigate(`/shipment-accounts/${r.id}`)} />
       <div className="mt-4">
-        <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
+        <Pagination page={q.page} pageSize={pageSize} total={data?.total ?? 0} onChange={(page) => set({ page })} onPageSizeChange={(n) => (setPageSize(n), set({ page: 1 }))} />
       </div>
     </>
   );

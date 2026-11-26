@@ -10,6 +10,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { SelectField } from '@/components/ui/SelectField';
 import { Spinner } from '@/components/ui/Spinner';
 import { toastError, useAction } from '@/lib/mutations';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import {
   notificationKeys,
   notificationsApi,
@@ -66,8 +67,9 @@ export default function NotificationsPage() {
   const groups = useWhatsappGroups(connected);
   const [groupId, setGroupId] = useState('');
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [page, setPage] = useState(1);
-  const log = useNotificationLog(page);
+  const [pageSize, setPageSize] = usePageSize();
+  const [{ page }, setList] = useListState({ page: 1 });
+  const log = useNotificationLog(page, pageSize);
 
   useEffect(() => {
     if (s?.group) setGroupId(s.group.jid);
@@ -210,7 +212,7 @@ export default function NotificationsPage() {
       />
       {log.data && (
         <div className="mt-3">
-          <Pagination page={page} pageSize={log.data.pageSize} total={log.data.total} onChange={setPage} />
+          <Pagination page={page} pageSize={pageSize} total={log.data.total} onChange={(p) => setList({ page: p })} onPageSizeChange={(n) => (setPageSize(n), setList({ page: 1 }))} />
         </div>
       )}
 

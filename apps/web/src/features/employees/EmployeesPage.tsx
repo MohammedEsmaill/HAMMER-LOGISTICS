@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -25,7 +26,6 @@ import {
   useEmployees,
   type Department,
   type Employee,
-  type EmployeesQuery,
   type EmployeeStatus,
 } from './api';
 
@@ -189,8 +189,14 @@ function EmployeeDrawer({
 
 export default function EmployeesPage() {
   const { can } = useAuth();
-  const [query, setQuery] = useState<EmployeesQuery>({ page: 1, search: '', department: '', status: '' });
-  const { data, isLoading, error } = useEmployees(query);
+  const [pageSize, setPageSize] = usePageSize();
+  const [query, setList] = useListState({
+    page: 1,
+    search: '',
+    department: '' as Department | '',
+    status: '' as EmployeeStatus | '',
+  });
+  const { data, isLoading, error } = useEmployees({ ...query, pageSize });
   const [editing, setEditing] = useState<Employee | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState<Employee | null>(null);
@@ -252,11 +258,11 @@ export default function EmployeesPage() {
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <SearchInput value={query.search ?? ''} onChange={(search) => setQuery((q) => ({ ...q, search, page: 1 }))} placeholder="بحث بالاسم أو الكود أو الرقم القومي" />
+        <SearchInput value={query.search ?? ''} onChange={(search) => setList({ search })} placeholder="بحث بالاسم أو الكود أو الرقم القومي" />
         <select
           aria-label="القسم"
           value={query.department}
-          onChange={(e) => setQuery((q) => ({ ...q, department: e.target.value as Department | '', page: 1 }))}
+          onChange={(e) => setList({ department: e.target.value as Department | '' })}
           className="h-11 rounded-xl border border-line bg-surface px-3 text-sm"
         >
           <option value="">كل الأقسام</option>
@@ -269,7 +275,7 @@ export default function EmployeesPage() {
         <select
           aria-label="الحالة"
           value={query.status}
-          onChange={(e) => setQuery((q) => ({ ...q, status: e.target.value as EmployeeStatus | '', page: 1 }))}
+          onChange={(e) => setList({ status: e.target.value as EmployeeStatus | '' })}
           className="h-11 rounded-xl border border-line bg-surface px-3 text-sm"
         >
           <option value="">كل الحالات</option>
@@ -279,7 +285,7 @@ export default function EmployeesPage() {
       </div>
       <DataTable columns={columns} rows={data?.items} rowKey={(e) => e.id} loading={isLoading} error={error} empty="مفيش موظفين بالبحث ده" onRowClick={open} />
       <div className="mt-4">
-        <Pagination page={query.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQuery((q) => ({ ...q, page }))} />
+        <Pagination page={query.page} pageSize={pageSize} total={data?.total ?? 0} onChange={(page) => setList({ page })} onPageSizeChange={(n) => (setPageSize(n), setList({ page: 1 }))} />
       </div>
 
       <EmployeeDrawer employee={editing} open={drawerOpen} onClose={() => setDrawerOpen(false)} />

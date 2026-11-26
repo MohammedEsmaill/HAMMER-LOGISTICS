@@ -181,10 +181,10 @@ export const financeKeys = {
 export const useAccounts = () =>
   useQuery({ queryKey: financeKeys.accounts, queryFn: () => api.get<MoneyAccount[]>('/finance/accounts') });
 
-export const useLedger = (id: number | null, q: DateRange & { page: number; direction?: 'IN' | 'OUT' }) =>
+export const useLedger = (id: number | null, q: DateRange & { page: number; direction?: 'IN' | 'OUT'; pageSize?: number }) =>
   useQuery({
     queryKey: financeKeys.ledger(id ?? 0, q),
-    queryFn: () => api.get<Ledger>(`/finance/accounts/${id}/movements`, { ...q, pageSize: 30 }),
+    queryFn: () => api.get<Ledger>(`/finance/accounts/${id}/movements`, { pageSize: 30, ...q }),
     enabled: !!id,
     placeholderData: keepPreviousData,
   });
@@ -216,12 +216,14 @@ export interface ApprovalsQuery extends DateRange {
   /** Only what waits for this user's own step. */
   waiting?: boolean;
   page: number;
+  /** Rows per page (the user's choice). */
+  pageSize?: number;
 }
 
 export const useApprovals = (q: ApprovalsQuery) =>
   useQuery({
     queryKey: financeKeys.approvals(q),
-    queryFn: () => api.get<Page<Operation>>('/finance/approvals', { ...q, mine: q.mine || undefined, waiting: q.waiting || undefined, pageSize: 25 }),
+    queryFn: () => api.get<Page<Operation>>('/finance/approvals', { pageSize: 25, ...q, mine: q.mine || undefined, waiting: q.waiting || undefined }),
     placeholderData: keepPreviousData,
   });
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -423,9 +424,9 @@ function ClientDetailsDrawer({
 export default function ClientsPage() {
   const { can } = useAuth();
   const manage = can('clients.manage');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useClients(search, page);
+  const [pageSize, setPageSize] = usePageSize();
+  const [{ search, page }, setList] = useListState({ search: '', page: 1 });
+  const { data, isLoading, error } = useClients(search, page, pageSize);
   const [viewing, setViewing] = useState<number | null>(null);
   const [editing, setEditing] = useState<Client | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -497,16 +498,13 @@ export default function ClientsPage() {
       <div className="mb-4">
         <SearchInput
           value={search}
-          onChange={(s) => {
-            setSearch(s);
-            setPage(1);
-          }}
+          onChange={(s) => setList({ search: s })}
           placeholder="بحث بالاسم أو الموبايل أو الإيميل"
         />
       </div>
       <DataTable columns={columns} rows={data?.items} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش عملاء" onRowClick={(c) => setViewing(c.id)} />
       <div className="mt-4">
-        <Pagination page={page} pageSize={25} total={data?.total ?? 0} onChange={setPage} />
+        <Pagination page={page} pageSize={pageSize} total={data?.total ?? 0} onChange={(p) => setList({ page: p })} onPageSizeChange={(n) => (setPageSize(n), setList({ page: 1 }))} />
       </div>
       <ClientDetailsDrawer
         clientId={viewing}

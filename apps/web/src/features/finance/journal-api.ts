@@ -56,6 +56,8 @@ export interface JournalTotals {
 
 export interface JournalQuery {
   page: number;
+  /** Rows per page (the user's choice). */
+  pageSize?: number;
   from?: string;
   to?: string;
   types?: JournalType[];
@@ -88,7 +90,7 @@ export const useJournal = (q: JournalQuery) =>
   useQuery({
     queryKey: journalKeys.list(q),
     queryFn: () =>
-      api.get<Page<JournalRow> & { totals: JournalTotals[] }>('/finance/journal', journalParams({ ...q, pageSize: JOURNAL_PAGE_SIZE })),
+      api.get<Page<JournalRow> & { totals: JournalTotals[] }>('/finance/journal', journalParams({ pageSize: JOURNAL_PAGE_SIZE, ...q })),
     placeholderData: keepPreviousData,
   });
 

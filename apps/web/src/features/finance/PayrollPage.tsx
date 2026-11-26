@@ -1,6 +1,7 @@
 import { HandCoins, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Badge, PageHeader } from '@/components/ui/misc';
@@ -24,10 +25,12 @@ import { AdvanceDrawer, SalaryDrawer, StatementDrawer } from './PayrollDrawers';
 const statusBadge = (s: ApprovalStatus) => <Badge tone={STATUS[s].tone}>{STATUS[s].label}</Badge>;
 
 function SalariesTab({ onOpen }: { onOpen: (id: number) => void }) {
-  const [month, setMonth] = useState(currentMonth());
-  const [status, setStatus] = useState<ApprovalStatus | ''>('');
-  const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useSalaries({ month: month || undefined, status, page });
+  const [pageSize, setPageSize] = usePageSize();
+  const [{ month, status, page }, setList] = useListState(
+    { month: currentMonth(), status: '' as ApprovalStatus | '', page: 1 },
+    { prefix: 's' },
+  );
+  const { data, isLoading, error } = useSalaries({ month: month || undefined, status, page, pageSize });
   const columns: Column<Salary>[] = [
     {
       header: 'الموظف',
@@ -49,14 +52,14 @@ function SalariesTab({ onOpen }: { onOpen: (id: number) => void }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-3">
-        <TextField label="الشهر" type="month" className="w-48" value={month} onChange={(e) => (setMonth(e.target.value), setPage(1))} />
+        <TextField label="الشهر" type="month" className="w-48" value={month} onChange={(e) => setList({ month: e.target.value })} />
         <div className="w-52">
           <SelectField
             label="الحالة"
             placeholder="كل الحالات"
             options={Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label }))}
             value={status}
-            onChange={(e) => (setStatus(e.target.value as ApprovalStatus | ''), setPage(1))}
+            onChange={(e) => setList({ status: e.target.value as ApprovalStatus | '' })}
           />
         </div>
         {data && (
@@ -66,15 +69,16 @@ function SalariesTab({ onOpen }: { onOpen: (id: number) => void }) {
         )}
       </div>
       <DataTable columns={columns} rows={data?.items} rowKey={(s) => s.id} loading={isLoading} error={error} empty="مفيش مرتبات اتصرفت للشهر ده" onRowClick={(s) => onOpen(s.id)} />
-      <Pagination page={page} pageSize={50} total={data?.total ?? 0} onChange={setPage} />
+      <Pagination page={page} pageSize={pageSize} total={data?.total ?? 0} onChange={(p) => setList({ page: p })} onPageSizeChange={(n) => (setPageSize(n), setList({ page: 1 }))} />
     </div>
   );
 }
 
 function AdvancesTab({ onStatement, onOpen }: { onStatement: (employeeId: number) => void; onOpen: (id: number) => void }) {
   const { data: balances, isLoading, error } = useAdvanceBalances();
-  const [page, setPage] = useState(1);
-  const advances = useAdvances({ page });
+  const [pageSize, setPageSize] = usePageSize();
+  const [{ page }, setList] = useListState({ page: 1 }, { prefix: 'a' });
+  const advances = useAdvances({ page, pageSize });
   const balanceColumns: Column<AdvanceBalance>[] = [
     { header: 'الموظف', cell: (b) => <span className="font-semibold">{b.employee.fullName}</span> },
     { header: 'إجمالي السلف', cell: (b) => <span dir="ltr">{money(b.advances)}</span> },
@@ -106,7 +110,7 @@ function AdvancesTab({ onStatement, onOpen }: { onStatement: (employeeId: number
       <section className="space-y-2">
         <h3 className="font-semibold text-gold">آخر السلف</h3>
         <DataTable columns={advanceColumns} rows={advances.data?.items} rowKey={(a) => a.id} loading={advances.isLoading} error={advances.error} empty="مفيش سلف" onRowClick={(a) => onOpen(a.id)} />
-        <Pagination page={page} pageSize={20} total={advances.data?.total ?? 0} onChange={setPage} />
+        <Pagination page={page} pageSize={pageSize} total={advances.data?.total ?? 0} onChange={(p) => setList({ page: p })} onPageSizeChange={(n) => (setPageSize(n), setList({ page: 1 }))} />
       </section>
     </div>
   );

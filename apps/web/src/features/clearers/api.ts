@@ -42,14 +42,14 @@ export const clearerKeys = {
 };
 
 /** place: '' for all, 'p<id>' for a port, 'z<id>' for a free zone. */
-export const useClearers = (search: string, page: number, place = '') =>
+export const useClearers = (search: string, page: number, place = '', pageSize = 25) =>
   useQuery({
-    queryKey: clearerKeys.list(search, page, place),
+    queryKey: [...clearerKeys.list(search, page, place), pageSize],
     queryFn: () =>
       api.get<Page<Clearer>>('/clearers', {
         search,
         page,
-        pageSize: 25,
+        pageSize,
         ...(place.startsWith('p') ? { portId: Number(place.slice(1)) } : {}),
         ...(place.startsWith('z') ? { freeZoneId: Number(place.slice(1)) } : {}),
       }),

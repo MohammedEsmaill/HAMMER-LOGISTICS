@@ -196,10 +196,10 @@ export const accountKeys = {
   ledger: (id: number, period: LedgerPeriod = {}) => ['finance', 'client-ledger', id, period] as const,
 };
 
-export const useShipmentAccounts = (q: { search?: string; status?: string; paymentStatus?: string; accountantId?: string; page: number }) =>
+export const useShipmentAccounts = (q: { search?: string; status?: string; paymentStatus?: string; accountantId?: string; page: number; pageSize?: number }) =>
   useQuery({
     queryKey: accountKeys.list(q),
-    queryFn: () => api.get<Page<AccountRow>>('/finance/shipment-accounts', { ...q, pageSize: 25 }),
+    queryFn: () => api.get<Page<AccountRow>>('/finance/shipment-accounts', { pageSize: 25, ...q }),
     placeholderData: keepPreviousData,
   });
 

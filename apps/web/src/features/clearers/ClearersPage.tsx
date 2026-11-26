@@ -26,6 +26,7 @@ import {
   type Prices,
 } from './api';
 import { useLookup, usePorts } from '../lookups/api';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { WorkplacePicker, type Workplaces } from './WorkplacePicker';
 
 const pricesSchema = z.object(
@@ -218,10 +219,9 @@ function EditClearerDrawer({ clearer, onClose }: { clearer: Clearer | null; onCl
 }
 
 export default function ClearersPage() {
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [place, setPlace] = useState('');
-  const { data, isLoading, error } = useClearers(search, page, place);
+  const [pageSize, setPageSize] = usePageSize();
+  const [{ search, page, place }, setList] = useListState({ search: '', page: 1, place: '' });
+  const { data, isLoading, error } = useClearers(search, page, place, pageSize);
   const { data: ports = [] } = usePorts({ egyptian: true });
   const { data: zones = [] } = useLookup('free-zones');
   const [creating, setCreating] = useState(false);
@@ -299,10 +299,7 @@ export default function ClearersPage() {
         search={
           <SearchInput
             value={search}
-            onChange={(s) => {
-              setSearch(s);
-              setPage(1);
-            }}
+            onChange={(s) => setList({ search: s })}
             placeholder="بحث بالاسم أو الرقم القومي أو التليفون"
           />
         }
@@ -314,16 +311,13 @@ export default function ClearersPage() {
             placeholder="الكل"
             options={[...ports.map((p) => ({ value: `p${p.id}`, label: p.name })), ...zones.map((z) => ({ value: `z${z.id}`, label: z.name }))]}
             value={place}
-            onChange={(e) => {
-              setPlace(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => setList({ place: e.target.value })}
           />
         </div>
       </FilterBar>
       <DataTable columns={columns} rows={data?.items} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش مستخلصين" onRowClick={setEditing} />
       <div className="mt-4">
-        <Pagination page={page} pageSize={25} total={data?.total ?? 0} onChange={setPage} />
+        <Pagination page={page} pageSize={pageSize} total={data?.total ?? 0} onChange={(p) => setList({ page: p })} onPageSizeChange={(n) => (setPageSize(n), setList({ page: 1 }))} />
       </div>
       <CreateClearerDrawer open={creating} onClose={() => setCreating(false)} />
       <EditClearerDrawer clearer={editing} onClose={() => setEditing(null)} />

@@ -24,12 +24,14 @@ export interface AuditQuery {
   to?: string;
   search?: string;
   page: number;
+  /** Rows per page (the user's choice). */
+  pageSize?: number;
 }
 
 export const useAudit = (q: AuditQuery) =>
   useQuery({
     queryKey: ['audit', q],
-    queryFn: () => api.get<Page<AuditRow>>('/audit', { ...q, pageSize: 50 }),
+    queryFn: () => api.get<Page<AuditRow>>('/audit', { pageSize: 50, ...q }),
     placeholderData: keepPreviousData,
   });
 

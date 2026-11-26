@@ -60,10 +60,10 @@ export function useWhatsappGroups(enabled: boolean) {
   });
 }
 
-export function useNotificationLog(page: number) {
+export function useNotificationLog(page: number, pageSize = 25) {
   return useQuery({
-    queryKey: notificationKeys.log(page),
-    queryFn: () => api.get<Page<NotificationRow>>('/notifications', { page, pageSize: 20 }),
+    queryKey: [...notificationKeys.log(page), pageSize],
+    queryFn: () => api.get<Page<NotificationRow>>('/notifications', { page, pageSize }),
     refetchInterval: 15_000,
   });
 }

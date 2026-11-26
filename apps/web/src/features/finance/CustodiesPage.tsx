@@ -1,7 +1,7 @@
 import { Briefcase, Plus } from 'lucide-react';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -16,13 +16,17 @@ import { CustodyDrawer, IssueCustodyDrawer } from './CustodyDrawers';
 
 export default function CustodiesPage() {
   const { can } = useAuth();
-  // the quick search links here with ?search=CU26-0001
-  const [params] = useSearchParams();
-  const [q, setQ] = useState<CustodiesQuery>({ page: 1, status: '', holderType: '', search: params.get('search') ?? undefined });
-  const { data, isLoading, error } = useCustodies(q);
+  // the quick search and the bell link here with ?search=CU26-0001
+  const [pageSize, setPageSize] = usePageSize();
+  const [q, set] = useListState({
+    page: 1,
+    status: '' as NonNullable<CustodiesQuery['status']>,
+    holderType: '' as NonNullable<CustodiesQuery['holderType']>,
+    search: '',
+  });
+  const { data, isLoading, error } = useCustodies({ ...q, search: q.search || undefined, pageSize });
   const [openId, setOpenId] = useState<number | null>(null);
   const [issuing, setIssuing] = useState(false);
-  const set = (patch: Partial<CustodiesQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
 
   const columns: Column<Custody>[] = [
     {
@@ -116,7 +120,7 @@ export default function CustodiesPage() {
       </FilterBar>
       <DataTable columns={columns} rows={data?.items} rowKey={(c) => c.id} loading={isLoading} error={error} empty="مفيش عهد" onRowClick={(c) => setOpenId(c.id)} />
       <div className="mt-4">
-        <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
+        <Pagination page={q.page} pageSize={pageSize} total={data?.total ?? 0} onChange={(page) => set({ page })} onPageSizeChange={(n) => (setPageSize(n), set({ page: 1 }))} />
       </div>
       <IssueCustodyDrawer open={issuing} onClose={() => setIssuing(false)} onIssued={(c) => setOpenId(c.id)} />
       <CustodyDrawer custodyId={openId} onClose={() => setOpenId(null)} />

@@ -2,6 +2,7 @@ import { Plus, Receipt } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useId, useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
@@ -232,13 +233,16 @@ function Report({ q }: { q: Omit<ExpensesQuery, 'page'> }) {
 
 export default function ExpensesPage() {
   const { can } = useAuth();
-  const [q, setQ] = useState<ExpensesQuery>({ page: 1, expenseTypeId: '', status: '' });
-  const { data, isLoading, error } = useExpenses(q);
+  const [pageSize, setPageSize] = usePageSize();
+  const [q, set] = useListState(
+    { page: 1, expenseTypeId: '' as number | '', status: '' as ApprovalStatus | '', from: '', to: '', payee: '' },
+    { numbers: ['expenseTypeId'] },
+  );
+  const { data, isLoading, error } = useExpenses({ ...q, from: q.from || undefined, to: q.to || undefined, payee: q.payee || undefined, pageSize });
   const { data: types = [] } = useExpenseTypes();
   const [openId, setOpenId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const expense = useDocument<Expense>('EXPENSE', openId).data;
-  const set = (patch: Partial<ExpensesQuery>) => setQ((p) => ({ ...p, page: 1, ...patch }));
   const filters = { from: q.from, to: q.to, expenseTypeId: q.expenseTypeId, payee: q.payee, status: q.status };
 
   const columns: Column<Expense>[] = [
@@ -300,7 +304,7 @@ export default function ExpensesPage() {
       )}
       <DataTable columns={columns} rows={data?.items} rowKey={(e) => e.id} loading={isLoading} error={error} empty="مفيش مصاريف بالفلتر ده" onRowClick={(e) => setOpenId(e.id)} />
       <div className="mt-4">
-        <Pagination page={q.page} pageSize={25} total={data?.total ?? 0} onChange={(page) => setQ((p) => ({ ...p, page }))} />
+        <Pagination page={q.page} pageSize={pageSize} total={data?.total ?? 0} onChange={(page) => set({ page })} onPageSizeChange={(n) => (setPageSize(n), set({ page: 1 }))} />
       </div>
       <ExpenseDrawer expense={null} open={creating} onClose={() => setCreating(false)} />
       <ExpenseDrawer expense={expense ?? null} open={!!expense && openId !== null} onClose={() => setOpenId(null)} />

@@ -141,6 +141,7 @@ export interface ShipmentsQuery {
   /** The shipments of one مقدم بيان. */
   declarantId?: number | '';
   page: number;
+  pageSize?: number;
 }
 
 export interface ContainerInput {
@@ -197,7 +198,7 @@ export const useShipments = (q: ShipmentsQuery) =>
         direction,
         mode: mode.join('_') || undefined,
         page: q.page,
-        pageSize: 25,
+        pageSize: q.pageSize ?? 25,
       });
     },
     placeholderData: keepPreviousData,

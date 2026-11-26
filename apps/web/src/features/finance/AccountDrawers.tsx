@@ -13,6 +13,7 @@ import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
 import { useAction } from '@/lib/mutations';
+import { useListState, usePageSize } from '@/lib/use-list-state';
 import { money as moneyField } from '@/lib/schemas';
 import { usePartyOptions } from './parties-api';
 import { CURRENCIES, financeApi, financeKeys, money, OTHER_KINDS, today, useLedger, type LedgerLine, type MoneyAccount } from './api';
@@ -250,17 +251,19 @@ function StatCard({ label, value, tone }: { label: string; value: React.ReactNod
 }
 
 export function AccountStatement({ account, onOpenLine }: { account: MoneyAccount; onOpenLine?: (l: LedgerLine) => void }) {
-  const [{ from, to }, setRange] = useState<{ from: string; to: string }>({ from: '', to: '' });
-  const [direction, setDirection] = useState<'' | 'IN' | 'OUT'>('');
-  const [page, setPage] = useState(1);
-  const { data, isLoading, error } = useLedger(account.id, { from: from || undefined, to: to || undefined, page, direction: direction || undefined });
+  const [pageSize, setPageSize] = usePageSize();
+  const [{ from, to, direction, page }, setList] = useListState({ from: '', to: '', direction: '' as '' | 'IN' | 'OUT', page: 1 });
+  const { data, isLoading, error } = useLedger(account.id, { from: from || undefined, to: to || undefined, page, direction: direction || undefined, pageSize });
+  const setRange = (r: { from: string; to: string }) => setList(r);
+  const setDirection = (d: '' | 'IN' | 'OUT') => setList({ direction: d });
+  const setPage = (p: number) => setList({ page: p });
   const cur = account.currency;
   const period = PERIODS.find((p) => {
     const r = p.range();
     return r.from === from && r.to === to;
   })?.key;
-  const setFrom = (v: string) => setRange((r) => ({ ...r, from: v }));
-  const setTo = (v: string) => setRange((r) => ({ ...r, to: v }));
+  const setFrom = (v: string) => setList({ from: v });
+  const setTo = (v: string) => setList({ to: v });
 
   const columns: Column<LedgerLine>[] = [
     { header: 'التاريخ', cell: (l) => <span className="whitespace-nowrap">{formatDate(l.movementDate)}</span> },
@@ -301,20 +304,20 @@ export function AccountStatement({ account, onOpenLine }: { account: MoneyAccoun
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {PERIODS.map((p) => (
-          <Chip key={p.key} on={period === p.key} onClick={() => (setRange(p.range()), setPage(1))}>
+          <Chip key={p.key} on={period === p.key} onClick={() => setRange(p.range())}>
             {p.label}
           </Chip>
         ))}
         <span className="mx-1 h-6 w-px bg-line" aria-hidden />
         {DIRECTIONS.map((d) => (
-          <Chip key={d.key} on={direction === d.key} onClick={() => (setDirection(d.key), setPage(1))}>
+          <Chip key={d.key} on={direction === d.key} onClick={() => setDirection(d.key)}>
             {d.label}
           </Chip>
         ))}
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <TextField label="من" type="date" className="w-44" value={from} onChange={(e) => (setFrom(e.target.value), setPage(1))} />
-        <TextField label="إلى" type="date" className="w-44" value={to} onChange={(e) => (setTo(e.target.value), setPage(1))} />
+        <TextField label="من" type="date" className="w-44" value={from} onChange={(e) => setFrom(e.target.value)} />
+        <TextField label="إلى" type="date" className="w-44" value={to} onChange={(e) => setTo(e.target.value)} />
       </div>
       <DataTable
         columns={columns}
@@ -325,7 +328,7 @@ export function AccountStatement({ account, onOpenLine }: { account: MoneyAccoun
         empty={direction ? `مفيش ${direction === 'IN' ? 'وارد' : 'منصرف'} في الفترة دي` : 'مفيش حركات في الفترة دي'}
         onRowClick={onOpenLine}
       />
-      <Pagination page={page} pageSize={30} total={data?.total ?? 0} onChange={setPage} />
+      <Pagination page={page} pageSize={pageSize} total={data?.total ?? 0} onChange={setPage} onPageSizeChange={(n) => (setPageSize(n), setPage(1))} />
     </div>
   );
 }

@@ -39,6 +39,8 @@ export interface EmployeeOption {
 }
 
 export interface EmployeesQuery {
+  /** Rows per page (the user's choice). */
+  pageSize?: number;
   search?: string;
   department?: Department | '';
   status?: EmployeeStatus | '';
@@ -54,7 +56,7 @@ export const employeeKeys = {
 export const useEmployees = (q: EmployeesQuery) =>
   useQuery({
     queryKey: employeeKeys.list(q),
-    queryFn: () => api.get<Page<Employee>>('/employees', { ...q, pageSize: 25 }),
+    queryFn: () => api.get<Page<Employee>>('/employees', { pageSize: 25, ...q }),
     placeholderData: keepPreviousData, // the table stays while the next page loads
   });
 

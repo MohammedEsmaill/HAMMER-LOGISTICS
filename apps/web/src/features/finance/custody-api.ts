@@ -162,6 +162,8 @@ export interface CustodiesQuery {
   status?: 'OPEN' | 'SETTLED' | '';
   holderType?: HolderType | '';
   page: number;
+  /** Rows per page (the user's choice). */
+  pageSize?: number;
 }
 
 export const custodyKeys = {
@@ -176,7 +178,7 @@ export const custodyKeys = {
 export const useCustodies = (q: CustodiesQuery) =>
   useQuery({
     queryKey: custodyKeys.list(q),
-    queryFn: () => api.get<Page<Custody>>('/finance/custodies', { ...q, pageSize: 25 }),
+    queryFn: () => api.get<Page<Custody>>('/finance/custodies', { pageSize: 25, ...q }),
     placeholderData: keepPreviousData,
   });
 

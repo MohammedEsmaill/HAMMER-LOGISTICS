@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
+import { useListState } from '@/lib/use-list-state';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -327,7 +328,8 @@ function ResetPasswordDrawer({ user, onClose }: { user: User | null; onClose: ()
 export default function UsersPage() {
   const { user: me } = useAuth();
   const { data: users, isLoading, error } = useUsers();
-  const [search, setSearch] = useState('');
+  const [{ search }, setFilters] = useListState({ search: '', page: 1 });
+  const setSearch = (s: string) => setFilters({ search: s });
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [resetting, setResetting] = useState<User | null>(null);
@@ -345,7 +347,7 @@ export default function UsersPage() {
   const rows = users?.filter(
     (u) => !q || u.email.includes(q) || ownerName(u).toLowerCase().includes(q) || u.role.name.toLowerCase().includes(q),
   );
-  const paged = usePageOf(rows, 25, q);
+  const paged = usePageOf(rows, q);
 
   const columns: Column<User>[] = [
     {
@@ -436,7 +438,7 @@ export default function UsersPage() {
       </div>
       <DataTable columns={columns} rows={paged.items} rowKey={(u) => u.id} loading={isLoading} error={error} empty="مفيش حسابات" />
       <div className="mt-4">
-        <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} />
+        <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} onPageSizeChange={paged.setPageSize} />
       </div>
 
       <CreateUserDrawer open={creating} onClose={() => setCreating(false)} />

@@ -55,10 +55,10 @@ export const clientKeys = {
   one: (id: number) => ['clients', 'one', id] as const,
 };
 
-export const useClients = (search: string, page: number) =>
+export const useClients = (search: string, page: number, pageSize = 25) =>
   useQuery({
-    queryKey: clientKeys.list(search, page),
-    queryFn: () => api.get<Page<Client>>('/clients', { search, page, pageSize: 25 }),
+    queryKey: [...clientKeys.list(search, page), pageSize],
+    queryFn: () => api.get<Page<Client>>('/clients', { search, page, pageSize }),
     placeholderData: keepPreviousData,
   });
 

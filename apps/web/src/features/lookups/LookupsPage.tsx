@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/auth/auth-context';
+import { useListState } from '@/lib/use-list-state';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -232,10 +233,13 @@ export default function LookupsPage() {
   const { can } = useAuth();
   const manage = can('lookups.manage');
   const add = manage || can('lookups.add');
-  const [tab, setTab] = useState<Tab>('ports');
-  const [search, setSearch] = useState('');
-  const [kind, setKind] = useState<TransportKind | ''>('');
-  const [egyptian, setEgyptian] = useState<'' | 'yes' | 'no'>('');
+  // the tab and filters live in the address
+  const [list, setList] = useListState({ tab: 'ports' as Tab, search: '', kind: '' as TransportKind | '', egyptian: '' as '' | 'yes' | 'no', page: 1 });
+  const { tab, search, kind, egyptian } = list;
+  const setTab = (t: Tab) => setList({ tab: t, search: '', kind: '', egyptian: '' });
+  const setSearch = (s: string) => setList({ search: s });
+  const setKind = (k: TransportKind | '') => setList({ kind: k });
+  const setEgyptian = (e: '' | 'yes' | 'no') => setList({ egyptian: e });
   const [editing, setEditing] = useState<Row | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleting, setDeleting] = useState<Row | null>(null);
@@ -258,7 +262,7 @@ export default function LookupsPage() {
     });
   }, [data, search, kind, egyptian, tab, meta.kinded]);
 
-  const paged = usePageOf(rows, 50, `${tab}|${search}|${kind}|${egyptian}`);
+  const paged = usePageOf(rows, `${tab}|${search}|${kind}|${egyptian}`);
 
   const actions: Column<Row> = {
     header: '',
@@ -343,11 +347,8 @@ export default function LookupsPage() {
             key={t.key}
             role="tab"
             aria-selected={tab === t.key}
-            onClick={() => {
-              setTab(t.key);
-              setKind('');
-              setEgyptian('');
-            }}
+            // one change: the tab, with its filters cleared
+            onClick={() => setTab(t.key)}
             className="focus-ring relative shrink-0 rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap"
           >
             {tab === t.key && (
@@ -401,7 +402,7 @@ export default function LookupsPage() {
       )}
       <div className="mt-4">
         {paged.total > paged.pageSize ? (
-          <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} />
+          <Pagination page={paged.page} pageSize={paged.pageSize} total={paged.total} onChange={paged.setPage} onPageSizeChange={paged.setPageSize} />
         ) : (
           rows && <p className="text-xs text-muted">{rows.length} عنصر</p>
         )}
