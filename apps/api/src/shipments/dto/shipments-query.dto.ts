@@ -21,4 +21,11 @@ export class ShipmentsQueryDto extends ListQueryDto {
   @IsInt()
   @Min(1)
   clientId?: number;
+
+  /** The shipments of one مقدم بيان. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  declarantId?: number;
 }

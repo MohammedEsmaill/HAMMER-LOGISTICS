@@ -44,6 +44,7 @@ const DETAIL_INCLUDE = {
   dischargePort: PORT,
   freeZone: NAME,
   storageYard: NAME,
+  declarant: NAME,
   containers: { orderBy: { seq: 'asc' } },
   documents: {
     where: { deletedAt: null },
@@ -70,6 +71,7 @@ export class ShipmentsService {
           mode: query.mode,
           currentStage: query.stage,
           clientId: query.clientId,
+          declarantId: query.declarantId,
         },
         search
           ? {

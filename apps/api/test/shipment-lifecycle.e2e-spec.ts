@@ -233,6 +233,55 @@ describe('Shipment lifecycle (e2e)', () => {
       expect(res.body.storageYard.id).toBe(fx.ids.alexYard);
     });
 
+    it('picks مقدم البيان from its list, filters the shipments by it, and keeps it while used', async () => {
+      const declarant = (
+        await ctx
+          .api(ctx.ceoToken)
+          .post('/api/lookups/declarants', { name: `مقدم بيان ${Date.now()}` })
+          .expect(201)
+      ).body as { id: number; name: string };
+      const s = await register();
+      const other = await register();
+      const res = await ctx
+        .api(fx.tokens.nafeza)
+        .patch(`/api/shipments/${s.id}/customs`, {
+          version: s.version,
+          declarantId: declarant.id,
+        })
+        .expect(200);
+      expect(res.body.declarant).toMatchObject({ id: declarant.id });
+      // one not on the list is refused
+      await ctx
+        .api(fx.tokens.nafeza)
+        .patch(`/api/shipments/${other.id}/customs`, {
+          version: other.version,
+          declarantId: 999999,
+        })
+        .expect(400);
+
+      const list = await ctx
+        .api(ctx.ceoToken)
+        .get('/api/shipments')
+        .query({ declarantId: declarant.id })
+        .expect(200);
+      expect(list.body.items.map((i: { id: number }) => i.id)).toEqual([s.id]);
+
+      // in use: cannot be deleted
+      await ctx
+        .api(ctx.ceoToken)
+        .delete(`/api/lookups/declarants/${declarant.id}`)
+        .expect(409);
+      // cleared again
+      const cleared = await ctx
+        .api(fx.tokens.nafeza)
+        .patch(`/api/shipments/${s.id}/customs`, {
+          version: res.body.version,
+          declarantId: null,
+        })
+        .expect(200);
+      expect(cleared.body.declarant).toBeNull();
+    });
+
     it('adds, resolves and removes an inspection request', async () => {
       const s = await register();
       const added = await ctx

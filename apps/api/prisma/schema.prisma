@@ -586,6 +586,15 @@ model InspectionAuthority {
   @@map("inspection_authorities")
 }
 
+/// مقدمو البيان: who files the customs declaration, picked in the Nafeza tab.
+model Declarant {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  shipments Shipment[]
+
+  @@map("declarants")
+}
+
 // ───────────────────────────── Shipments ─────────────────────────────
 
 model Shipment {
@@ -629,6 +638,7 @@ model Shipment {
   deliveryOrderDate   DateTime? @map("delivery_order_date") @db.Date
   form46Date          DateTime? @map("form46_date") @db.Date
   storageYardId       Int?      @map("storage_yard_id")
+  declarantId         Int?      @map("declarant_id")
   examinationDate     DateTime? @map("examination_date") @db.Date
   inspectionDate      DateTime? @map("inspection_date") @db.Date
   approvalDate        DateTime? @map("approval_date") @db.Date
@@ -657,6 +667,7 @@ model Shipment {
   dischargePort     Port?        @relation("ShipmentDischargePort", fields: [dischargePortId], references: [id], onDelete: Restrict)
   freeZone          FreeZone?    @relation(fields: [freeZoneId], references: [id], onDelete: Restrict)
   storageYard       StorageYard? @relation(fields: [storageYardId], references: [id], onDelete: Restrict)
+  declarant         Declarant?   @relation(fields: [declarantId], references: [id], onDelete: Restrict)
   createdBy         User         @relation("ShipmentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   containers      ShipmentContainer[]

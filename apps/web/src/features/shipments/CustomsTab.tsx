@@ -18,6 +18,7 @@ const valuesOf = (s: Shipment, fields: readonly CustomsField[]): Values =>
     fields.map((f) => {
       if (f === 'certificateNo') return [f, s.certificateNo ?? ''];
       if (f === 'storageYardId') return [f, s.storageYardId ? String(s.storageYardId) : ''];
+      if (f === 'declarantId') return [f, s.declarantId ? String(s.declarantId) : ''];
       return [f, dayValue(s[f])];
     }),
   );
@@ -39,6 +40,8 @@ export function CustomsTab({ shipment }: { shipment: Shipment }) {
     portId: port?.id,
   });
 
+  const { data: declarants = [] } = useLookup('declarants');
+
   const changed = fields.filter((f) => (values[f] ?? '') !== (initial[f] ?? ''));
   const save = useShipmentAction(
     shipment.id,
@@ -46,7 +49,7 @@ export function CustomsTab({ shipment }: { shipment: Shipment }) {
       const body: Record<string, unknown> = { version: shipment.version };
       for (const f of changed) {
         const v = values[f]?.trim() ?? '';
-        body[f] = v === '' ? null : f === 'storageYardId' ? Number(v) : v;
+        body[f] = v === '' ? null : f === 'storageYardId' || f === 'declarantId' ? Number(v) : v;
       }
       return shipmentsApi.updateCustoms(shipment.id, body as { version: number });
     },
@@ -55,7 +58,7 @@ export function CustomsTab({ shipment }: { shipment: Shipment }) {
 
   const submit = () => {
     const today = new Date().toISOString().slice(0, 10);
-    const future = changed.find((f) => f !== 'certificateNo' && f !== 'storageYardId' && (values[f] ?? '') > today);
+    const future = changed.find((f) => f !== 'certificateNo' && f !== 'storageYardId' && f !== 'declarantId' && (values[f] ?? '') > today);
     if (future) return setProblem(`${CUSTOMS_LABELS[future]} مينفعش يبقى في المستقبل`);
     if ((values.certificateNo ?? '').length > 40) return setProblem('رقم الشهادة 40 حرف بالكتير');
     setProblem('');
@@ -67,7 +70,13 @@ export function CustomsTab({ shipment }: { shipment: Shipment }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {fields.map((f) => (
           <Info key={f} label={CUSTOMS_LABELS[f]} ltr={f === 'certificateNo'}>
-            {f === 'certificateNo' ? shipment.certificateNo : f === 'storageYardId' ? shipment.storageYard?.name : formatDate(shipment[f])}
+            {f === 'certificateNo'
+              ? shipment.certificateNo
+              : f === 'storageYardId'
+                ? shipment.storageYard?.name
+                : f === 'declarantId'
+                  ? shipment.declarant?.name
+                  : formatDate(shipment[f])}
           </Info>
         ))}
       </div>
@@ -88,6 +97,15 @@ export function CustomsTab({ shipment }: { shipment: Shipment }) {
               label={CUSTOMS_LABELS[f]}
               placeholder={port ? `ساحات ${port.name}` : 'اختار الساحة'}
               options={yards.map((y) => ({ value: y.id, label: y.name }))}
+              value={values[f] ?? ''}
+              onChange={set(f)}
+            />
+          ) : f === 'declarantId' ? (
+            <SelectField
+              key={f}
+              label={CUSTOMS_LABELS[f]}
+              placeholder="اختار مقدم البيان"
+              options={declarants.map((d) => ({ value: d.id, label: d.name }))}
               value={values[f] ?? ''}
               onChange={set(f)}
             />

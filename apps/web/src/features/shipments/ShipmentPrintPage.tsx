@@ -92,7 +92,8 @@ function ShipmentDocument({ s, company, printedBy, authorities }: { s: Shipment;
   const air = s.mode === 'AIR';
   let n = 0;
 
-  const customs: Field[] = rules.customsFields.map((f) => {
+  // مقدم البيان stays off the printed sheet
+  const customs: Field[] = rules.customsFields.filter((f) => f !== 'declarantId').map((f) => {
     if (f === 'storageYardId') return [CUSTOMS_LABELS[f], s.storageYard?.name];
     if (f === 'certificateNo') return [CUSTOMS_LABELS[f], s.certificateNo, true];
     return [CUSTOMS_LABELS[f], day(s[f])];

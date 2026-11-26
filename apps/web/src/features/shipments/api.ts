@@ -92,7 +92,7 @@ export interface StageStep {
 }
 
 export type Shipment = Omit<ShipmentListItem, 'containersCount'> &
-  Partial<Record<Exclude<CustomsField, 'storageYardId' | 'certificateNo'>, string | null>> & {
+  Partial<Record<Exclude<CustomsField, 'storageYardId' | 'certificateNo' | 'declarantId'>, string | null>> & {
     kind: ShipmentKind;
     version: number;
     containersCount: number | null;
@@ -109,6 +109,8 @@ export type Shipment = Omit<ShipmentListItem, 'containersCount'> &
     freeZone: Named | null;
     storageYard: Named | null;
     storageYardId: number | null;
+    declarant: Named | null;
+    declarantId: number | null;
     certificateNo: string | null;
     hblNumber: string | null;
     mblNumber: string | null;
@@ -136,6 +138,8 @@ export interface ShipmentsQuery {
   search: string;
   kind: ShipmentKind | '';
   stage: string;
+  /** The shipments of one مقدم بيان. */
+  declarantId?: number | '';
   page: number;
 }
 
@@ -189,6 +193,7 @@ export const useShipments = (q: ShipmentsQuery) =>
       return api.get<Page<ShipmentListItem>>('/shipments', {
         search: q.search,
         stage: q.stage,
+        declarantId: q.declarantId || undefined,
         direction,
         mode: mode.join('_') || undefined,
         page: q.page,

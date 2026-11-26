@@ -39,6 +39,12 @@ export class UpdateCustomsDto extends VersionedDto {
   certificateNo?: string | null;
 
   @DateField() certificateDate?: Date | null;
+
+  /** مقدم البيان, from the fixed list (null clears it). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  declarantId?: number | null;
   @DateField() deliveryOrderDate?: Date | null;
   @DateField() form46Date?: Date | null;
 

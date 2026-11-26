@@ -31,7 +31,7 @@ export interface LookupRow {
   port?: { id: number; name: string; code: string | null } | null;
 }
 
-export type SimpleLookup = 'carriers' | 'storage-yards' | 'free-zones' | 'inspection-authorities' | 'document-types';
+export type SimpleLookup = 'carriers' | 'storage-yards' | 'free-zones' | 'inspection-authorities' | 'document-types' | 'declarants';
 
 export interface PortsFilter {
   kind?: TransportKind;

@@ -10,6 +10,7 @@ import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { SelectField } from '@/components/ui/SelectField';
 import { formatDate } from '@/lib/format';
+import { useLookup } from '../lookups/api';
 import { useShipments, type ShipmentListItem, type ShipmentsQuery } from './api';
 import { MODE_ICONS } from './mode-icons';
 import { EXPORT_STAGES, FREE_ZONE_STAGES, IMPORT_STAGES, KIND_LIST, kindOf, SHIPMENT_TYPES, STAGE_LABELS } from './rules';
@@ -26,6 +27,7 @@ export default function ShipmentsPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState<ShipmentsQuery>({ search: '', kind: '', stage: '', page: 1 });
   const { data, isLoading, error } = useShipments(q);
+  const { data: declarants = [] } = useLookup('declarants');
   const set = (patch: Partial<ShipmentsQuery>) => setQ((prev) => ({ ...prev, page: 1, ...patch }));
 
   const columns: Column<ShipmentListItem>[] = [
@@ -90,7 +92,7 @@ export default function ShipmentsPage() {
             placeholder="رقم الملف، البوليصة، الرقم التعريفي، رقم 46، الحاوية أو العميل"
           />
         }
-        active={[q.kind, q.stage].filter(Boolean).length}
+        active={[q.kind, q.stage, q.declarantId].filter(Boolean).length}
       >
         <div className="w-44">
           <SelectField
@@ -112,6 +114,15 @@ export default function ShipmentsPage() {
             options={stageOptions(q.kind)}
             value={q.stage}
             onChange={(e) => set({ stage: e.target.value })}
+          />
+        </div>
+        <div className="w-52">
+          <SelectField
+            label="مقدمُ البيان"
+            placeholder="الكل"
+            options={declarants.map((d) => ({ value: d.id, label: d.name }))}
+            value={q.declarantId ?? ''}
+            onChange={(e) => set({ declarantId: e.target.value ? Number(e.target.value) : '' })}
           />
         </div>
       </FilterBar>

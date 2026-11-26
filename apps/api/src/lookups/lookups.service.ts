@@ -23,6 +23,7 @@ export const SIMPLE_LOOKUPS = [
   'storage-yards',
   'inspection-authorities',
   'document-types',
+  'declarants',
 ] as const;
 export type SimpleLookup = (typeof SIMPLE_LOOKUPS)[number];
 
@@ -103,6 +104,8 @@ export class LookupsService {
           where: { name },
           orderBy,
         });
+      case 'declarants':
+        return this.prisma.declarant.findMany({ where: { name }, orderBy });
     }
   }
 
@@ -223,6 +226,8 @@ export class LookupsService {
         return tx.inspectionAuthority.create({ data: { name } });
       case 'document-types':
         return tx.partyDocumentType.create({ data: { name } });
+      case 'declarants':
+        return tx.declarant.create({ data: { name } });
     }
   }
 
@@ -237,7 +242,9 @@ export class LookupsService {
             ? await tx.freeZone.findUnique(where)
             : lookup === 'document-types'
               ? await tx.partyDocumentType.findUnique(where)
-              : await tx.inspectionAuthority.findUnique(where);
+              : lookup === 'declarants'
+                ? await tx.declarant.findUnique(where)
+                : await tx.inspectionAuthority.findUnique(where);
     if (!row) throw new NotFoundException('غير موجود');
     return row;
   }
@@ -267,6 +274,8 @@ export class LookupsService {
         return tx.inspectionAuthority.update({ where, data: { name } });
       case 'document-types':
         return tx.partyDocumentType.update({ where, data: { name } });
+      case 'declarants':
+        return tx.declarant.update({ where, data: { name } });
     }
   }
 
@@ -283,6 +292,8 @@ export class LookupsService {
         return tx.inspectionAuthority.delete(args);
       case 'document-types':
         return tx.partyDocumentType.delete(args);
+      case 'declarants':
+        return tx.declarant.delete(args);
     }
   }
 

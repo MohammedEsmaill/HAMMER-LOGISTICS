@@ -27,6 +27,7 @@ import {
 const FIELD_LABELS: Record<CustomsField, string> = {
   certificateNo: 'رقم الشهادة',
   certificateDate: 'تاريخ الشهادة',
+  declarantId: 'مقدم البيان',
   deliveryOrderDate: 'تاريخ سحب الإذن',
   form46Date: 'تاريخ 46',
   storageYardId: 'ساحة التخزين',
@@ -64,6 +65,11 @@ export class ShipmentCustomsService {
       await claimVersion(tx, id, dto.version);
       if (dto.storageYardId)
         await this.assertYard(tx, before, dto.storageYardId);
+      if (
+        dto.declarantId &&
+        !(await tx.declarant.findUnique({ where: { id: dto.declarantId } }))
+      )
+        throw new BadRequestException('مقدم البيان مش موجود في القايمة');
       const data = Object.fromEntries(sent.map((f) => [f, dto[f]]));
       await tx.shipment.update({ where: { id }, data });
       await this.log(tx, actor, 'UPDATE_CUSTOMS', id, before);

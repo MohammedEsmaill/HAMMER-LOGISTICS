@@ -14,6 +14,7 @@ export type CustomsRegime = 'FINAL' | 'TEMPORARY';
 export type CustomsField =
   | 'certificateNo'
   | 'certificateDate'
+  | 'declarantId'
   | 'deliveryOrderDate'
   | 'form46Date'
   | 'storageYardId'
@@ -50,6 +51,7 @@ export interface TypeRules {
 
 const IMPORT_CUSTOMS: CustomsField[] = [
   'certificateNo',
+  'declarantId',
   'deliveryOrderDate',
   'form46Date',
   'storageYardId',
@@ -61,6 +63,7 @@ const IMPORT_CUSTOMS: CustomsField[] = [
 ];
 const FREE_ZONE_CUSTOMS: CustomsField[] = [
   'certificateNo',
+  'declarantId',
   'certificateDate',
   'examinationDate',
   'inspectionDate',
@@ -70,6 +73,7 @@ const FREE_ZONE_CUSTOMS: CustomsField[] = [
 ];
 const EXPORT_CUSTOMS: CustomsField[] = [
   'certificateNo',
+  'declarantId',
   'certificateDate',
   'storageYardId',
   'deliveredToPortDate',
@@ -179,6 +183,7 @@ export const REGIMES: Record<CustomsRegime, string> = { FINAL: 'نهائي', TEM
 export const CUSTOMS_LABELS: Record<CustomsField, string> = {
   certificateNo: 'رقم الشهادة',
   certificateDate: 'تاريخ الشهادة',
+  declarantId: 'مقدمُ البيان',
   deliveryOrderDate: 'تاريخ سحب الإذن',
   form46Date: 'تاريخ نموذج 46',
   storageYardId: 'الساحة / المخزن',

@@ -5,6 +5,7 @@ import { ShipmentKind } from '../stages';
 export const CUSTOMS_FIELDS = [
   'certificateNo',
   'certificateDate',
+  'declarantId',
   'deliveryOrderDate',
   'form46Date',
   'storageYardId',
@@ -21,6 +22,7 @@ export type CustomsField = (typeof CUSTOMS_FIELDS)[number];
 
 const IMPORT_CUSTOMS: CustomsField[] = [
   'certificateNo',
+  'declarantId',
   'deliveryOrderDate',
   'form46Date',
   'storageYardId',
@@ -32,6 +34,7 @@ const IMPORT_CUSTOMS: CustomsField[] = [
 ];
 const FREE_ZONE_CUSTOMS: CustomsField[] = [
   'certificateNo',
+  'declarantId',
   'certificateDate',
   'examinationDate',
   'inspectionDate',
@@ -41,6 +44,7 @@ const FREE_ZONE_CUSTOMS: CustomsField[] = [
 ];
 const EXPORT_CUSTOMS: CustomsField[] = [
   'certificateNo',
+  'declarantId',
   'certificateDate',
   'storageYardId',
   'deliveredToPortDate',
