@@ -254,21 +254,23 @@ export class HolderLedgerService {
           order: 1,
         });
       }
-      lines.push({
-        ...base,
-        date: at,
-        kind: 'CUSTODY_ITEMS',
-        description: 'بنود التصفية',
-        debit: ZERO,
-        credit: c.spentAmount,
-        order: 2,
-      });
+      // a cancelled custody: the whole of it back, nothing spent
+      if (!c.cancelledAt)
+        lines.push({
+          ...base,
+          date: at,
+          kind: 'CUSTODY_ITEMS',
+          description: 'بنود التصفية',
+          debit: ZERO,
+          credit: c.spentAmount,
+          order: 2,
+        });
       if (c.returnedAmount.greaterThan(0)) {
         lines.push({
           ...base,
           date: at,
           kind: 'CUSTODY_RETURN',
-          description: 'رد باقي العهدة',
+          description: c.cancelledAt ? 'إلغاء العهدة (رجعت للمصدر)' : 'رد باقي العهدة',
           debit: ZERO,
           credit: c.returnedAmount,
           order: 3,

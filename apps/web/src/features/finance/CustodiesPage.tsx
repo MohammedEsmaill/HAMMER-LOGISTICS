@@ -52,7 +52,7 @@ export default function CustodiesPage() {
           <div className="font-semibold">{c.agent?.fullName ?? c.clearer?.fullName ?? HOLDERS[c.holderType].label}</div>
           <div className="text-xs text-muted">
             {HOLDERS[c.holderType].label}
-            {c.purpose && ` · ${PURPOSES[c.purpose]}`}
+            {c.purpose && c.holderType !== 'CLEARER' && ` · ${PURPOSES[c.purpose]}`}
           </div>
         </div>
       ),
@@ -62,7 +62,12 @@ export default function CustodiesPage() {
     {
       header: 'التصفية',
       cell: (c) =>
-        c.status === 'OPEN' ? (
+        c.cancelledAt ? (
+          <div className="text-sm">
+            <Badge tone="danger">ملغاة</Badge>
+            <div className="text-xs text-muted">رجعت لمصدرها</div>
+          </div>
+        ) : c.status === 'OPEN' ? (
           <Badge tone="gold">مفتوحة</Badge>
         ) : (
           <div className="text-sm">

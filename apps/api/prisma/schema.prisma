@@ -438,6 +438,7 @@ model User {
   statementOverrides     StatementOverride[]    @relation("OverrideBy")
   statementExtras        StatementExtraLine[]   @relation("ExtraLineBy")
   reopenedDays           JournalDay[]           @relation("JournalDayReopenedBy")
+  custodiesCancelled     Custody[]              @relation("CustodyCancelledBy")
 
   @@map("users")
 }
@@ -1152,6 +1153,11 @@ model Custody {
   settlementDate     DateTime?          @map("settlement_date") @db.Date
   settledById        Int?               @map("settled_by")
   notes              String?
+  /// Cancelled while open: the whole amount went back to the account it came from (a
+  /// settlement with nothing spent, on the cancel day). No clearer fee is computed.
+  cancelledAt        DateTime?          @map("cancelled_at")
+  cancelledById      Int?               @map("cancelled_by")
+  cancelReason       String?            @map("cancel_reason")
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1174,6 +1180,7 @@ model Custody {
   sourceAccount MoneyAccount       @relation(fields: [sourceAccountId, currency], references: [id, currency], onDelete: Restrict)
   beneficiary   Beneficiary?       @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
   settledBy     User?              @relation("CustodySettledBy", fields: [settledById], references: [id], onDelete: Restrict)
+  cancelledBy   User?              @relation("CustodyCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
   items         CustodyItem[]
   movements     MoneyMovement[]
   computedFee   ClearerFee?

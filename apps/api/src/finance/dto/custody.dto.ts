@@ -87,6 +87,12 @@ export class UpdateIssueDto extends BankPaymentDto {
   @Min(0)
   version!: number;
 
+  /** While open: moved to the right shipment */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  shipmentId?: number;
+
   @IsOptional()
   @Trim()
   @Matches(/^[A-Za-z0-9/-]{1,40}$/, { message: 'رقم التحويل حروف وأرقام بس' })
@@ -315,4 +321,16 @@ export class FeesQueryDto extends ListQueryDto {
   @IsInt()
   @Min(1)
   shipmentId?: number;
+}
+
+export class CancelCustodyDto {
+  @IsInt()
+  @Min(0)
+  version!: number;
+
+  @Trim()
+  @IsString()
+  @MinLength(5, { message: 'اكتب سبب الإلغاء (5 حروف على الأقل)' })
+  @MaxLength(500)
+  reason!: string;
 }

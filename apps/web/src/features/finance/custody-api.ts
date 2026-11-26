@@ -10,7 +10,7 @@ export type Purpose = 'UNLOADING' | 'RELEASE' | 'STORAGE' | 'CLEARANCE';
 export const HOLDERS: Record<HolderType, { label: string; purposes: Purpose[] | null; overspend: boolean; source: string }> = {
   AGENT: { label: 'مندوب توكيلات', purposes: ['UNLOADING', 'RELEASE', 'STORAGE'], overspend: false, source: 'خزنة الجنيه' },
   WAY_OUT: { label: 'إيداع دولاري', purposes: ['UNLOADING', 'RELEASE', 'STORAGE'], overspend: false, source: 'خزنة الدولار' },
-  CLEARER: { label: 'مستخلص الشحنة', purposes: ['CLEARANCE', 'RELEASE'], overspend: true, source: 'خزنة الجنيه' },
+  CLEARER: { label: 'مستخلص الشحنة', purposes: null, overspend: true, source: 'خزنة الجنيه' },
   BANK_TRANSFER: { label: 'تحويل بنكي', purposes: null, overspend: false, source: 'حساب بنكي' },
 };
 
@@ -66,6 +66,9 @@ export interface Custody extends Approval, BankPaid {
   spentAmount: string;
   returnedAmount: string;
   status: 'OPEN' | 'SETTLED';
+  /** cancelled while open: the whole amount went back to where it came from */
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
   issueDate: string;
   settlementDate: string | null;
   settledBy: { id: number; email: string } | null;
@@ -159,6 +162,7 @@ export interface Holders {
 
 export interface CustodiesQuery {
   search?: string;
+  shipmentId?: number;
   status?: 'OPEN' | 'SETTLED' | '';
   holderType?: HolderType | '';
   page: number;
@@ -244,6 +248,7 @@ export const custodyApi = {
     id: number,
     input: {
       version: number;
+      shipmentId?: number;
       amount?: number;
       purpose?: Purpose;
       issueDate?: string;
@@ -254,6 +259,7 @@ export const custodyApi = {
     },
   ) =>
     api.patch<Custody>(`/finance/custodies/${id}`, input),
+  cancel: (id: number, input: { version: number; reason: string }) => api.post<Custody>(`/finance/custodies/${id}/cancel`, input),
   settle: (
     id: number,
     input: {

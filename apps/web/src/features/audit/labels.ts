@@ -16,6 +16,7 @@ export const ACTIONS: Record<string, string> = {
   REOPEN: 'إعادة فتح',
   SETTLE: 'تصفية',
   RESETTLE: 'إعادة تصفية',
+  CANCEL: 'إلغاء',
   PRICES_UPDATE: 'تعديل الأسعار',
   APPROVAL_REVIEW: 'مراجعة',
   APPROVAL_MANAGER_APPROVE: 'موافقة مدير الحسابات',

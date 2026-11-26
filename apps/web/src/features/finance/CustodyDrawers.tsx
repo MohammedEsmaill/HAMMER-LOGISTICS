@@ -16,10 +16,12 @@ import {
   custodyApi,
   HOLDERS,
   PURPOSES,
+  useCustodies,
   useCustody,
   useShipmentExpenseTypes,
   useShipmentSearch,
   type Custody,
+  type CustodiesQuery,
   type HolderType,
   type Purpose,
   type ReceiptKind,
@@ -59,6 +61,9 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
   const [problems, setProblems] = useState<Record<string, string>>({});
   const rule = HOLDERS[holderType];
   const shipment = shipments?.items.find((s) => s.id === shipmentId);
+  // one clearer custody per shipment: tell before saving
+  const { data: onShipment } = useCustodies({ shipmentId: shipmentId || undefined, holderType: 'CLEARER', page: 1, pageSize: 10 } satisfies CustodiesQuery);
+  const liveClearer = holderType === 'CLEARER' && shipmentId ? onShipment?.items.find((c) => !c.cancelledAt && c.shipment.id === shipmentId) : undefined;
   // by bank: a transfer to an external account, or a clearer custody into his own account
   const byBank = holderType === 'BANK_TRANSFER' || (holderType === 'CLEARER' && clearerByBank);
   const bankChoices = holderType === 'CLEARER' ? banks.filter((b) => b.currency === 'EGP') : banks;
@@ -108,6 +113,7 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
     e.preventDefault();
     const p: Record<string, string> = {};
     if (!shipmentId) p.shipment = 'اختار الشحنة';
+    else if (liveClearer) p.shipment = `الشحنة عليها عهدة مستخلص ${liveClearer.custodyNo}: زوّد مبلغها بدل عهدة جديدة`;
     if (holderType === 'AGENT' && !agentId) p.agent = 'اختار المندوب';
     if (rule.purposes && !purpose) p.purpose = 'اختار الغرض';
     if (byBank && !bankId) p.bank = 'اختار الحساب البنكي';
@@ -151,6 +157,13 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
           onQueryChange={setSearch}
           error={problems.shipment}
         />
+        {liveClearer && (
+          <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            الشحنة دي عليها عهدة مستخلص {liveClearer.custodyNo} ({money(liveClearer.amount, 'EGP')})، والشحنة ليها عهدة مستخلص واحدة بس. لو محتاج فلوس زيادة زوّد مبلغ
+            العهدة دي.
+          </div>
+        )}
         <div>
           <div className="mb-1.5 text-sm font-medium text-muted">المستلم</div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
@@ -285,6 +298,7 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
   const isSettler = !settled || custody?.settledBy?.id === user?.id || can('finance.approved.edit');
   const canSettle =
     !!custody &&
+    !custody.cancelledAt &&
     (can('finance.custody.settle') || can('finance.approved.edit')) &&
     (custody.approvalStatus === 'APPROVED' ? can('finance.approved.edit') : isSettler);
 
@@ -444,7 +458,11 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
               }${Number(custody.bankCharges ?? 0) > 0 ? ` · مصاريف بنكية ${money(custody.bankCharges, cur)}` : ''}`}
             />
           ) : (
-            <Info label="الغرض" value={custody.purpose ? PURPOSES[custody.purpose] : '—'} hint={`من ${custody.sourceAccount.name}`} />
+            <Info
+              label={isClearer ? 'المصدر' : 'الغرض'}
+              value={isClearer ? custody.sourceAccount.name : custody.purpose ? PURPOSES[custody.purpose] : '—'}
+              hint={isClearer ? `ملف ${custody.shipment.fileNo}` : `من ${custody.sourceAccount.name}`}
+            />
           )}
           <Info label="مبلغ العهدة" value={money(custody.amount, cur)} hint={formatDate(custody.issueDate)} ltr />
         </div>
@@ -457,7 +475,17 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
             {custody.computedFee && <Info label="أتعاب المستخلص" value={money(custody.computedFee.amount, 'EGP')} ltr />}
           </div>
         )}
-        {custody.duplicateReceipts && custody.duplicateReceipts.length > 0 && (
+        {custody.cancelledAt ? (
+          <div className="rounded-xl border border-danger/40 bg-danger/5 p-3 text-sm">
+            <div className="font-bold text-danger">العهدة دي اتلغت في {formatDate(custody.cancelledAt)}</div>
+            <div className="text-muted">
+              المبلغ كله ({money(custody.amount, cur)}) رجع لـ {custody.sourceAccount.name}. السبب: {custody.cancelReason}
+            </div>
+          </div>
+        ) : (
+          !settled && <IssueFix custody={custody} onCancelled={onClose} />
+        )}
+                {custody.duplicateReceipts && custody.duplicateReceipts.length > 0 && (
           <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <div>
@@ -646,6 +674,96 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
         {settled ? <ApprovalTrail doc={custody} /> : <Badge tone="muted">بتتعتمد بعد التصفية</Badge>}
       </div>
     </Drawer>
+  );
+}
+
+/**
+ * While a custody is open, whoever issued it (or the CEO) moves it to the right shipment
+ * (a clearer's: same clearer only), or cancels it: the money goes back to where it came from.
+ */
+function IssueFix({ custody, onCancelled }: { custody: Custody; onCancelled: () => void }) {
+  const { can, canAny, user } = useAuth();
+  const [mode, setMode] = useState<'move' | 'cancel' | null>(null);
+  const [search, setSearch] = useState('');
+  const { data: shipments } = useShipmentSearch(search);
+  const [shipmentId, setShipmentId] = useState<number | ''>('');
+  const [reason, setReason] = useState('');
+  const move = useAction(() => custodyApi.updateIssue(custody.id, { version: custody.version, shipmentId: Number(shipmentId) }), {
+    success: 'اتنقلت العهدة للشحنة الصح',
+    invalidate: [financeKeys.all],
+  });
+  const cancel = useAction(() => custodyApi.cancel(custody.id, { version: custody.version, reason: reason.trim() }), {
+    success: 'اتلغت العهدة ورجعت الفلوس لمصدرها',
+    invalidate: [financeKeys.all],
+  });
+  const mine = custody.createdBy?.id === user?.id || can('finance.approved.edit');
+  if (!mine || !canAny('finance.custody.manage', 'finance.bank.record', 'finance.approved.edit')) return null;
+  const isClearer = custody.holderType === 'CLEARER';
+  // a clearer's custody moves only to a shipment of the same clearer
+  const options = (shipments?.items ?? []).filter((s) => s.id !== custody.shipment.id && (!isClearer || s.clearer?.id === custody.clearer?.id));
+
+  return (
+    <div className="rounded-xl border border-line p-3">
+      {!mode && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">العهدة اتسجلت غلط؟</span>
+          <Button variant="ghost" onClick={() => setMode('move')}>
+            تغيير الشحنة
+          </Button>
+          <Button variant="ghost" onClick={() => setMode('cancel')}>
+            إلغاء العهدة
+          </Button>
+        </div>
+      )}
+      {mode === 'move' && (
+        <div className="space-y-3">
+          <ComboField
+            label={`الشحنة الصح (بدل ${custody.shipment.fileNo})`}
+            placeholder="اكتب رقم الملف أو البوليصة أو العميل"
+            options={options.map((s) => ({ value: s.id, label: `${s.fileNo} · ${s.client.name}${s.clearer ? ` · ${s.clearer.fullName}` : ''}` }))}
+            value={shipmentId}
+            onChange={(v) => setShipmentId(v === '' ? '' : Number(v))}
+            onQueryChange={setSearch}
+          />
+          {isClearer && (
+            <p className="text-xs text-muted">
+              بتظهر بس شحنات {custody.clearer?.fullName}. لو الشحنة الصح لمستخلص تاني، ألغِ العهدة (الفلوس بترجع لمصدرها) وسجّل عهدة جديدة. بعد التغيير العهدة بترجع
+              للاعتماد من الأول.
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button disabled={!shipmentId} loading={move.isPending} onClick={() => move.mutateAsync(undefined).then(() => setMode(null), () => undefined)}>
+              انقل العهدة
+            </Button>
+            <Button variant="ghost" onClick={() => setMode(null)}>
+              رجوع
+            </Button>
+          </div>
+        </div>
+      )}
+      {mode === 'cancel' && (
+        <div className="space-y-3">
+          <TextField label="سبب الإلغاء" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} placeholder="مثلاً: اتسجلت على شحنة مستخلص تاني" />
+          <p className="text-xs text-muted">
+            المبلغ كله ({money(custody.amount, custody.currency)}) بيرجع لـ {custody.sourceAccount.name} بتاريخ النهاردة، ومفيش أتعاب بتتحسب. بعدها تقدر تسجّل عهدة
+            جديدة على الشحنة الصح.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="danger"
+              disabled={reason.trim().length < 5}
+              loading={cancel.isPending}
+              onClick={() => cancel.mutateAsync(undefined).then(() => onCancelled(), () => undefined)}
+            >
+              ألغِ العهدة
+            </Button>
+            <Button variant="ghost" onClick={() => setMode(null)}>
+              رجوع
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

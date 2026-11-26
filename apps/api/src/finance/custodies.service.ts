@@ -68,7 +68,7 @@ const HOLDERS: Record<
     label: 'إيداع دولاري',
   },
   CLEARER: {
-    purposes: ['CLEARANCE', 'RELEASE'],
+    purposes: null,
     overspend: true,
     label: 'مستخلص',
   },
@@ -227,6 +227,7 @@ export class CustodiesService {
       });
       if (!shipment) throw new NotFoundException('الشحنة غير موجودة');
       await assertAccountOpen(tx, shipment.id);
+      if (dto.holderType === 'CLEARER') await this.assertNoClearerCustody(tx, shipment.id);
       if (
         rule.purposes &&
         (!dto.purpose || !rule.purposes.includes(dto.purpose))
@@ -235,8 +236,10 @@ export class CustodiesService {
           `اختار الغرض المناسب لعهدة ${rule.label}`,
         );
       }
+      // a clearer's custody has no purpose: whatever is sent is dropped
+      if (dto.holderType === 'CLEARER') dto.purpose = undefined;
       if (!rule.purposes && dto.purpose) {
-        throw new BadRequestException('التحويل البنكي مالوش غرض');
+        throw new BadRequestException(`عهدة ${rule.label} مالهاش غرض`);
       }
       const holder = await this.holderFields(tx, dto, shipment.clearerId);
       const account = await this.sourceAccount(tx, dto);
@@ -302,12 +305,15 @@ export class CustodiesService {
     await this.prisma.$transaction(async (tx) => {
       await claimDocument(tx, 'CUSTODY', id, dto.version);
       const before = await tx.custody.findUniqueOrThrow({ where: { id } });
+      if (before.cancelledAt) throw new BadRequestException('العهدة دي اتلغت');
       if (before.status !== 'OPEN') {
         throw new BadRequestException('العهدة اتصفت، عدّل التصفية بدل الصرف');
       }
       this.assertAuthor(actor, before);
       await assertDayEditable(tx, actor, before.issueDate);
+      const shipmentId = await this.movedShipment(tx, before, dto.shipmentId);
       const rule = HOLDERS[before.holderType];
+      if (before.holderType === 'CLEARER') dto.purpose = undefined;
       if (
         dto.purpose !== undefined &&
         (!rule.purposes || !rule.purposes.includes(dto.purpose))
@@ -344,6 +350,9 @@ export class CustodiesService {
         data: {
           amount,
           issueDate,
+          shipmentId,
+          // another shipment carries the cost now: it is approved again
+          ...(shipmentId !== before.shipmentId ? APPROVAL_RESET : {}),
           purpose: dto.purpose,
           transferRef: bank.reference,
           paymentMethod: bank.paymentMethod,
@@ -376,6 +385,7 @@ export class CustodiesService {
     await this.prisma.$transaction(async (tx) => {
       await claimDocument(tx, 'CUSTODY', id, dto.version);
       const before = await tx.custody.findUniqueOrThrow({ where: { id } });
+      if (before.cancelledAt) throw new BadRequestException('العهدة دي اتلغت، ومبقاش ليها تصفية');
       const resettle = before.status === 'SETTLED';
       // the client statement is frozen once the shipment account is finished
       await assertAccountOpen(tx, before.shipmentId);
@@ -475,7 +485,87 @@ export class CustodiesService {
     return this.get(id);
   }
 
+  /**
+   * Cancels an open custody (registered by mistake, on a shipment of another clearer …):
+   * the whole amount goes back to the account it was paid from, on the cancel day. It is
+   * kept as a settlement with nothing spent, so the books and statements need nothing
+   * new; no clearer fee is computed. A new custody is then registered as needed.
+   */
+  async cancel(actor: AuthUser, id: number, dto: { version: number; reason: string }) {
+    await this.prisma.$transaction(async (tx) => {
+      await claimDocument(tx, 'CUSTODY', id, dto.version);
+      const before = await tx.custody.findUniqueOrThrow({ where: { id } });
+      if (before.cancelledAt) throw new BadRequestException('العهدة دي اتلغت قبل كده');
+      if (before.status !== 'OPEN') throw new BadRequestException('العهدة اتصفت، ومينفعش تتلغي');
+      this.assertAuthor(actor, before);
+      await assertAccountOpen(tx, before.shipmentId);
+      const day = await openDate(tx, undefined, 'تاريخ الإلغاء');
+      await tx.custodyItem.deleteMany({ where: { custodyId: id } });
+      const after = await tx.custody.update({
+        where: { id },
+        data: {
+          status: 'SETTLED',
+          spentAmount: ZERO,
+          extraAmount: ZERO,
+          keptAmount: ZERO,
+          returnedAmount: before.amount,
+          extraAccountId: null,
+          extraPaymentMethod: null,
+          extraReference: null,
+          settlementDate: day,
+          settledById: actor.id,
+          cancelledAt: new Date(),
+          cancelledById: actor.id,
+          cancelReason: dto.reason,
+          // the money coming back is approved like any movement
+          ...APPROVAL_RESET,
+        },
+      });
+      await this.postSettlement(tx, after, actor.id);
+      await this.audit.log({ userId: actor.id, action: 'CANCEL', entity: 'custody', entityId: id, before, after }, tx);
+    });
+    return this.get(id);
+  }
+
   // ───── helpers ─────
+
+  /** A shipment carries one clearer custody (a cancelled one does not count). */
+  private async assertNoClearerCustody(tx: Tx, shipmentId: number, exceptId?: number) {
+    const other = await tx.custody.findFirst({
+      where: { shipmentId, holderType: 'CLEARER', cancelledAt: null, ...(exceptId ? { id: { not: exceptId } } : {}) },
+      select: { custodyNo: true },
+    });
+    if (other)
+      throw new BadRequestException(
+        `الشحنة دي عليها عهدة مستخلص ${other.custodyNo}، والشحنة ليها عهدة مستخلص واحدة بس. لو محتاج فلوس زيادة زوّد مبلغ العهدة دي`,
+      );
+  }
+
+  /**
+   * An open custody moved to the right shipment: its account open, and for a clearer's
+   * custody the same clearer and no other clearer custody on it. Another clearer: the
+   * custody is cancelled (the money back to where it came from) and a new one registered.
+   */
+  private async movedShipment(tx: Tx, before: Custody, shipmentId?: number): Promise<number> {
+    if (shipmentId === undefined || shipmentId === before.shipmentId) return before.shipmentId;
+    const shipment = await tx.shipment.findUnique({
+      where: { id: shipmentId },
+      select: { id: true, fileNo: true, clearerId: true, clearer: { select: { fullName: true } } },
+    });
+    if (!shipment) throw new NotFoundException('الشحنة غير موجودة');
+    await assertAccountOpen(tx, before.shipmentId);
+    await assertAccountOpen(tx, shipment.id);
+    if (before.holderType === 'CLEARER') {
+      if (shipment.clearerId !== before.clearerId)
+        throw new BadRequestException(
+          `الشحنة ${shipment.fileNo} مستخلصها ${shipment.clearer.fullName}، والفلوس اتسلمت لمستخلص تاني. ألغِ العهدة (الفلوس بترجع لمصدرها) وسجّل عهدة جديدة`,
+        );
+      await this.assertNoClearerCustody(tx, shipment.id, before.id);
+    }
+    return shipment.id;
+  }
+
+  // ───── the rest of the helpers ─────
 
   private async holderFields(
     tx: Tx,

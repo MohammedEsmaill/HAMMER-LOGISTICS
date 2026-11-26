@@ -8,7 +8,7 @@ const QUOTE = {
   quoteExportExtraContainer: 800,
 };
 
-const CLEARER_PRICES = {
+export const CLEARER_PRICES = {
   importFinalBase: 3000,
   importTemporaryBase: 2600,
   importExtraContainer: 700,

@@ -27,6 +27,7 @@ import {
   AdjustFeeDto,
   CustodiesQueryDto,
   FeesQueryDto,
+  CancelCustodyDto,
   IssueCustodyDto,
   PayFeeDto,
   SettleCustodyDto,
@@ -98,6 +99,17 @@ export class CustodiesController {
     @Body() dto: UpdateIssueDto,
   ) {
     return this.custodies.updateIssue(actor, id, dto);
+  }
+
+  /** Cancels an open custody: the whole amount back to where it came from. */
+  @Post(':id/cancel')
+  @RequireAnyPermission(...EDIT)
+  cancel(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CancelCustodyDto,
+  ) {
+    return this.custodies.cancel(actor, id, dto);
   }
 
   /** Settles an open custody, or replaces the items of a settled one. */

@@ -194,19 +194,17 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
   });
 
   it('an item is used once per shipment, and on clearer custodies only', async () => {
-    const second = await issue('CLEARER');
+    // the shipment carries one clearer custody: a second is refused
     const again = await ctx
-      .api(accountant)
-      .post(`/api/finance/custodies/${second}/settlement`, {
-        version: await version(second),
-        items: [{ settlementItemId: item('الزراعة').id, receiptNo: '503' }],
-      })
+      .api(treasury)
+      .post('/api/finance/custodies', { shipmentId, holderType: 'CLEARER', amount: 1000 })
       .expect(400);
-    expect(again.body.message).toContain('اتسجل على الشحنة دي قبل كده');
+    expect(again.body.message).toContain('عهدة مستخلص واحدة بس');
+    const first = (await ctx.prisma.custody.findFirstOrThrow({ where: { shipmentId, holderType: 'CLEARER' } })).id;
     const twice = await ctx
       .api(accountant)
-      .post(`/api/finance/custodies/${second}/settlement`, {
-        version: await version(second),
+      .post(`/api/finance/custodies/${first}/settlement`, {
+        version: await version(first),
         items: [
           { settlementItemId: item('واردات').id, receiptNo: '504' },
           { settlementItemId: item('واردات').id, receiptNo: '505' },
@@ -237,16 +235,15 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
     expect(refused.body.message).toContain('لعهدة المستخلص بس');
   });
 
-  it('the custody tells the screen what is already used and how many containers', async () => {
-    const second = await issue('CLEARER');
+  it('the custody tells the screen how many containers (and what other custodies used)', async () => {
+    const first = (await ctx.prisma.custody.findFirstOrThrow({ where: { shipmentId, holderType: 'CLEARER' } })).id;
     const res = await ctx
       .api(treasury)
-      .get(`/api/finance/custodies/${second}`)
+      .get(`/api/finance/custodies/${first}`)
       .expect(200);
     expect(res.body.shipmentContainers).toBe(2);
-    expect(res.body.usedSettlementItemIds).toEqual(
-      expect.arrayContaining([item('الزراعة').id, item('وزن الحاوية').id]),
-    );
+    // its own items are not «used by another custody»
+    expect(res.body.usedSettlementItemIds).toEqual([]);
   });
 
   describe("a factory's own prices", () => {
@@ -291,7 +288,20 @@ describe('Finance: price lists and fixed settlement items (e2e)', () => {
           prices: [{ settlementItemId: item('الكيماويات').id, price: 333 }],
         })
         .expect(200);
-      const id = await issue('CLEARER');
+      // another shipment of the same factory: one clearer custody per shipment
+      const other = (
+        await ctx
+          .api(fx.tokens.scan)
+          .post(
+            '/api/shipments',
+            fx.seaImport({
+              customsRegime: 'TEMPORARY',
+              containers: [{ containerNo: containerNo('TGHU183553'), type: 'HQ40', weight: 900 }],
+            }),
+          )
+          .expect(201)
+      ).body.id as number;
+      const id = await issue('CLEARER', { shipmentId: other });
       const custody = await ctx
         .api(treasury)
         .get(`/api/finance/custodies/${id}`)

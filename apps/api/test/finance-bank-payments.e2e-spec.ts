@@ -97,6 +97,15 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
 
   afterAll(() => closeTestContext(ctx));
 
+  /** Another shipment of the same client and clearer (one clearer custody per shipment). */
+  const anotherShipment = async (prefix: string) =>
+    (
+      await ctx
+        .api(fx.tokens.scan)
+        .post('/api/shipments', fx.seaImport({ containers: [{ containerNo: containerNo(prefix), type: 'HQ40', weight: 1000 }] }))
+        .expect(201)
+    ).body.id as number;
+
   describe('cash is the treasury manager’s, the bank the accountant’s', () => {
     const expense = (extra: object) => ({
       expenseType: 'إنترنت المكتب',
@@ -298,7 +307,7 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
       const custody = await ctx
         .api(accountant)
         .post('/api/finance/custodies', {
-          shipmentId,
+          shipmentId: await anotherShipment('MSKU200002'),
           holderType: 'CLEARER',
           purpose: 'RELEASE',
           amount: 1000,
@@ -342,13 +351,14 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
           })
           .expect(201);
       }
+      // another shipment: he keeps far more than its own fee can take
+      const other = await anotherShipment('MSKU200003');
       const custody = await ctx
         .api(treasury)
         .post('/api/finance/custodies', {
-          shipmentId,
+          shipmentId: other,
           holderType: 'CLEARER',
-          purpose: 'RELEASE',
-          amount: 800,
+          amount: 8000,
         })
         .expect(201);
       await ctx
@@ -361,7 +371,10 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
       const offsets = await ctx.prisma.clearerFeeOffset.findMany({
         where: { custodyId: custody.body.id },
       });
-      expect(offsets).toEqual([]);
+      // it covers his unpaid fees; the rest of the 7,500 waits for the next fee
+      const taken = offsets.reduce((n, o) => n + Number(o.amount), 0);
+      expect(taken).toBeGreaterThan(0);
+      expect(taken).toBeLessThan(7500);
       // the clearer's statement shows the 300 on him
       const ledger = await ctx
         .api(treasury)

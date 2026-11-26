@@ -1,5 +1,5 @@
 import { NotificationsService } from '../src/notifications/notifications.service';
-import { shipmentFixtures, ShipmentFixtures } from './fixtures';
+import { CLEARER_PRICES, shipmentFixtures, ShipmentFixtures } from './fixtures';
 import { closeTestContext, createTestContext, TestContext } from './helpers';
 
 /** A valid ISO 6346 number for an owner code + 6 digits. */
@@ -641,6 +641,69 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
         credit: '5000',
         balance: '0',
       });
+    });
+  });
+
+  describe('one clearer custody per shipment: moving it, cancelling it', () => {
+    let a: number;
+    let b: number;
+    let otherClearerShipment: number;
+    let custody: { id: number; version: number };
+
+    const ship = async (prefix: string, extra = {}) =>
+      (
+        await ctx
+          .api(fx.tokens.scan)
+          .post('/api/shipments', fx.seaImport({ containers: [{ containerNo: containerNo(prefix), type: 'HQ40', weight: 1000 }], ...extra }))
+          .expect(201)
+      ).body.id as number;
+
+    beforeAll(async () => {
+      a = await ship('MSKU870001');
+      b = await ship('MSKU870002');
+      const other = await ctx
+        .api(ctx.ceoToken)
+        .post('/api/clearers', { fullName: 'مستخلص تاني للعهد', phone: '0', nationalId: '26010100087001', ...CLEARER_PRICES })
+        .expect(201);
+      otherClearerShipment = await ship('MSKU870003', { clearerId: other.body.id });
+    });
+
+    it('refuses a second clearer custody on a shipment, and has no purpose', async () => {
+      const res = await ctx.api(treasury).post('/api/finance/custodies', { shipmentId: a, holderType: 'CLEARER', purpose: 'CLEARANCE', amount: 1000 }).expect(201);
+      expect(res.body.purpose).toBeNull();
+      custody = { id: res.body.id, version: res.body.version };
+      const again = await ctx.api(treasury).post('/api/finance/custodies', { shipmentId: a, holderType: 'CLEARER', amount: 500 }).expect(400);
+      expect(again.body.message).toContain(res.body.custodyNo);
+      // an agent's custody on the same shipment is fine
+      await ctx.api(treasury).post('/api/finance/custodies', { shipmentId: a, holderType: 'AGENT', purpose: 'UNLOADING', agentEmployeeId: agentId, amount: 100 }).expect(201);
+    });
+
+    it('moves an open custody to the right shipment of the same clearer, never another clearer', async () => {
+      const wrong = await ctx.api(treasury).patch(`/api/finance/custodies/${custody.id}`, { version: custody.version, shipmentId: otherClearerShipment }).expect(400);
+      expect(wrong.body.message).toContain('ألغِ العهدة');
+      const moved = await ctx.api(treasury).patch(`/api/finance/custodies/${custody.id}`, { version: await version(custody.id), shipmentId: b }).expect(200);
+      expect(moved.body.shipment.id ?? moved.body.shipmentId).toBe(b);
+      expect(moved.body.approvalStatus).toBe('PENDING');
+      // shipment a is free again
+      const free = await ctx.api(treasury).post('/api/finance/custodies', { shipmentId: a, holderType: 'CLEARER', amount: 300 }).expect(201);
+      expect(free.body.id).not.toBe(custody.id);
+    });
+
+    it('cancels an open custody: the whole amount back to where it came from, no fee', async () => {
+      const before = await balance(cashEgp);
+      await ctx.api(accountant).post(`/api/finance/custodies/${custody.id}/cancel`, { version: await version(custody.id), reason: 'مستخلص غلط' }).expect(403);
+      await ctx.api(treasury).post(`/api/finance/custodies/${custody.id}/cancel`, { version: await version(custody.id) }).expect(400);
+      const res = await ctx.api(treasury).post(`/api/finance/custodies/${custody.id}/cancel`, { version: await version(custody.id), reason: 'مستخلص غلط' }).expect(201);
+      expect(res.body).toMatchObject({ status: 'SETTLED', returnedAmount: '1000', spentAmount: '0', keptAmount: '0', cancelReason: 'مستخلص غلط' });
+      expect(await balance(cashEgp)).toBe(before + 1000);
+      expect(await ctx.prisma.clearerFee.findUnique({ where: { shipmentId: b } })).toBeNull();
+      // nothing more on it
+      await ctx.api(accountant).post(`/api/finance/custodies/${custody.id}/settlement`, { version: await version(custody.id), items: [] }).expect(400);
+      await ctx.api(treasury).post(`/api/finance/custodies/${custody.id}/cancel`, { version: await version(custody.id), reason: 'مرة تانية' }).expect(400);
+      // the shipment takes a new clearer custody
+      await ctx.api(treasury).post('/api/finance/custodies', { shipmentId: b, holderType: 'CLEARER', amount: 400 }).expect(201);
+      const check = await ctx.api(ctx.ceoToken).get('/api/finance/gl/check').expect(200);
+      expect(check.body.problems).toEqual([]);
     });
   });
 });
