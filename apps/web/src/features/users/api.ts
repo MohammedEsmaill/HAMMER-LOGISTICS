@@ -16,8 +16,8 @@ export interface User {
   extraRoles: { role: { id: number; name: string } }[];
   employee: { id: number; fullName: string; department: string } | null;
   clearer: { id: number; fullName: string } | null;
-  /** When a signature was set for the invoices (null: none). */
-  signatureAt: string | null;
+  /** The name written in Ruqaa as the signature on invoices (null: the employee's name). */
+  signatureName: string | null;
 }
 
 export interface Candidate {

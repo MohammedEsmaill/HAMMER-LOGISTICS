@@ -11,6 +11,8 @@
     "share": "npm run build && vite preview"
   },
   "dependencies": {
+    "@fontsource/aref-ruqaa": "^5.3.0",
+    "@fontsource/aref-ruqaa-ink": "^5.3.0",
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
     "@hookform/resolvers": "^5.9.2",
     "@react-three/fiber": "^9.8.2",

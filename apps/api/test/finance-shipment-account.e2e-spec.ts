@@ -385,25 +385,22 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
     expect(res.body.account.status).toBe('FINISHED');
   });
 
-  it('prints each step with the name and signature of who took it; only the CEO and the moderator set signatures', async () => {
-    // a 1×1 PNG
-    const png =
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  it('prints each step with the name and the Ruqaa signature name of who took it; only the CEO and the moderator set them', async () => {
     // HR manages users but not signatures
     const hr = (await ctx.userWithRole('938', 'HR', 'MANAGEMENT')).token;
     await ctx
       .api(hr)
-      .put(`/api/users/${accountantUserId}/signature`, { image: png })
+      .put(`/api/users/${accountantUserId}/signature`, { name: 'منى' })
       .expect(403);
     await ctx
       .api(ctx.ceoToken)
-      .put(`/api/users/${accountantUserId}/signature`, {
-        image: 'data:image/png;base64,bm90IGFuIGltYWdl',
-      })
+      .put(`/api/users/${accountantUserId}/signature`, { name: '<script>' })
       .expect(400);
     await ctx
       .api(ctx.ceoToken)
-      .put(`/api/users/${accountantUserId}/signature`, { image: png })
+      .put(`/api/users/${accountantUserId}/signature`, {
+        name: '  منى  المحاسبة ',
+      })
       .expect(200);
 
     const invoice = (await account()).body.invoices.find(
@@ -413,18 +410,23 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
       .api(ctx.ceoToken)
       .get(`/api/finance/invoices/${invoice.id}`)
       .expect(200);
-    expect(printed.body.signers.issued).toMatchObject({ signature: png });
-    expect(printed.body.signers.issued.name).toBeTruthy();
-    // the auditor and the manager have no signature: their names alone
-    expect(printed.body.signers.reviewed).toMatchObject({ signature: null });
-    expect(printed.body.signers.approved.name).toBeTruthy();
-    // the users list says who has one, without the image
+    expect(printed.body.signers.issued).toMatchObject({
+      signature: 'منى المحاسبة',
+    });
+    // no signature name set: the employee's name signs
+    expect(printed.body.signers.reviewed.signature).toBe(
+      printed.body.signers.reviewed.name,
+    );
     const users = await ctx.api(ctx.ceoToken).get('/api/users').expect(200);
     const row = users.body.find(
       (u: { id: number }) => u.id === accountantUserId,
     );
-    expect(row.signatureAt).toBeTruthy();
-    expect(row.signature).toBeUndefined();
+    expect(row.signatureName).toBe('منى المحاسبة');
+    // cleared: back to the employee's name
+    await ctx
+      .api(ctx.ceoToken)
+      .delete(`/api/users/${accountantUserId}/signature`)
+      .expect(200);
   });
 
   it('takes the profit from the invoices once finished, before VAT, with the custody costs', async () => {

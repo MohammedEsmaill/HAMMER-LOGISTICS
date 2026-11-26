@@ -1,3 +1,4 @@
+import { signatureImage } from '@/lib/signature-font';
 import { amountInWords } from '@/lib/words';
 import type { CompanySettings } from './account-api';
 import { containersText, lineWithVat, plain, printDate, stampOf, type PrintableInvoice, type Signer } from './invoice-format';
@@ -170,15 +171,15 @@ export async function downloadInvoiceExcel(invoice: PrintableInvoice, company: C
   });
   row++;
   ws.getRow(row).height = 48;
-  boxes.forEach(([, s], i) => {
+  // the Ruqaa signature as a picture: Excel cannot carry the font
+  for (const [i, [, s]] of boxes.entries()) {
     put(i * 2 + 1, '');
     merge(row, i);
-    const m = s?.signature ? /^data:image\/(png|jpeg|webp);base64,(.+)$/.exec(s.signature) : null;
-    if (m && m[1] !== 'webp') {
-      const id = wb.addImage({ base64: m[2], extension: m[1] as 'png' | 'jpeg' });
-      ws.addImage(id, { tl: { col: i * 2 + 0.3, row: row - 1 + 0.1 }, ext: { width: 130, height: 56 } });
-    }
-  });
+    if (!s) continue;
+    const png = await signatureImage(s.signature);
+    const id = wb.addImage({ base64: png.split(',')[1], extension: 'png' });
+    ws.addImage(id, { tl: { col: i * 2 + 0.25, row: row - 1 + 0.1 }, ext: { width: 140, height: 56 } });
+  }
   row++;
   boxes.forEach(([, s], i) => {
     put(i * 2 + 1, s?.name ?? '', { bold: true });

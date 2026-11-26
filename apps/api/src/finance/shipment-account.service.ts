@@ -340,22 +340,19 @@ export class ShipmentAccountService {
         select: {
           id: true,
           email: true,
-          signature: true,
+          signatureName: true,
           employee: { select: { fullName: true } },
         },
       }),
     ]);
     // the three boxes at the foot: who issued, reviewed and approved it, with their
-    // signatures (a name alone where none is set; empty until the step is done)
+    // signature name (written in Ruqaa when printed); empty until the step is done
     const signer = (userId: number | null, at: Date | null) => {
       const u = people.find((p) => p.id === userId);
-      return u
-        ? {
-            name: u.employee?.fullName ?? u.email.split('@')[0],
-            signature: u.signature,
-            at,
-          }
-        : null;
+      if (!u) return null;
+      const name = u.employee?.fullName ?? u.email.split('@')[0];
+      // the signature is the name in Ruqaa: the one set for it, else the employee's
+      return { name, signature: u.signatureName ?? name, at };
     };
     return {
       ...invoice,

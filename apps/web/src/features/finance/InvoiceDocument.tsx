@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { SIGNATURE_FONT, SIGNATURE_INK, signatureSize } from '@/lib/signature-font';
 import { amountInWords } from '@/lib/words';
 import type { CompanySettings } from './account-api';
 import { amount, containersText, lineWithVat, plain, printDate, stampOf, type PrintableInvoice, type Signer } from './invoice-format';
@@ -20,7 +21,7 @@ function Field({ label, children, small }: { label: string; children?: ReactNode
 /**
  * The three signature boxes: issued by the client accountant, reviewed by the general
  * auditor, approved by the accounts manager. Each fills in once its step is done: the
- * signature (or the name alone), the name under a rule, and the date.
+ * signature (the name in Ruqaa), the name under a rule, and the date.
  */
 function Signatures({ invoice }: { invoice: PrintableInvoice }) {
   const boxes: [string, Signer | null | undefined][] = [
@@ -43,9 +44,15 @@ function Signatures({ invoice }: { invoice: PrintableInvoice }) {
         <tr>
           {boxes.map(([title, s]) => (
             <td key={title} className="border-2 border-black px-3 pt-1 pb-1.5 align-bottom">
-              <div className="grid h-[17mm] place-items-center">
-                {s?.signature ? (
-                  <img src={s.signature} alt={`توقيع ${s.name}`} className="max-h-[16mm] max-w-[52mm] object-contain" style={{ imageRendering: 'auto' }} />
+              <div className="grid h-[17mm] place-items-center overflow-hidden">
+                {s ? (
+                  <span
+                    dir="rtl"
+                    className="whitespace-nowrap"
+                    style={{ fontFamily: SIGNATURE_FONT, fontWeight: 700, fontSize: signatureSize(s.signature), color: SIGNATURE_INK, transform: 'rotate(-4deg)', lineHeight: 1.1 }}
+                  >
+                    {s.signature}
+                  </span>
                 ) : null}
               </div>
               <div className="mx-auto w-4/5 border-t border-black/60 pt-0.5 text-[11px] leading-tight font-semibold">{s?.name ?? '\u00a0'}</div>

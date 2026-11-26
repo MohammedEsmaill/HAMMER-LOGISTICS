@@ -407,8 +407,8 @@ export default function UsersPage() {
         <div className="flex justify-end">
           {/* the signature on the invoices: the CEO and the moderator, for anyone (themselves too) */}
           {can('users.signatures') && (
-            <IconButton label={u.signatureAt ? 'التوقيع' : 'إضافة توقيع'} onClick={() => setSigning(u)}>
-              <Signature className={`size-4 ${u.signatureAt ? 'text-gold' : ''}`} />
+            <IconButton label="التوقيع" onClick={() => setSigning(u)}>
+              <Signature className={`size-4 ${u.signatureName ? 'text-gold' : ''}`} />
             </IconButton>
           )}
           {u.id !== me?.id && (

@@ -1,9 +1,9 @@
 import type { Invoice, PrintHeader } from './account-api';
 
-/** Who took a step on the invoice: their name, their signature image if set, and when. */
+/** Who took a step on the invoice: their name, the name they sign with (in Ruqaa), and when. */
 export interface Signer {
   name: string;
-  signature: string | null;
+  signature: string;
   at: string | null;
 }
 

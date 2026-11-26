@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Delete,
-  Get,
   Param,
   ParseIntPipe,
   Put,
@@ -14,10 +13,10 @@ import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { UserSignatureService } from './user-signature.service';
 
 export class SignatureDto {
-  /** A PNG / JPEG / WEBP data URL. */
+  /** The name written in Ruqaa as the signature. */
   @IsString()
-  @MaxLength(90_000)
-  image!: string;
+  @MaxLength(60)
+  name!: string;
 }
 
 /** The users' signatures on the invoices: the CEO and the moderator only. */
@@ -26,20 +25,16 @@ export class SignatureDto {
 export class UserSignatureController {
   constructor(private readonly signatures: UserSignatureService) {}
 
-  @Get(':id/signature')
-  get(@Param('id', ParseIntPipe) id: number) {
-    return this.signatures.get(id);
-  }
-
   @Put(':id/signature')
   set(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: SignatureDto,
   ) {
-    return this.signatures.set(actor, id, dto.image);
+    return this.signatures.set(actor, id, dto.name);
   }
 
+  /** Back to the employee's name. */
   @Delete(':id/signature')
   remove(
     @CurrentUser() actor: AuthUser,
