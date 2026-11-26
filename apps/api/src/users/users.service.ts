@@ -19,6 +19,8 @@ const LIST_SELECT = {
   isActive: true,
   lastLoginAt: true,
   lockedUntil: true,
+  // when the signature was set (the image itself loads on its own)
+  signatureAt: true,
   createdAt: true,
   role: { select: { id: true, name: true, isSystem: true } },
   extraRoles: { select: { role: { select: { id: true, name: true } } } },

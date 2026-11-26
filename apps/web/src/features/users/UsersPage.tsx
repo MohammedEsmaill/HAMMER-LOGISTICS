@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Trash2, UserPlus } from 'lucide-react';
+import { KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Signature, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -20,6 +20,7 @@ import { formatDate } from '@/lib/format';
 import { toastError, useAction } from '@/lib/mutations';
 import { companyEmail, requiredId, strongPassword } from '@/lib/schemas';
 import { useRoleOptions } from '../roles/api';
+import { SignatureDrawer } from './SignatureDrawer';
 import {
   ownerName,
   useCandidates,
@@ -326,7 +327,7 @@ function ResetPasswordDrawer({ user, onClose }: { user: User | null; onClose: ()
 }
 
 export default function UsersPage() {
-  const { user: me } = useAuth();
+  const { can, user: me } = useAuth();
   const { data: users, isLoading, error } = useUsers();
   const [{ search }, setFilters] = useListState({ search: '', page: 1 });
   const setSearch = (s: string) => setFilters({ search: s });
@@ -334,6 +335,7 @@ export default function UsersPage() {
   const [editing, setEditing] = useState<User | null>(null);
   const [resetting, setResetting] = useState<User | null>(null);
   const [deleting, setDeleting] = useState<User | null>(null);
+  const [signing, setSigning] = useState<User | null>(null);
   const setActive = useAction((u: { id: number; isActive: boolean }) => usersApi.update(u.id, { isActive: u.isActive }), {
     invalidate: [userKeys.all],
   });
@@ -401,9 +403,16 @@ export default function UsersPage() {
     {
       header: '',
       className: 'w-0 whitespace-nowrap',
-      cell: (u) =>
-        u.id === me?.id ? null : (
-          <div className="flex justify-end">
+      cell: (u) => (
+        <div className="flex justify-end">
+          {/* the signature on the invoices: the CEO and the moderator, for anyone (themselves too) */}
+          {can('users.signatures') && (
+            <IconButton label={u.signatureAt ? 'التوقيع' : 'إضافة توقيع'} onClick={() => setSigning(u)}>
+              <Signature className={`size-4 ${u.signatureAt ? 'text-gold' : ''}`} />
+            </IconButton>
+          )}
+          {u.id !== me?.id && (
+            <>
             <IconButton label="تعديل" onClick={() => setEditing(u)}>
               <Pencil className="size-4" />
             </IconButton>
@@ -418,8 +427,10 @@ export default function UsersPage() {
             <IconButton label="حذف" tone="danger" onClick={() => setDeleting(u)}>
               <Trash2 className="size-4" />
             </IconButton>
-          </div>
-        ),
+            </>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -444,6 +455,7 @@ export default function UsersPage() {
       <CreateUserDrawer open={creating} onClose={() => setCreating(false)} />
       <EditUserDrawer user={editing} onClose={() => setEditing(null)} />
       <ResetPasswordDrawer user={resetting} onClose={() => setResetting(null)} />
+      <SignatureDrawer user={signing} onClose={() => setSigning(null)} />
       <ConfirmDialog
         open={!!deleting}
         title="حذف الحساب"

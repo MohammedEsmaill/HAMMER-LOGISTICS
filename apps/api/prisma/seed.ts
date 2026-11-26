@@ -177,6 +177,7 @@ const ROLES: {
     description:
       'الموديريتور: تعديل كل البيانات والثوابت، من غير اليوميات والمعاملات وحسابات الشحنات',
     permissions: [
+      'users.signatures',
       'users.manage',
       'employees.manage',
       'employees.salary.view',

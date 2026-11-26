@@ -12,9 +12,9 @@ import { TextField } from '@/components/ui/TextField';
 import { formatDate } from '@/lib/format';
 import { toastError } from '@/lib/mutations';
 import { FormTabs } from '../shipments/FormTabs';
-import { accountApi, accountKeys, PAYMENT_STATUS, useShipmentAccount, type Collection, type DraftLine, type ShipmentAccountView } from './account-api';
+import { ACCOUNT_STATUS, accountApi, accountKeys, PAYMENT_STATUS, useShipmentAccount, type Collection, type DraftLine, type ShipmentAccountView } from './account-api';
 import { CollectionDrawer, FinishDrawer, ReopenDrawer } from './AccountActionDrawers';
-import { CURRENCIES, financeKeys, money, STATUS, type Currency } from './api';
+import { CURRENCIES, financeApi, financeKeys, money, STATUS, type Currency } from './api';
 import { CustodyDrawer } from './CustodyDrawers';
 
 type Tab = 'statement' | 'expenses' | 'invoices' | 'collections';
@@ -133,6 +133,88 @@ function LineRow({ line, editable, shipmentId }: { line: DraftLine; editable: bo
   );
 }
 
+/**
+ * While the invoices wait: where they stand, and the step of whoever's turn it is. The
+ * general auditor reviews; the accounts manager's approval finishes the shipment; a
+ * rejection (with a reason) gives the account back to the client accountant.
+ */
+function InvoiceApprovalBar({ view }: { view: ShipmentAccountView }) {
+  const { can, user } = useAuth();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const live = view.invoices.filter((i) => !i.voidedAt);
+  const first = live[0];
+  if (!first) return null;
+  const reviewed = first.approvalStatus === 'REVIEWED';
+  const step = reviewed
+    ? { label: 'إنهاء الشحنة', action: 'approve' as const, permission: 'finance.approve' as const, who: 'مدير الحسابات' }
+    : { label: 'مراجعة', action: 'review' as const, permission: 'finance.review' as const, who: 'المراجع العام' };
+  const mine = can(step.permission) && first.createdBy.id !== user?.id;
+  const refresh = () =>
+    Promise.all([queryClient.invalidateQueries({ queryKey: accountKeys.one(view.shipment.id) }), queryClient.invalidateQueries({ queryKey: financeKeys.all })]);
+  const act = async (action: 'review' | 'approve' | 'reject') => {
+    if (action === 'reject' && reason.trim().length < 3) return;
+    setBusy(true);
+    try {
+      await financeApi.act('INVOICE', first.id, action, first.version, action === 'reject' ? reason.trim() : undefined);
+      setRejecting(false);
+      setReason('');
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+      await refresh();
+    }
+  };
+  const done = (label: string, ok: boolean) => (
+    <span className={`flex items-center gap-1.5 ${ok ? '' : 'text-muted'}`}>
+      <span className={`size-2.5 rounded-full ${ok ? 'bg-gold' : 'bg-line'}`} />
+      {label}
+    </span>
+  );
+  return (
+    <section className="space-y-3 rounded-xl border border-warning/40 bg-warning/5 p-4">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <b>الفواتير قيد الاعتماد ({live.length})</b>
+        {done('الإصدار', true)}
+        <span className="text-muted">←</span>
+        {done('مراجعة المراجع العام', reviewed)}
+        <span className="text-muted">←</span>
+        {done('إنهاء الشحنة · مدير الحسابات', false)}
+        <span className="ms-auto">
+          <Badge tone="warning">{mine ? 'قيد الانتظار' : `قيد الانتظار عند ${step.who}`}</Badge>
+        </span>
+      </div>
+      {mine && (
+        <div className="flex flex-wrap items-end gap-2">
+          {rejecting ? (
+            <>
+              <TextField label="سبب الرفض" className="min-w-64 flex-1" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <Button variant="ghost" onClick={() => setRejecting(false)}>
+                إلغاء
+              </Button>
+              <Button variant="danger" loading={busy} disabled={reason.trim().length < 3} onClick={() => act('reject')}>
+                رفض وإرجاع للمحاسب
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" className="text-danger" onClick={() => setRejecting(true)}>
+                رفض
+              </Button>
+              <Button loading={busy} onClick={() => act(step.action)}>
+                {step.label}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function StatementTab({ view, editable }: { view: ShipmentAccountView; editable: boolean }) {
   const apply = useApply(view.shipment.id);
   const [adding, setAdding] = useState<Currency | null>(null);
@@ -140,9 +222,12 @@ function StatementTab({ view, editable }: { view: ShipmentAccountView; editable:
   const [amt, setAmt] = useState('');
   return (
     <div className="space-y-6">
-      {!editable && view.account.status === 'FINISHED' && (
+      {!editable && view.account.status !== 'OPEN' && (
         <p className="flex items-center gap-2 rounded-xl bg-surface-2 p-3 text-sm text-muted">
-          <Lock className="size-4" /> الكشف مقفول. الفواتير اتطلعت منه، وأي تعديل محتاج إعادة فتح الحساب.
+          <Lock className="size-4" />
+          {view.account.status === 'ISSUED'
+            ? 'الكشف مقفول: الفواتير اتصدرت ومستنية الاعتماد. لو اترفضت، الحساب بيرجع مفتوح للتعديل.'
+            : 'الكشف مقفول. الفواتير اتطلعت منه، وأي تعديل محتاج إعادة فتح الحساب.'}
         </p>
       )}
       {(['EGP', 'USD'] as Currency[]).map((c) => {
@@ -336,9 +421,12 @@ export default function ShipmentAccountPage() {
   if (error || !view) return <ErrorBox error={error} />;
 
   const open = view.account.status === 'OPEN';
+  const issued = view.account.status === 'ISSUED';
+  const finished = view.account.status === 'FINISHED';
   const editable = open && can('finance.statement.manage');
   const pay = PAYMENT_STATUS[view.account.paymentStatus];
-  const canReopen = !open && (view.account.paymentStatus === 'UNPAID' ? can('finance.statement.manage') : can('finance.collections.manage'));
+  const status = ACCOUNT_STATUS[view.account.status];
+  const canReopen = finished && (view.account.paymentStatus === 'UNPAID' ? can('finance.statement.manage') : can('finance.collections.manage'));
   const owes = view.totals.some((t) => Number(t.outstanding) > 0);
 
   return (
@@ -356,14 +444,14 @@ export default function ShipmentAccountPage() {
             {view.shipment.certificateNo ? ` · شهادة ${view.shipment.certificateNo}` : ' · من غير رقم شهادة'}
           </div>
         </div>
-        <Badge tone={open ? 'gold' : 'success'}>{open ? 'مفتوح' : `منتهي ${formatDate(view.account.finishedAt)}`}</Badge>
+        <Badge tone={status.tone}>{finished ? `${status.label} ${formatDate(view.account.finishedAt)}` : status.label}</Badge>
         <Badge tone={pay.tone}>{pay.label}</Badge>
         <Link to={`/shipments/${view.shipment.id}`} className="text-sm text-gold hover:underline">
           ملف الشحنة
         </Link>
         {open && can('finance.statement.manage') && (
           <Button icon={<Lock className="size-4" />} onClick={() => setFinishing(true)}>
-            إنهاء
+            إصدار الفواتير
           </Button>
         )}
         {canReopen && (
@@ -371,12 +459,14 @@ export default function ShipmentAccountPage() {
             إعادة فتح
           </Button>
         )}
-        {!open && owes && can('finance.collections.manage') && (
+        {finished && owes && can('finance.collections.manage') && (
           <Button icon={<Wallet className="size-4" />} onClick={() => setCollecting(true)}>
             تحصيل
           </Button>
         )}
       </header>
+
+      {issued && <InvoiceApprovalBar view={view} />}
 
       {open && view.openCustodies.length > 0 && (
         <p className="rounded-xl bg-warning/10 p-3 text-sm text-warning">عهد لسه ما اتصفتش (الإنهاء مستنيها): {view.openCustodies.join('، ')}</p>

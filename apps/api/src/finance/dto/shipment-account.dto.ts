@@ -187,8 +187,8 @@ export class AccountsQueryDto extends ListQueryDto {
   paymentStatus?: PaymentStatus;
 
   @IsOptional()
-  @IsEnum(['OPEN', 'FINISHED'])
-  status?: 'OPEN' | 'FINISHED';
+  @IsEnum(['OPEN', 'ISSUED', 'FINISHED'])
+  status?: 'OPEN' | 'ISSUED' | 'FINISHED';
 
   @IsOptional()
   @Type(() => Number)

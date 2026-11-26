@@ -1,6 +1,17 @@
 import type { Invoice, PrintHeader } from './account-api';
 
-export type PrintableInvoice = Invoice & { shipment: PrintHeader };
+/** Who took a step on the invoice: their name, their signature image if set, and when. */
+export interface Signer {
+  name: string;
+  signature: string | null;
+  at: string | null;
+}
+
+export type PrintableInvoice = Invoice & {
+  shipment: PrintHeader;
+  /** The three boxes at the foot: issued (client accountant), reviewed (general auditor), approved (accounts manager). */
+  signers?: { issued: Signer | null; reviewed: Signer | null; approved: Signer | null };
+};
 
 export const printDate = (iso: string | null | undefined) =>
   iso ? new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC' }).format(new Date(iso)) : '';

@@ -75,14 +75,15 @@ export function FinishDrawer({ view, open, onClose }: { view: ShipmentAccountVie
       open={open}
       onClose={onClose}
       width="max-w-2xl"
-      title={`إنهاء حساب ${view.shipment.fileNo}`}
+      title={`إصدار فواتير ${view.shipment.fileNo}`}
+      subtitle="بعد الإصدار الفواتير بتروح للمراجع العام، وبعده مدير الحسابات بينهي الشحنة. التحصيل بيبدأ بعد الإنهاء."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             إلغاء
           </Button>
           <Button form="finish-form" type="submit" loading={save.isPending}>
-            إنهاء
+            إصدار الفواتير
           </Button>
         </div>
       }

@@ -43,9 +43,11 @@ async function assertAccountOpen(tx: Tx, shipmentId: number) {
   const account = await tx.shipmentAccount.findUnique({
     where: { shipmentId },
   });
-  if (account?.status === 'FINISHED') {
+  if (account?.status === 'FINISHED' || account?.status === 'ISSUED') {
     throw new BadRequestException(
-      'حساب الشحنة منتهي، لازم يتفتح الأول علشان تصرف أو تصفّي عهدة عليها',
+      account.status === 'ISSUED'
+        ? 'فواتير الشحنة اتصدرت ومستنية الاعتماد: مينفعش تصرف أو تصفّي عهدة عليها'
+        : 'حساب الشحنة منتهي، لازم يتفتح الأول علشان تصرف أو تصفّي عهدة عليها',
     );
   }
 }

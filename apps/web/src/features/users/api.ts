@@ -16,6 +16,8 @@ export interface User {
   extraRoles: { role: { id: number; name: string } }[];
   employee: { id: number; fullName: string; department: string } | null;
   clearer: { id: number; fullName: string } | null;
+  /** When a signature was set for the invoices (null: none). */
+  signatureAt: string | null;
 }
 
 export interface Candidate {

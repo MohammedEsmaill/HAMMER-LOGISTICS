@@ -6,7 +6,7 @@ import { Badge, PageHeader } from '@/components/ui/misc';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { SelectField } from '@/components/ui/SelectField';
-import { PAYMENT_STATUS, useShipmentAccounts, type AccountRow } from './account-api';
+import { PAYMENT_STATUS, useShipmentAccounts, type AccountRow, ACCOUNT_STATUS } from './account-api';
 import { money } from './api';
 import { useEmployeeOptions } from '../employees/api';
 
@@ -34,7 +34,7 @@ export default function ShipmentAccountsPage() {
       header: 'الحساب',
       cell: (r) => (
         <div className="space-y-1">
-          <Badge tone={r.status === 'OPEN' ? 'gold' : 'success'}>{r.status === 'OPEN' ? 'مفتوح' : 'منتهي'}</Badge>
+          <Badge tone={ACCOUNT_STATUS[r.status].tone}>{ACCOUNT_STATUS[r.status].label}</Badge>
           {r.openCustodies > 0 && <div className="text-xs text-warning">{r.openCustodies} عهدة مفتوحة</div>}
         </div>
       ),
@@ -77,6 +77,7 @@ export default function ShipmentAccountsPage() {
             placeholder="الكل"
             options={[
               { value: 'OPEN', label: 'مفتوح' },
+              { value: 'ISSUED', label: 'قيد الاعتماد' },
               { value: 'FINISHED', label: 'منتهي' },
             ]}
             value={q.status}

@@ -257,8 +257,83 @@ export class ApprovalService {
         },
         tx,
       );
+      if (type === 'INVOICE')
+        await this.invoiceCycle(
+          tx,
+          actor,
+          id,
+          doc.approval_status,
+          to,
+          set,
+          reason,
+        );
       return { type, id, approvalStatus: to, version: doc.version + 1 };
     });
+  }
+
+  /**
+   * A shipment's invoices go through approval together: the step taken on one is taken
+   * on the others waiting at the same step. The accounts manager's approval finishes
+   * the shipment; a rejection voids them and gives the account back to the client
+   * accountant to correct and issue again.
+   */
+  private async invoiceCycle(
+    tx: Tx,
+    actor: AuthUser,
+    id: number,
+    from: ApprovalStatus,
+    to: ApprovalStatus,
+    set: Prisma.Sql,
+    reason?: string,
+  ) {
+    const [{ shipment_id: shipmentId }] = await tx.$queryRaw<
+      { shipment_id: number }[]
+    >`SELECT "shipment_id" FROM "invoices" WHERE "id" = ${id}`;
+    await tx.$executeRaw`
+      UPDATE "invoices"
+         SET "approval_status" = ${to}::"ApprovalStatus", ${set},
+             "version" = "version" + 1, "updated_at" = now()
+       WHERE "shipment_id" = ${shipmentId} AND "id" <> ${id}
+         AND "voided_at" IS NULL
+         AND "approval_status" = ${from}::"ApprovalStatus"`;
+    if (to === 'APPROVED') {
+      await tx.shipmentAccount.updateMany({
+        where: { shipmentId, status: 'ISSUED' },
+        data: {
+          status: 'FINISHED',
+          finishedAt: new Date(),
+          finishedById: actor.id,
+          version: { increment: 1 },
+        },
+      });
+    } else if (to === 'REJECTED') {
+      await tx.invoice.updateMany({
+        where: { shipmentId, voidedAt: null },
+        data: {
+          voidedAt: new Date(),
+          voidedById: actor.id,
+          notes: `اترفضت: ${reason ?? ''}`.trim(),
+        },
+      });
+      await tx.shipmentAccount.updateMany({
+        where: { shipmentId, status: 'ISSUED' },
+        data: {
+          status: 'OPEN',
+          reopenCount: { increment: 1 },
+          version: { increment: 1 },
+        },
+      });
+    }
+    await this.audit.log(
+      {
+        userId: actor.id,
+        action: `INVOICES_${to}`,
+        entity: 'shipment_account',
+        entityId: shipmentId,
+        after: { status: to, ...(reason ? { reason } : {}) },
+      },
+      tx,
+    );
   }
 
   /** The approval screen: every document, filtered, newest first. */
@@ -399,7 +474,19 @@ export class ApprovalService {
       ok: boolean;
       error?: string;
     }[] = [];
+    // a shipment's invoices move together: the first one moves the rest
+    const moved = new Set<number>();
     for (const item of items) {
+      let shipmentId: number | undefined;
+      if (item.type === 'INVOICE') {
+        const [inv] = await this.prisma.$queryRaw<{ shipment_id: number }[]>`
+          SELECT "shipment_id" FROM "invoices" WHERE "id" = ${item.id}`;
+        shipmentId = inv?.shipment_id;
+        if (shipmentId !== undefined && moved.has(shipmentId)) {
+          results.push({ type: item.type, id: item.id, ok: true });
+          continue;
+        }
+      }
       try {
         const [doc] = await this.prisma.$queryRaw<
           { approval_status: ApprovalStatus }[]
@@ -411,6 +498,7 @@ export class ApprovalService {
           : null;
         if (!action) throw new BadRequestException('مفيش خطوة اعتماد عليها');
         await this.act(actor, item.type, item.id, action, item.version);
+        if (shipmentId !== undefined) moved.add(shipmentId);
         results.push({ type: item.type, id: item.id, ok: true });
       } catch (e) {
         results.push({

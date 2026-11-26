@@ -33,6 +33,7 @@ export interface TestContext {
     get: (path: string) => request.Test;
     post: (path: string, body?: object) => request.Test;
     patch: (path: string, body?: object) => request.Test;
+    put: (path: string, body?: object) => request.Test;
     delete: (path: string) => request.Test;
   };
   /** An employee + account with the given role; returns the account's token. */
@@ -75,6 +76,8 @@ export async function createTestContext(): Promise<TestContext> {
         auth(request(server).post(path)).send(body),
       patch: (path: string, body?: object) =>
         auth(request(server).patch(path)).send(body),
+      put: (path: string, body?: object) =>
+        auth(request(server).put(path)).send(body),
       delete: (path: string) => auth(request(server).delete(path)),
     };
   };

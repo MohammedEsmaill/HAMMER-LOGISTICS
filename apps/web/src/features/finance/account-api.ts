@@ -86,9 +86,18 @@ export interface Collection extends Approval {
   shipment?: { id: number; fileNo: string };
 }
 
+/** OPEN: being prepared · ISSUED: invoices wait for the auditor, then the accounts manager · FINISHED */
+export type AccountStatus = 'OPEN' | 'ISSUED' | 'FINISHED';
+
+export const ACCOUNT_STATUS: Record<AccountStatus, { label: string; tone: 'gold' | 'warning' | 'success' }> = {
+  OPEN: { label: 'مفتوح', tone: 'gold' },
+  ISSUED: { label: 'قيد الاعتماد', tone: 'warning' },
+  FINISHED: { label: 'منتهي', tone: 'success' },
+};
+
 export interface ShipmentAccountView {
   shipment: PrintHeader & { mode: string };
-  account: { status: 'OPEN' | 'FINISHED'; paymentStatus: PaymentStatus; version: number; reopenCount: number; finishedAt: string | null };
+  account: { status: AccountStatus; paymentStatus: PaymentStatus; version: number; reopenCount: number; finishedAt: string | null };
   custodies: { id: number; custodyNo: string; status: 'OPEN' | 'SETTLED'; currency: Currency; amount: string; spentAmount: string; holderType: string; approvalStatus: ApprovalStatus }[];
   openCustodies: string[];
   draft: Record<Currency, { lines: DraftLine[]; total: string; actualTotal: string }>;
@@ -106,7 +115,7 @@ export interface AccountRow {
   mode: string;
   certificateNo: string | null;
   client: { id: number; name: string; accountantEmployee: { id: number; fullName: string } | null };
-  status: 'OPEN' | 'FINISHED';
+  status: AccountStatus;
   paymentStatus: PaymentStatus;
   openCustodies: number;
   invoices: { type: string; currency: Currency; total: string; invoiceNo: string; approvalStatus: ApprovalStatus }[];
@@ -154,7 +163,7 @@ export interface ClientAccount {
   shipments: {
     shipmentId: number;
     fileNo: string;
-    accountStatus: 'OPEN' | 'FINISHED' | null;
+    accountStatus: AccountStatus | null;
     billed: string;
     collected: string;
     remaining: string;

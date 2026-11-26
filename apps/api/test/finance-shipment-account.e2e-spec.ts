@@ -8,6 +8,9 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
   let accountant: string;
   let settler: string;
   let relations: string;
+  let auditor: string;
+  let accountantUserId: number;
+  let manager: string;
   let shipmentId: number;
   let fileNo: string;
   let cashEgp: number;
@@ -27,13 +30,21 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
     fx = await shipmentFixtures(ctx, '0');
     treasury = (await ctx.userWithRole('931', 'TREASURY_MANAGER', 'ACCOUNTS'))
       .token;
-    accountant = (
-      await ctx.userWithRole('932', 'CLIENT_ACCOUNTANT', 'ACCOUNTS')
-    ).token;
+    const clientAccountant = await ctx.userWithRole(
+      '932',
+      'CLIENT_ACCOUNTANT',
+      'ACCOUNTS',
+    );
+    accountant = clientAccountant.token;
+    accountantUserId = clientAccountant.userId;
     settler = (await ctx.userWithRole('935', 'ACCOUNTANT', 'ACCOUNTS')).token;
     relations = (
       await ctx.userWithRole('933', 'FINANCIAL_RELATIONS', 'ACCOUNTS')
     ).token;
+    auditor = (await ctx.userWithRole('936', 'GENERAL_AUDITOR', 'ACCOUNTS'))
+      .token;
+    manager = (await ctx.userWithRole('937', 'ACCOUNTS_MANAGER', 'ACCOUNTS'))
+      .token;
     agentId = (
       await ctx.prisma.employee.create({
         data: {
@@ -261,8 +272,9 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
         ],
       })
       .expect(201);
+    // issued: it waits for the general auditor, then the accounts manager
     expect(res.body.account).toMatchObject({
-      status: 'FINISHED',
+      status: 'ISSUED',
       paymentStatus: 'UNPAID',
     });
     const live = res.body.invoices.filter(
@@ -293,6 +305,126 @@ describe('Finance: shipment account, invoices, collections (e2e)', () => {
     expect(
       clearance.lines.map((l: { description: string }) => l.description),
     ).toEqual(['CLEARANCE', 'مصاريف عرض مخدرات']);
+  });
+
+  it('the auditor reviews, then the accounts manager finishes all the invoices at once; a rejection reopens', async () => {
+    const live = async () =>
+      (
+        (await account()).body.invoices as {
+          id: number;
+          version: number;
+          voidedAt: string | null;
+          approvalStatus: string;
+          invoiceNo: string;
+        }[]
+      ).filter((i) => !i.voidedAt);
+    // no collecting before the shipment is finished
+    await ctx
+      .api(relations)
+      .post('/api/finance/collections', {
+        shipmentId,
+        currency: 'EGP',
+        amount: 10,
+        method: 'CASH',
+      })
+      .expect(400);
+    // the statement is locked while the invoices wait
+    const item = (await account()).body.draft.EGP.lines[0];
+    await ctx
+      .api(accountant)
+      .patch(`/api/finance/shipment-accounts/items/${item.id}`, { amount: 1 })
+      .expect(400);
+
+    // the auditor rejects: every invoice is voided and the account opens again
+    let invoices = await live();
+    const numbers = invoices.map((i) => i.invoiceNo).sort();
+    await ctx
+      .api(auditor)
+      .post(`/api/finance/approvals/INVOICE/${invoices[0].id}/reject`, {
+        version: invoices[0].version,
+        reason: 'البند غلط',
+      })
+      .expect(201);
+    let res = await account();
+    expect(res.body.account.status).toBe('OPEN');
+    expect(await live()).toHaveLength(0);
+
+    // issued again with the same numbers
+    await ctx
+      .api(accountant)
+      .post(`/api/finance/shipment-accounts/${shipmentId}/finish`, {
+        version: res.body.account.version,
+        confirmNoCertificate: true,
+        clearanceLines: [
+          { description: 'مصاريف عرض مخدرات', quantity: 1, unitPrice: 500 },
+        ],
+      })
+      .expect(201);
+    invoices = await live();
+    expect(invoices.map((i) => i.invoiceNo).sort()).toEqual(numbers);
+
+    // one review moves them all; the manager's approval finishes the shipment
+    await ctx
+      .api(auditor)
+      .post(`/api/finance/approvals/INVOICE/${invoices[0].id}/review`, {
+        version: invoices[0].version,
+      })
+      .expect(201);
+    invoices = await live();
+    expect(invoices.every((i) => i.approvalStatus === 'REVIEWED')).toBe(true);
+    expect((await account()).body.account.status).toBe('ISSUED');
+    await ctx
+      .api(manager)
+      .post(`/api/finance/approvals/INVOICE/${invoices[1].id}/approve`, {
+        version: invoices[1].version,
+      })
+      .expect(201);
+    invoices = await live();
+    expect(invoices.every((i) => i.approvalStatus === 'APPROVED')).toBe(true);
+    res = await account();
+    expect(res.body.account.status).toBe('FINISHED');
+  });
+
+  it('prints each step with the name and signature of who took it; only the CEO and the moderator set signatures', async () => {
+    // a 1×1 PNG
+    const png =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    // HR manages users but not signatures
+    const hr = (await ctx.userWithRole('938', 'HR', 'MANAGEMENT')).token;
+    await ctx
+      .api(hr)
+      .put(`/api/users/${accountantUserId}/signature`, { image: png })
+      .expect(403);
+    await ctx
+      .api(ctx.ceoToken)
+      .put(`/api/users/${accountantUserId}/signature`, {
+        image: 'data:image/png;base64,bm90IGFuIGltYWdl',
+      })
+      .expect(400);
+    await ctx
+      .api(ctx.ceoToken)
+      .put(`/api/users/${accountantUserId}/signature`, { image: png })
+      .expect(200);
+
+    const invoice = (await account()).body.invoices.find(
+      (i: { voidedAt: string | null }) => !i.voidedAt,
+    );
+    const printed = await ctx
+      .api(ctx.ceoToken)
+      .get(`/api/finance/invoices/${invoice.id}`)
+      .expect(200);
+    expect(printed.body.signers.issued).toMatchObject({ signature: png });
+    expect(printed.body.signers.issued.name).toBeTruthy();
+    // the auditor and the manager have no signature: their names alone
+    expect(printed.body.signers.reviewed).toMatchObject({ signature: null });
+    expect(printed.body.signers.approved.name).toBeTruthy();
+    // the users list says who has one, without the image
+    const users = await ctx.api(ctx.ceoToken).get('/api/users').expect(200);
+    const row = users.body.find(
+      (u: { id: number }) => u.id === accountantUserId,
+    );
+    expect(row.signatureAt).toBeTruthy();
+    expect(row.signature).toBeUndefined();
   });
 
   it('takes the profit from the invoices once finished, before VAT, with the custody costs', async () => {

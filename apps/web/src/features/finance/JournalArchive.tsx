@@ -106,8 +106,8 @@ function DayDrawer({ date, search, onClose, onOpen }: { date: string | null; sea
 /** سجل اليوميات: every day with operations, newest first; a file number or a party narrows them. */
 export function JournalArchive({ onOpen, initialDay = null }: { onOpen: (d: OpenDocument) => void; initialDay?: string | null }) {
   // one month of days a page; the page and search live in the address
-  const [q, setList] = useListState({ page: 1, search: '' }, { prefix: 'd' });
-  const { data, isLoading, error } = useJournalDays(q);
+  const [q, setList] = useListState({ page: 1, search: '', from: '', to: '' }, { prefix: 'd' });
+  const { data, isLoading, error } = useJournalDays({ page: q.page, search: q.search || undefined, from: q.from || undefined, to: q.to || undefined });
   const [open, setOpen] = useState<string | null>(initialDay && /^\d{4}-\d{2}-\d{2}$/.test(initialDay) ? initialDay : null);
   const set = (patch: Partial<JournalDaysQuery>) => setList(patch as Partial<typeof q>);
   const filtered = !!(q.from || q.to || q.search);
@@ -136,7 +136,7 @@ export function JournalArchive({ onOpen, initialDay = null }: { onOpen: (d: Open
           </Button>
         )}
         {filtered && (
-          <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setList({ page: 1, search: '' })}>
+          <Button variant="ghost" icon={<RotateCcw className="size-4" />} onClick={() => setList({ page: 1, search: '', from: '', to: '' })}>
             مسح الفلاتر
           </Button>
         )}

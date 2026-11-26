@@ -140,7 +140,7 @@ function Shipments({ a }: { a: ClientAccount }) {
                   {s.fileNo}
                 </Link>
               </td>
-              <td className={cell}>{s.accountStatus === 'FINISHED' ? <Badge tone="success">منتهي</Badge> : <Badge>مفتوح</Badge>}</td>
+              <td className={cell}>{s.accountStatus === 'FINISHED' ? <Badge tone="success">منتهي</Badge> : s.accountStatus === 'ISSUED' ? <Badge tone="warning">قيد الاعتماد</Badge> : <Badge>مفتوح</Badge>}</td>
               <td className={`${cell} text-debit`} dir="ltr">
                 {money(s.billed)}
               </td>

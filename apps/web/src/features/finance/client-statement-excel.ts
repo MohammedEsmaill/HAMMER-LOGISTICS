@@ -72,7 +72,7 @@ export async function downloadClientStatementExcel(ledger: ClientLedger, a: Clie
         { header: 'الباقي', width: 15, money: true },
         { header: 'أقدم مستحق (يوم)', width: 15 },
       ],
-      a.shipments.map((s) => [s.fileNo, s.accountStatus === 'FINISHED' ? 'منتهي' : 'مفتوح', n(s.billed), n(s.collected), n(s.remaining), s.ageDays ?? '']),
+      a.shipments.map((s) => [s.fileNo, s.accountStatus === 'FINISHED' ? 'منتهي' : s.accountStatus === 'ISSUED' ? 'قيد الاعتماد' : 'مفتوح', n(s.billed), n(s.collected), n(s.remaining), s.ageDays ?? '']),
     );
   }
 

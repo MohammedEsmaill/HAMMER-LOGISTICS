@@ -58,7 +58,16 @@ export class CollectionsService {
         select: { id: true, clientId: true },
       });
       if (!shipment) throw new NotFoundException('الشحنة غير موجودة');
-      await tx.$queryRaw`SELECT 1 FROM "shipment_accounts" WHERE "shipment_id" = ${shipment.id} FOR UPDATE`;
+      const [acct] = await tx.$queryRaw<{ status: string }[]>`
+        SELECT "status"::text FROM "shipment_accounts" WHERE "shipment_id" = ${shipment.id} FOR UPDATE`;
+      // collecting starts once the accounts manager has finished the shipment
+      if (acct?.status !== 'FINISHED') {
+        throw new BadRequestException(
+          acct?.status === 'ISSUED'
+            ? 'فواتير الشحنة لسه مستنية الاعتماد: التحصيل بعد ما مدير الحسابات ينهي الشحنة'
+            : 'الشحنة لسه ما اتصدرلهاش فواتير',
+        );
+      }
       const amount = decimal(dto.amount);
       await this.assertWithinOutstanding(tx, shipment.id, dto.currency, amount);
       const account = await this.receivingAccount(tx, dto);

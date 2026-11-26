@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { amountInWords } from '@/lib/words';
 import type { CompanySettings } from './account-api';
-import { amount, containersText, lineWithVat, plain, printDate, stampOf, type PrintableInvoice } from './invoice-format';
+import { amount, containersText, lineWithVat, plain, printDate, stampOf, type PrintableInvoice, type Signer } from './invoice-format';
 
 function Field({ label, children, small }: { label: string; children?: ReactNode; small?: boolean }) {
   return (
@@ -17,6 +17,49 @@ function Field({ label, children, small }: { label: string; children?: ReactNode
  * header, shipment box, the lines, totals and the three signature boxes. The company
  * data comes from the settings; DRAFT / APPROVED / VOID is stamped across it.
  */
+/**
+ * The three signature boxes: issued by the client accountant, reviewed by the general
+ * auditor, approved by the accounts manager. Each fills in once its step is done: the
+ * signature (or the name alone), the name under a rule, and the date.
+ */
+function Signatures({ invoice }: { invoice: PrintableInvoice }) {
+  const boxes: [string, Signer | null | undefined][] = [
+    ['إصدار', invoice.signers?.issued],
+    ['مراجعة', invoice.signers?.reviewed],
+    ['اعتماد', invoice.signers?.approved],
+  ];
+  return (
+    <table className="mt-6 w-[95%] border-collapse text-center" dir="rtl" style={{ marginInline: 'auto', breakInside: 'avoid' }}>
+      <thead>
+        <tr>
+          {boxes.map(([title]) => (
+            <th key={title} className="w-1/3 border-2 border-black py-1 font-bold">
+              {title}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {boxes.map(([title, s]) => (
+            <td key={title} className="border-2 border-black px-3 pt-1 pb-1.5 align-bottom">
+              <div className="grid h-[17mm] place-items-center">
+                {s?.signature ? (
+                  <img src={s.signature} alt={`توقيع ${s.name}`} className="max-h-[16mm] max-w-[52mm] object-contain" style={{ imageRendering: 'auto' }} />
+                ) : null}
+              </div>
+              <div className="mx-auto w-4/5 border-t border-black/60 pt-0.5 text-[11px] leading-tight font-semibold">{s?.name ?? '\u00a0'}</div>
+              <div className="text-[9px] leading-tight text-black/60" dir="ltr">
+                {s?.at ? printDate(s.at) : '\u00a0'}
+              </div>
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 export function InvoiceDocument({ invoice, company }: { invoice: PrintableInvoice; company: CompanySettings }) {
   const s = invoice.shipment;
   const clearance = invoice.type === 'CLEARANCE';
@@ -169,24 +212,7 @@ export function InvoiceDocument({ invoice, company }: { invoice: PrintableInvoic
         </>
       )}
 
-      <table className="mt-6 w-[95%] border-collapse text-center" dir="rtl" style={{ marginInline: 'auto' }}>
-        <thead>
-          <tr>
-            {['مراجعة', 'مدير الحسابات', 'الاعتماد'].map((h) => (
-              <th key={h} className="w-1/3 border-2 border-black py-1 font-bold">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className="h-14 border-2 border-black" />
-            <td className="h-14 border-2 border-black" />
-            <td className="h-14 border-2 border-black" />
-          </tr>
-        </tbody>
-      </table>
+      <Signatures invoice={invoice} />
     </div>
   );
 }

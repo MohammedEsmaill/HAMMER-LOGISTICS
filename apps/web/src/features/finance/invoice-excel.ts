@@ -1,6 +1,6 @@
 import { amountInWords } from '@/lib/words';
 import type { CompanySettings } from './account-api';
-import { containersText, lineWithVat, plain, printDate, stampOf, type PrintableInvoice } from './invoice-format';
+import { containersText, lineWithVat, plain, printDate, stampOf, type PrintableInvoice, type Signer } from './invoice-format';
 
 /**
  * The invoice as an Excel sheet laid out like the office's current .xls files:
@@ -155,10 +155,39 @@ export async function downloadInvoiceExcel(invoice: PrintableInvoice, company: C
     row++;
   }
 
+  // the three boxes, right to left: issued, reviewed, approved; each with the signature
+  // (or the name alone) and the date once its step is done
   row += 2;
-  ['الاعتماد', 'مدير الحسابات', 'مراجعة'].forEach((h, i) => {
-    put(i * 2 + 1, h, bold);
-    ws.mergeCells(row, i * 2 + 1, row, i * 2 + 2);
+  const boxes: [string, Signer | null | undefined][] = [
+    ['اعتماد', invoice.signers?.approved],
+    ['مراجعة', invoice.signers?.reviewed],
+    ['إصدار', invoice.signers?.issued],
+  ];
+  const merge = (r: number, i: number) => ws.mergeCells(r, i * 2 + 1, r, i * 2 + 2);
+  boxes.forEach(([h], i) => {
+    put(i * 2 + 1, h, { bold: true });
+    merge(row, i);
+  });
+  row++;
+  ws.getRow(row).height = 48;
+  boxes.forEach(([, s], i) => {
+    put(i * 2 + 1, '');
+    merge(row, i);
+    const m = s?.signature ? /^data:image\/(png|jpeg|webp);base64,(.+)$/.exec(s.signature) : null;
+    if (m && m[1] !== 'webp') {
+      const id = wb.addImage({ base64: m[2], extension: m[1] as 'png' | 'jpeg' });
+      ws.addImage(id, { tl: { col: i * 2 + 0.3, row: row - 1 + 0.1 }, ext: { width: 130, height: 56 } });
+    }
+  });
+  row++;
+  boxes.forEach(([, s], i) => {
+    put(i * 2 + 1, s?.name ?? '', { bold: true });
+    merge(row, i);
+  });
+  row++;
+  boxes.forEach(([, s], i) => {
+    put(i * 2 + 1, s?.at ? printDate(s.at) : '');
+    merge(row, i);
   });
 
   const buffer = await wb.xlsx.writeBuffer();

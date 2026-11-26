@@ -141,7 +141,7 @@ export default function ApprovalsPage() {
     type: '' as DocType | '',
     from: '',
     to: '',
-    mine: false,
+    mine: false as boolean,
   });
   const { data, isLoading, error } = useApprovals({ ...q, from: q.from || undefined, to: q.to || undefined, pageSize });
   const waitingCount = useWaitingCount();

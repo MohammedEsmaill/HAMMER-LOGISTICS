@@ -5,6 +5,7 @@
 export type Permission =
   | 'roles.manage'
   | 'users.manage'
+  | 'users.signatures'
   | 'employees.manage'
   | 'employees.salary.view'
   | 'clearers.manage'

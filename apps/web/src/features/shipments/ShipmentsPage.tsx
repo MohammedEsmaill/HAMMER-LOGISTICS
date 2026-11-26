@@ -26,8 +26,8 @@ export default function ShipmentsPage() {
   const { can } = useAuth();
   const navigate = useNavigate();
   const [pageSize, setPageSize] = usePageSize();
-  const [q, set] = useListState<ShipmentsQuery & { declarantId: number | '' }>(
-    { search: '', kind: '', stage: '', declarantId: '', page: 1 },
+  const [q, set] = useListState(
+    { search: '', kind: '' as ShipmentsQuery['kind'], stage: '', declarantId: '' as number | '', page: 1 },
     { numbers: ['declarantId'] },
   );
   const { data, isLoading, error } = useShipments({ ...q, pageSize });

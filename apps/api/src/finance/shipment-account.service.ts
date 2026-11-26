@@ -125,7 +125,9 @@ export class ShipmentAccountService {
       ...(q.accountantId
         ? { client: { accountantEmployeeId: q.accountantId } }
         : {}),
-      ...(q.status === 'FINISHED' ? { account: { status: 'FINISHED' } } : {}),
+      ...(q.status === 'FINISHED' || q.status === 'ISSUED'
+        ? { account: { status: q.status } }
+        : {}),
       ...(q.status === 'OPEN'
         ? { OR: [{ account: null }, { account: { status: 'OPEN' } }] }
         : {}),
@@ -320,11 +322,50 @@ export class ShipmentAccountService {
       },
     });
     if (!invoice) throw new NotFoundException('الفاتورة غير موجودة');
-    const shipment = await this.prisma.shipment.findUniqueOrThrow({
-      where: { id: invoice.shipmentId },
-      select: SHIPMENT_HEADER,
-    });
-    return { ...invoice, shipment: this.header(shipment) };
+    const [shipment, people] = await Promise.all([
+      this.prisma.shipment.findUniqueOrThrow({
+        where: { id: invoice.shipmentId },
+        select: SHIPMENT_HEADER,
+      }),
+      this.prisma.user.findMany({
+        where: {
+          id: {
+            in: [
+              invoice.createdById,
+              invoice.reviewedById,
+              invoice.approvedById,
+            ].filter((x): x is number => x !== null),
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          signature: true,
+          employee: { select: { fullName: true } },
+        },
+      }),
+    ]);
+    // the three boxes at the foot: who issued, reviewed and approved it, with their
+    // signatures (a name alone where none is set; empty until the step is done)
+    const signer = (userId: number | null, at: Date | null) => {
+      const u = people.find((p) => p.id === userId);
+      return u
+        ? {
+            name: u.employee?.fullName ?? u.email.split('@')[0],
+            signature: u.signature,
+            at,
+          }
+        : null;
+    };
+    return {
+      ...invoice,
+      shipment: this.header(shipment),
+      signers: {
+        issued: signer(invoice.createdById, invoice.createdAt),
+        reviewed: signer(invoice.reviewedById, invoice.reviewedAt),
+        approved: signer(invoice.approvedById, invoice.approvedAt),
+      },
+    };
   }
 
   /** The client statement as it stands: settled custody items with their overrides, then the extra lines. */
@@ -503,8 +544,12 @@ export class ShipmentAccountService {
     await this.prisma.$transaction(async (tx) => {
       const account = await this.lockAccount(tx, shipmentId);
       this.checkVersion(account, dto.version);
-      if (account.status === 'FINISHED')
-        throw new BadRequestException('حساب الشحنة منتهي بالفعل');
+      if (account.status !== 'OPEN')
+        throw new BadRequestException(
+          account.status === 'ISSUED'
+            ? 'الفواتير اتصدرت بالفعل ومستنية الاعتماد'
+            : 'حساب الشحنة منتهي بالفعل',
+        );
       const open = await tx.custody.findMany({
         where: { shipmentId, status: 'OPEN' },
         select: { custodyNo: true },
@@ -603,20 +648,16 @@ export class ShipmentAccountService {
         },
       });
 
+      // issued: the general auditor reviews, then the accounts manager finishes it
       await tx.shipmentAccount.update({
         where: { shipmentId },
-        data: {
-          status: 'FINISHED',
-          finishedAt: new Date(),
-          finishedById: actor.id,
-          version: { increment: 1 },
-        },
+        data: { status: 'ISSUED', version: { increment: 1 } },
       });
       await this.recomputePayment(tx, shipmentId);
       await this.audit.log(
         {
           userId: actor.id,
-          action: 'FINISH',
+          action: 'ISSUE_INVOICES',
           entity: 'shipment_account',
           entityId: shipmentId,
           before: account,
@@ -843,6 +884,11 @@ export class ShipmentAccountService {
     if (account?.status === 'FINISHED') {
       throw new BadRequestException(
         'حساب الشحنة منتهي، افتحه الأول علشان تعدّل الكشف',
+      );
+    }
+    if (account?.status === 'ISSUED') {
+      throw new BadRequestException(
+        'الفواتير اتصدرت ومستنية الاعتماد: مينفعش تعدّل الكشف إلا لو اترفضت',
       );
     }
   }

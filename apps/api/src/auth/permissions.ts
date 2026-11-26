@@ -5,6 +5,7 @@
 export const PERMISSIONS = {
   'roles.manage': 'إدارة الأدوار والصلاحيات',
   'users.manage': 'إدارة المستخدمين',
+  'users.signatures': 'رفع توقيعات المستخدمين اللي بتظهر على الفواتير',
   'employees.manage': 'إدارة الموظفين',
   'employees.salary.view': 'عرض المرتبات',
   'clearers.manage': 'إدارة المستخلصين وأسعار أتعابهم',
@@ -77,6 +78,7 @@ export const MODERATOR_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'finance.prices.manage',
   'finance.accounts.manage',
   'finance.parties.manage',
+  'users.signatures',
 ]);
 
 /** Whether a role may hold a permission (the CEO role holds them all). */

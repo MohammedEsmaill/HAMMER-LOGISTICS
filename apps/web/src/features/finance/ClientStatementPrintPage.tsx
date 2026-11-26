@@ -141,7 +141,7 @@ function Statement({ ledger, a, company, printedBy }: { ledger: ClientLedger; a:
             head={['الملف', 'حساب الشحنة', 'المفوتر', 'المحصّل', 'الباقي', 'أقدم مستحق']}
             rows={a.shipments.map((s) => [
               ltr(s.fileNo),
-              s.accountStatus === 'FINISHED' ? 'منتهي' : 'مفتوح',
+              s.accountStatus === 'FINISHED' ? 'منتهي' : s.accountStatus === 'ISSUED' ? 'قيد الاعتماد' : 'مفتوح',
               ltr(money(s.billed)),
               ltr(money(s.collected)),
               ltr(<b>{signed(s.remaining, c)}</b>),
