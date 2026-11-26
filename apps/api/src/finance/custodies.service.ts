@@ -309,7 +309,7 @@ export class CustodiesService {
       if (before.status !== 'OPEN') {
         throw new BadRequestException('العهدة اتصفت، عدّل التصفية بدل الصرف');
       }
-      this.assertAuthor(actor, before);
+      this.assertTreasury(actor);
       await assertDayEditable(tx, actor, before.issueDate);
       const shipmentId = await this.movedShipment(tx, before, dto.shipmentId);
       const rule = HOLDERS[before.holderType];
@@ -497,7 +497,7 @@ export class CustodiesService {
       const before = await tx.custody.findUniqueOrThrow({ where: { id } });
       if (before.cancelledAt) throw new BadRequestException('العهدة دي اتلغت قبل كده');
       if (before.status !== 'OPEN') throw new BadRequestException('العهدة اتصفت، ومينفعش تتلغي');
-      this.assertAuthor(actor, before);
+      this.assertTreasury(actor);
       await assertAccountOpen(tx, before.shipmentId);
       const day = await openDate(tx, undefined, 'تاريخ الإلغاء');
       await tx.custodyItem.deleteMany({ where: { custodyId: id } });
@@ -835,9 +835,10 @@ export class CustodiesService {
   }
 
   /** Until approval the custody belongs to who issued it (or the CEO). */
-  private assertAuthor(actor: AuthUser, c: Custody) {
-    if (c.createdById !== actor.id && !can(actor, 'finance.approved.edit')) {
-      throw new ForbiddenException('العهدة دي بيتعامل معاها اللي صرفها');
+  /** Changing or cancelling a custody's issue: the treasury manager only (the CEO holds everything). */
+  private assertTreasury(actor: AuthUser) {
+    if (!can(actor, 'finance.custody.manage')) {
+      throw new ForbiddenException('تعديل بيانات العهدة وإلغاؤها لمدير الخزنة بس');
     }
   }
 }

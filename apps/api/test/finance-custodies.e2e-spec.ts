@@ -679,6 +679,8 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
     });
 
     it('moves an open custody to the right shipment of the same clearer, never another clearer', async () => {
+      // the treasury manager only: not the accountant
+      await ctx.api(accountant).patch(`/api/finance/custodies/${custody.id}`, { version: custody.version, shipmentId: b }).expect(403);
       const wrong = await ctx.api(treasury).patch(`/api/finance/custodies/${custody.id}`, { version: custody.version, shipmentId: otherClearerShipment }).expect(400);
       expect(wrong.body.message).toContain('ألغِ العهدة');
       const moved = await ctx.api(treasury).patch(`/api/finance/custodies/${custody.id}`, { version: await version(custody.id), shipmentId: b }).expect(200);

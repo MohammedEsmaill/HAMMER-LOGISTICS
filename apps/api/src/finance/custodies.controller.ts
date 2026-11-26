@@ -49,7 +49,6 @@ const READ = [
 ] as const;
 /** Issuing: cash custodies the treasury manager; by bank the accountant too (the service checks). */
 const ISSUE = ['finance.custody.manage', 'finance.bank.record'] as const;
-const EDIT = [...ISSUE, 'finance.approved.edit'] as const;
 /** Settling a custody: the accountant (or the CEO after approval). */
 const SETTLE = ['finance.custody.settle', 'finance.approved.edit'] as const;
 /** Paying clearers' fees: the treasury manager and the accounts manager. */
@@ -91,8 +90,9 @@ export class CustodiesController {
     return this.custodies.issue(actor, dto);
   }
 
+  /** Changing an open custody's data: the treasury manager only. */
   @Patch(':id')
-  @RequireAnyPermission(...EDIT)
+  @RequirePermissions('finance.custody.manage')
   updateIssue(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,
@@ -103,7 +103,7 @@ export class CustodiesController {
 
   /** Cancels an open custody: the whole amount back to where it came from. */
   @Post(':id/cancel')
-  @RequireAnyPermission(...EDIT)
+  @RequirePermissions('finance.custody.manage')
   cancel(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,

@@ -678,11 +678,11 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
 }
 
 /**
- * While a custody is open, whoever issued it (or the CEO) moves it to the right shipment
+ * While a custody is open, the treasury manager moves it to the right shipment
  * (a clearer's: same clearer only), or cancels it: the money goes back to where it came from.
  */
 function IssueFix({ custody, onCancelled }: { custody: Custody; onCancelled: () => void }) {
-  const { can, canAny, user } = useAuth();
+  const { can } = useAuth();
   const [mode, setMode] = useState<'move' | 'cancel' | null>(null);
   const [search, setSearch] = useState('');
   const { data: shipments } = useShipmentSearch(search);
@@ -696,8 +696,8 @@ function IssueFix({ custody, onCancelled }: { custody: Custody; onCancelled: () 
     success: 'اتلغت العهدة ورجعت الفلوس لمصدرها',
     invalidate: [financeKeys.all],
   });
-  const mine = custody.createdBy?.id === user?.id || can('finance.approved.edit');
-  if (!mine || !canAny('finance.custody.manage', 'finance.bank.record', 'finance.approved.edit')) return null;
+  // changing or cancelling a custody: the treasury manager only (the CEO holds everything)
+  if (!can('finance.custody.manage')) return null;
   const isClearer = custody.holderType === 'CLEARER';
   // a clearer's custody moves only to a shipment of the same clearer
   const options = (shipments?.items ?? []).filter((s) => s.id !== custody.shipment.id && (!isClearer || s.clearer?.id === custody.clearer?.id));
