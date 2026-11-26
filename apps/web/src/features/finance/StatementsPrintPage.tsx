@@ -226,7 +226,7 @@ function VatBody({ period }: { period: GlPeriod }) {
   );
 }
 
-function Letterhead({ company, title, period, printedBy, children }: { company: CompanySettings; title: string; period: string; printedBy: string; children: ReactNode }) {
+export function Letterhead({ company, title, period, printedBy, children }: { company: CompanySettings; title: string; period: string; printedBy: string; children: ReactNode }) {
   return (
     <div className="report-page mx-auto bg-white px-8 py-7 text-[11px] leading-relaxed" dir="rtl" style={{ width: '210mm', minHeight: '297mm', color: INK }}>
       <header className="flex items-start justify-between gap-6 border-b-4 pb-3" style={{ borderColor: GOLD }}>

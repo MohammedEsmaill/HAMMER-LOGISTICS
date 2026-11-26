@@ -111,6 +111,12 @@ export class BankReconciliationController {
     return this.recon.list(q.accountId, q.status);
   }
 
+  @Get('accounts')
+  @RequireAnyPermission('finance.bank.reconcile', 'finance.gl.view')
+  accounts() {
+    return this.recon.accounts();
+  }
+
   @Get('draft')
   draft(@Query() q: DraftDto) {
     return this.recon.draft(q.accountId, q.from, q.to);

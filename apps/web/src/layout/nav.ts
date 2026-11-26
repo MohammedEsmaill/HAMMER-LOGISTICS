@@ -144,7 +144,7 @@ export const NAV: NavItem[] = [
     label: 'الحسابات العامة',
     icon: Scale,
     group: 'finance',
-    any: ['finance.gl.view'],
+    any: ['finance.gl.view', 'finance.bank.reconcile', 'finance.months.close'],
   },
   {
     to: '/reports',

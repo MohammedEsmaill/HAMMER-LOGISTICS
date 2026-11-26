@@ -1,6 +1,7 @@
 import { CheckCircle2, ChevronLeft, Printer, TriangleAlert } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useState } from 'react';
+import { useAuth } from '@/auth/auth-context';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { PageHeader } from '@/components/ui/misc';
@@ -10,9 +11,23 @@ import { formatDate } from '@/lib/format';
 import { FormTabs } from '../shipments/FormTabs';
 import { CURRENCIES, money, type Currency } from './api';
 import { BalanceSheetView, IncomeStatementView, VatView } from './FinancialStatements';
+import { MonthsTab } from './MonthsTab';
+import { ReconcileTab } from './ReconcileTab';
 import { GL_TYPES, useGlChart, useGlLedger, useTrialBalance, type GlAccount, type GlPeriod, type TrialLine } from './gl-api';
 
-type View = 'trial' | 'income' | 'balance' | 'vat' | 'chart';
+type View = 'trial' | 'income' | 'balance' | 'vat' | 'reconcile' | 'months' | 'chart';
+
+const TABS: { key: View; label: string }[] = [
+  { key: 'trial', label: 'ميزان المراجعة' },
+  { key: 'income', label: 'قائمة الدخل' },
+  { key: 'balance', label: 'الميزانية' },
+  { key: 'vat', label: 'ضريبة القيمة المضافة' },
+  { key: 'reconcile', label: 'تسوية البنك' },
+  { key: 'months', label: 'قفل الشهور' },
+  { key: 'chart', label: 'دليل الحسابات' },
+];
+/** The tabs with a period and a currency. */
+const STATEMENTS: ReadonlySet<View> = new Set(['trial', 'income', 'balance', 'vat']);
 
 const num = (v: string) => (Number(v) === 0 ? '—' : money(v));
 
@@ -26,7 +41,16 @@ const rowTone = (l: { group: boolean; level: number }) =>
  * themselves (custodies, invoices, collections, salaries …), old ones included.
  */
 export default function GeneralLedgerPage() {
-  const [view, setView] = useState<View>('trial');
+  const { can } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const gl = can('finance.gl.view');
+  // the accountant and the treasury manager see only the bank reconciliation
+  const tabs = TABS.filter((t) =>
+    t.key === 'reconcile' ? gl || can('finance.bank.reconcile') : t.key === 'months' ? gl || can('finance.months.close') : gl,
+  );
+  const asked = params.get('tab') as View | null;
+  const view: View = tabs.find((t) => t.key === asked)?.key ?? tabs[0]?.key ?? 'trial';
+  const setView = (v: View) => setParams((p) => (p.set('tab', v), p), { replace: true });
   const [period, setPeriod] = useState<GlPeriod>({ currency: 'EGP', from: '', to: '' });
   const [open, setOpen] = useState<GlAccount | null>(null);
 
@@ -35,7 +59,7 @@ export default function GeneralLedgerPage() {
       <PageHeader
         title="الحسابات العامة"
         actions={
-          view !== 'chart' && (
+          STATEMENTS.has(view) && (
             <Link
               to={`/print/statements?${new URLSearchParams({ view, currency: period.currency, ...(view !== 'balance' && period.from ? { from: period.from } : {}), ...(period.to ? { to: period.to } : {}) })}`}
               target="_blank"
@@ -49,18 +73,13 @@ export default function GeneralLedgerPage() {
 
       <div className="mb-3">
         <FormTabs
-          tabs={[
-            { key: 'trial', label: 'ميزان المراجعة' },
-            { key: 'income', label: 'قائمة الدخل' },
-            { key: 'balance', label: 'الميزانية' },
-            { key: 'vat', label: 'ضريبة القيمة المضافة' },
-            { key: 'chart', label: 'دليل الحسابات' },
-          ]}
+          tabs={tabs}
           active={view}
           onChange={setView}
           layoutId="gl-view"
         />
       </div>
+      {STATEMENTS.has(view) || view === 'chart' ? (
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="flex gap-1 rounded-xl border border-line bg-surface p-1" role="group" aria-label="العملة">
           {(Object.keys(CURRENCIES) as Currency[]).map((c) => (
@@ -89,11 +108,14 @@ export default function GeneralLedgerPage() {
           />
         )}
       </div>
+      ) : null}
 
       {view === 'trial' && <TrialBalanceView period={period} onOpen={setOpen} />}
       {view === 'income' && <IncomeStatementView period={period} />}
       {view === 'balance' && <BalanceSheetView period={period} />}
       {view === 'vat' && <VatView period={period} />}
+      {view === 'reconcile' && <ReconcileTab />}
+      {view === 'months' && <MonthsTab />}
       {view === 'chart' && <ChartView onOpen={setOpen} />}
 
       <LedgerDrawer account={open} period={period} onClose={() => setOpen(null)} />

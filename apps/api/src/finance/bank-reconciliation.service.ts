@@ -56,6 +56,26 @@ export class BankReconciliationService {
     private readonly audit: AuditService,
   ) {}
 
+  /** The company's bank accounts, each with its last reconciliation. */
+  async accounts() {
+    const rows = await this.prisma.moneyAccount.findMany({
+      where: { type: 'BANK', ownership: 'COMPANY' },
+      orderBy: [{ isActive: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        bankName: true,
+        isActive: true,
+        reconciliations: { orderBy: { toDate: 'desc' }, take: 1, select: { id: true, toDate: true, status: true } },
+      },
+    });
+    return rows.map(({ reconciliations: [last], ...a }) => ({
+      ...a,
+      last: last ? { id: last.id, to: day(last.toDate), status: last.status } : null,
+    }));
+  }
+
   async list(accountId?: number, status?: 'MATCHED' | 'DIFFERENCE') {
     const rows = await this.prisma.bankReconciliation.findMany({
       where: { accountId, status },
