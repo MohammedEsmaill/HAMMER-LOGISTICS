@@ -90,6 +90,7 @@ enum MovementSource {
   FEE_PAYMENT
   COLLECTION
   PARTY
+  ASSET
 }
 
 /// Who holds a custody: an agents-department employee, WAY OUT, the shipment's clearer, or no one (a direct bank payment).
@@ -280,6 +281,7 @@ model Employee {
 
   deletedBy         User?             @relation("EmployeeDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   users             User[]            @relation("UserEmployee")
+  assetsHeld        FixedAsset[]      @relation("AssetCustodian")
   attendanceLogs    AttendanceLog[]
   importClients     Client[]          @relation("ClientImportOperation")
   exportClients     Client[]          @relation("ClientExportOperation")
@@ -439,6 +441,12 @@ model User {
   statementExtras        StatementExtraLine[]   @relation("ExtraLineBy")
   reopenedDays           JournalDay[]           @relation("JournalDayReopenedBy")
   custodiesCancelled     Custody[]              @relation("CustodyCancelledBy")
+  assetsCreated          FixedAsset[]           @relation("AssetCreatedBy")
+  assetTxCreated         AssetTransaction[]     @relation("AssetTxCreatedBy")
+  assetTxReviewed        AssetTransaction[]     @relation("AssetTxReviewedBy")
+  assetTxManaged         AssetTransaction[]     @relation("AssetTxManagerBy")
+  assetTxApproved        AssetTransaction[]     @relation("AssetTxApprovedBy")
+  assetTxRejected        AssetTransaction[]     @relation("AssetTxRejectedBy")
 
   @@map("users")
 }
@@ -817,6 +825,7 @@ model MoneyAccount {
   movements          MoneyMovement[]
   reconciliations    BankReconciliation[]
   reconciledItems    BankReconciliationItem[]
+  assetTransactions  AssetTransaction[]
   transfersOut       Transfer[]               @relation("TransferFrom")
   transfersIn        Transfer[]               @relation("TransferTo")
   otherMovements     OtherMovement[]
@@ -837,39 +846,41 @@ model MoneyAccount {
 
 /// The money ledger: append-only (trigger). A correction is a reversal line.
 model MoneyMovement {
-  id              BigInt         @id @default(autoincrement())
-  accountId       Int            @map("account_id")
-  direction       MoneyDirection
-  amount          Decimal        @db.Decimal(14, 2) // > 0
-  balanceAfter    Decimal        @map("balance_after") @db.Decimal(14, 2)
-  movementDate    DateTime       @map("movement_date") @db.Date
-  source          MovementSource
-  transferId      Int?           @map("transfer_id")
-  otherMovementId Int?           @map("other_movement_id")
-  salaryId        Int?           @map("salary_id")
-  advanceId       Int?           @map("advance_id")
-  expenseId       Int?           @map("expense_id")
-  custodyId       Int?           @map("custody_id")
-  feePaymentId    Int?           @map("fee_payment_id")
-  collectionId    Int?           @map("collection_id")
-  partyMovementId Int?           @map("party_movement_id")
-  reversalOfId    BigInt?        @unique @map("reversal_of_id")
-  createdById     Int            @map("created_by")
-  createdAt       DateTime       @default(now()) @map("created_at")
+  id                 BigInt         @id @default(autoincrement())
+  accountId          Int            @map("account_id")
+  direction          MoneyDirection
+  amount             Decimal        @db.Decimal(14, 2) // > 0
+  balanceAfter       Decimal        @map("balance_after") @db.Decimal(14, 2)
+  movementDate       DateTime       @map("movement_date") @db.Date
+  source             MovementSource
+  transferId         Int?           @map("transfer_id")
+  otherMovementId    Int?           @map("other_movement_id")
+  salaryId           Int?           @map("salary_id")
+  advanceId          Int?           @map("advance_id")
+  expenseId          Int?           @map("expense_id")
+  custodyId          Int?           @map("custody_id")
+  feePaymentId       Int?           @map("fee_payment_id")
+  collectionId       Int?           @map("collection_id")
+  partyMovementId    Int?           @map("party_movement_id")
+  assetTransactionId Int?           @map("asset_transaction_id")
+  reversalOfId       BigInt?        @unique @map("reversal_of_id")
+  createdById        Int            @map("created_by")
+  createdAt          DateTime       @default(now()) @map("created_at")
 
-  account       MoneyAccount       @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  transfer      Transfer?          @relation(fields: [transferId], references: [id], onDelete: Restrict)
-  otherMovement OtherMovement?     @relation(fields: [otherMovementId], references: [id], onDelete: Restrict)
-  salary        SalaryPayment?     @relation(fields: [salaryId], references: [id], onDelete: Restrict)
-  advance       EmployeeAdvance?   @relation(fields: [advanceId], references: [id], onDelete: Restrict)
-  expense       GeneralExpense?    @relation(fields: [expenseId], references: [id], onDelete: Restrict)
-  custody       Custody?           @relation(fields: [custodyId], references: [id], onDelete: Restrict)
-  feePayment    ClearerFeePayment? @relation(fields: [feePaymentId], references: [id], onDelete: Restrict)
-  collection    Collection?        @relation(fields: [collectionId], references: [id], onDelete: Restrict)
-  partyMovement PartyMovement?     @relation(fields: [partyMovementId], references: [id], onDelete: Restrict)
-  reversalOf    MoneyMovement?     @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
-  reversedBy    MoneyMovement?     @relation("MovementReversal")
-  createdBy     User               @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  account          MoneyAccount       @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  transfer         Transfer?          @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  otherMovement    OtherMovement?     @relation(fields: [otherMovementId], references: [id], onDelete: Restrict)
+  salary           SalaryPayment?     @relation(fields: [salaryId], references: [id], onDelete: Restrict)
+  advance          EmployeeAdvance?   @relation(fields: [advanceId], references: [id], onDelete: Restrict)
+  expense          GeneralExpense?    @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  custody          Custody?           @relation(fields: [custodyId], references: [id], onDelete: Restrict)
+  feePayment       ClearerFeePayment? @relation(fields: [feePaymentId], references: [id], onDelete: Restrict)
+  collection       Collection?        @relation(fields: [collectionId], references: [id], onDelete: Restrict)
+  partyMovement    PartyMovement?     @relation(fields: [partyMovementId], references: [id], onDelete: Restrict)
+  assetTransaction AssetTransaction?  @relation(fields: [assetTransactionId], references: [id], onDelete: Restrict)
+  reversalOf       MoneyMovement?     @relation("MovementReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy       MoneyMovement?     @relation("MovementReversal")
+  createdBy        User               @relation("MovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([accountId, id])
   @@index([transferId])
@@ -1925,4 +1936,109 @@ model BankReconciliationItem {
   @@unique([accountId, lineKey])
   @@index([reconciliationId])
   @@map("bank_reconciliation_items")
+}
+
+enum AssetCategory {
+  COMPUTER
+  LAPTOP
+  PRINTER
+  SCANNER
+  OTHER
+}
+
+enum AssetStatus {
+  ACTIVE
+  SOLD
+  SCRAPPED
+}
+
+/// PURCHASED: bought through the system (a PURCHASE transaction paid it); EXISTING: the
+/// company had it before, entered at its original date and cost with no money moving.
+enum AssetAcquisition {
+  PURCHASED
+  EXISTING
+}
+
+enum AssetTransactionKind {
+  PURCHASE
+  SALE
+  SCRAP
+}
+
+/// A fixed asset, one row per device. It depreciates straight-line over its life, one
+/// share at each month end from the month it was acquired, computed in the books
+/// (gl_lines_v), until it is sold or scrapped.
+model FixedAsset {
+  id                  Int              @id @default(autoincrement())
+  assetNo             String           @unique @map("asset_no") // FA26-0001
+  category            AssetCategory
+  name                String
+  model               String?
+  serialNo            String?          @map("serial_no")
+  location            String?
+  custodianEmployeeId Int?             @map("custodian_employee_id")
+  acquisition         AssetAcquisition
+  acquiredOn          DateTime         @map("acquired_on") @db.Date
+  cost                Decimal          @db.Decimal(14, 2)
+  usefulLifeMonths    Int              @default(60) @map("useful_life_months")
+  status              AssetStatus      @default(ACTIVE)
+  disposedOn          DateTime?        @map("disposed_on") @db.Date
+  notes               String?
+  version             Int              @default(0)
+  createdById         Int              @map("created_by")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  custodian    Employee?          @relation("AssetCustodian", fields: [custodianEmployeeId], references: [id], onDelete: Restrict)
+  createdBy    User               @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  transactions AssetTransaction[]
+
+  @@map("fixed_assets")
+}
+
+/// Money for a fixed asset: buying it, selling it, or scrapping it (no money). It goes
+/// through the approval cycle like any financial document.
+model AssetTransaction {
+  id            Int                  @id @default(autoincrement())
+  assetId       Int                  @map("asset_id")
+  kind          AssetTransactionKind
+  /// PURCHASE: the cost; SALE: the price; SCRAP: 0
+  amount        Decimal              @db.Decimal(14, 2)
+  /// PURCHASE: paid from; SALE: received into; SCRAP: none
+  accountId     Int?                 @map("account_id")
+  paymentMethod BankPaymentMethod?   @map("payment_method")
+  reference     String?
+  bankCharges   Decimal              @default(0) @map("bank_charges") @db.Decimal(14, 2)
+  /// the supplier (PURCHASE) or the buyer (SALE)
+  party         String?
+  invoiceNo     String?              @map("invoice_no")
+  txDate        DateTime             @map("tx_date") @db.Date
+  notes         String?
+
+  approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
+  reviewedById    Int?           @map("reviewed_by")
+  reviewedAt      DateTime?      @map("reviewed_at")
+  managerById     Int?           @map("manager_by")
+  managerAt       DateTime?      @map("manager_at")
+  approvedById    Int?           @map("approved_by")
+  approvedAt      DateTime?      @map("approved_at")
+  rejectedById    Int?           @map("rejected_by")
+  rejectedAt      DateTime?      @map("rejected_at")
+  rejectionReason String?        @map("rejection_reason")
+  version         Int            @default(0)
+  createdById     Int            @map("created_by")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  asset      FixedAsset      @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  account    MoneyAccount?   @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  movements  MoneyMovement[]
+  createdBy  User            @relation("AssetTxCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy User?           @relation("AssetTxReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy  User?           @relation("AssetTxManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy User?           @relation("AssetTxApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy User?           @relation("AssetTxRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+
+  @@index([assetId])
+  @@map("asset_transactions")
 }

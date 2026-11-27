@@ -142,6 +142,7 @@ export class FiscalMonthsService {
         UNION ALL SELECT 'CL-' || "id", "collection_date", 'تحصيل' FROM "collections" WHERE "approval_status" NOT IN ('APPROVED', 'REJECTED')
         UNION ALL SELECT 'PM-' || "id", "movement_date", 'حساب داخلي' FROM "party_movements" WHERE "approval_status" NOT IN ('APPROVED', 'REJECTED')
         UNION ALL SELECT "invoice_no", "invoice_date", 'فاتورة' FROM "invoices" WHERE "voided_at" IS NULL AND "approval_status" NOT IN ('APPROVED', 'REJECTED')
+        UNION ALL SELECT 'AT-' || "id", "tx_date", 'أصل ثابت' FROM "asset_transactions" WHERE "approval_status" NOT IN ('APPROVED', 'REJECTED')
       ) p
       WHERE p.d BETWEEN ${start}::date AND ${end}::date
       ORDER BY p.d`;

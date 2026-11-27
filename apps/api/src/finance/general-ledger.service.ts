@@ -45,6 +45,9 @@ const FIXED: GlAccount[] = [
   a('RECEIVABLE', '14', 'العملاء', 'ASSET', '1'),
   a('EMPLOYEE_ADVANCES', '15', 'سلف الموظفين', 'ASSET', '1'),
   a('WHT_RECEIVABLE', '16', 'ضرائب مخصومة من المنبع', 'ASSET', '1'),
+  g('17', 'الأصول الثابتة', 'ASSET', '1'),
+  a('FIXED_ASSETS', '171', 'الأصول الثابتة بالتكلفة', 'ASSET', '17'),
+  a('ACC_DEPRECIATION', '172', 'مجمّع الإهلاك (بالسالب)', 'ASSET', '17'),
 
   g('2', 'الالتزامات', 'LIABILITY', null),
   a('CLEARER_PAYABLE', '21', 'أتعاب مستخلصين مستحقة', 'LIABILITY', '2'),
@@ -66,6 +69,8 @@ const FIXED: GlAccount[] = [
   g('53', 'المصاريف العمومية', 'EXPENSE', '5'),
   a('BANK_CHARGES', '54', 'المصاريف البنكية', 'EXPENSE', '5'),
   a('ADJUSTMENT', '55', 'فروق وتسويات الخزن', 'EXPENSE', '5'),
+  a('DEPRECIATION', '56', 'إهلاك الأصول الثابتة', 'EXPENSE', '5'),
+  a('ASSET_DISPOSAL', '57', 'خسائر (أرباح) بيع وتكهين الأصول', 'EXPENSE', '5'),
 ];
 
 const ZERO = new Prisma.Decimal(0);

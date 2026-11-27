@@ -30,6 +30,7 @@ const SOURCE_LABELS = {
   FEE_PAYMENT: 'صرف أتعاب',
   COLLECTION: 'تحصيل من عميل',
   PARTY: 'حساب داخلي',
+  ASSET: 'أصل ثابت',
 } as const;
 
 @Injectable()

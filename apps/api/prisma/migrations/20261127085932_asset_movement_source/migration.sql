@@ -1,0 +1,1 @@
+ALTER TYPE "MovementSource" ADD VALUE 'ASSET';

@@ -387,6 +387,18 @@ const GRANTS: {
       ACCOUNTANT: ['finance.bank.reconcile'],
     },
   },
+  {
+    // the fixed assets: the devices are kept by the accounts manager, the treasury
+    // manager, HR and the moderator; buying, selling and scrapping (money) by the
+    // treasury manager and the accounts manager (the CEO holds everything)
+    id: 'fixed-assets',
+    roles: {
+      ACCOUNTS_MANAGER: ['assets.manage', 'assets.transact'],
+      TREASURY_MANAGER: ['assets.manage', 'assets.transact'],
+      HR: ['assets.manage'],
+      MODERATOR: ['assets.manage'],
+    },
+  },
 ];
 
 /** The price lists the office started with; the CEO changes them later. */

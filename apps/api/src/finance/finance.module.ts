@@ -52,6 +52,8 @@ import { FiscalMonthsController } from './fiscal-months.controller';
 import { FiscalMonthsService } from './fiscal-months.service';
 import { BankReconciliationController } from './bank-reconciliation.controller';
 import { BankReconciliationService } from './bank-reconciliation.service';
+import { AssetsController, AssetTransactionsController } from './assets.controller';
+import { AssetsService } from './assets.service';
 
 @Module({
   controllers: [
@@ -76,6 +78,8 @@ import { BankReconciliationService } from './bank-reconciliation.service';
     GeneralLedgerController,
     FiscalMonthsController,
     BankReconciliationController,
+    AssetsController,
+    AssetTransactionsController,
   ],
   providers: [
     LedgerService,
@@ -102,6 +106,7 @@ import { BankReconciliationService } from './bank-reconciliation.service';
     FinancialStatementsService,
     FiscalMonthsService,
     BankReconciliationService,
+    AssetsService,
   ],
   exports: [
     LedgerService,

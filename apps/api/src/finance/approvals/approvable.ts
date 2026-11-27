@@ -78,6 +78,12 @@ export const APPROVABLE = {
     flow: 'TWO_LEVELS',
     restricted: false,
   },
+  ASSET: {
+    table: 'asset_transactions',
+    label: 'أصل ثابت',
+    flow: 'TWO_LEVELS',
+    restricted: false,
+  },
 } as const satisfies Record<
   string,
   { table: string; label: string; flow: ApprovalFlow; restricted: boolean }
