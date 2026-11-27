@@ -202,7 +202,7 @@ export const lineDocument = (l: LedgerLine) => ({
 });
 
 /** The account statement: every line with its running balance, by period, page by page. */
-/** The first and last day of this month or the one before, as yyyy-mm-dd. */
+/** The first day of this month (or the one before) to its last day, as yyyy-mm-dd. */
 function monthRange(back: 0 | 1) {
   const now = today();
   const [y, m] = now.split('-').map(Number);
@@ -213,15 +213,14 @@ function monthRange(back: 0 | 1) {
 }
 
 const PERIODS = [
-  { key: 'month', label: 'الشهر ده', range: () => monthRange(0) },
-  { key: 'last', label: 'الشهر اللي فات', range: () => monthRange(1) },
-  { key: 'all', label: 'كل الفترات', range: () => ({ from: '', to: '' }) },
+  { key: 'today', label: 'اليوم', range: () => ({ from: today(), to: today() }) },
+  { key: 'month', label: 'الشهر الحالي', range: () => monthRange(0) },
 ] as const;
 
 const DIRECTIONS = [
   { key: '', label: 'الكل' },
-  { key: 'IN', label: 'وارد بس' },
-  { key: 'OUT', label: 'منصرف بس' },
+  { key: 'IN', label: 'وارد' },
+  { key: 'OUT', label: 'منصرف' },
 ] as const;
 
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
