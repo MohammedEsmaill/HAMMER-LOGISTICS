@@ -84,7 +84,11 @@ export default function ReportsPage() {
               key={k}
               type="button"
               aria-pressed={on}
-              onClick={() => setKind(k)}
+              onClick={() => {
+                // another report: the one shown for the old tab closes
+                if (k !== kind) setAsked(null);
+                setKind(k);
+              }}
               className={`card focus-ring flex items-start gap-3 p-4 text-start transition-colors ${on ? 'border-gold/60 bg-gold/5' : 'hover:border-gold/30'}`}
             >
               <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${on ? 'gold-fill' : 'bg-gold/10 text-gold'}`}>
