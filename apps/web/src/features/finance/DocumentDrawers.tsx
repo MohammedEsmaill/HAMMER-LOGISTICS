@@ -10,6 +10,8 @@ import { OtherDrawer, TransferDrawer } from './MovementDrawers';
 import type { Advance, Expense, Salary } from './office-api';
 import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
 import { PartyMovementDrawer } from './PartyDrawers';
+import { AssetTxDrawer } from './AssetDrawers';
+import type { AssetTx } from './assets-api';
 import type { PartyMovement } from './parties-api';
 
 export interface OpenDocument {
@@ -37,6 +39,7 @@ export function DocumentDrawers({ open, onClose }: { open: OpenDocument | null; 
       <CollectionDrawer collection={shown('COLLECTION') as Collection | null} open={!!shown('COLLECTION')} onClose={onClose} />
       <InvoiceDrawer invoiceId={open?.type === 'INVOICE' ? open.id : null} onClose={onClose} />
       <PartyMovementDrawer movement={shown('PARTY') as PartyMovement | null} open={!!shown('PARTY')} onClose={onClose} />
+      <AssetTxDrawer tx={shown('ASSET') as AssetTx | null} open={!!shown('ASSET')} onClose={onClose} />
       <FeeAdjustmentDrawer adjustment={shown('FEE_ADJUSTMENT') as FeeAdjustment | null} open={!!shown('FEE_ADJUSTMENT')} onClose={onClose} />
     </>
   );

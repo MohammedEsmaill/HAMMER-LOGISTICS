@@ -56,6 +56,8 @@ export type Permission =
   | 'finance.gl.view'
   | 'finance.months.close'
   | 'finance.bank.reconcile'
+  | 'assets.manage'
+  | 'assets.transact'
   | 'finance.parties.record'
   | 'finance.parties.manage'
   | 'settings.manage'

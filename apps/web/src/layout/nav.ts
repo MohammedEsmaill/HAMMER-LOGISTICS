@@ -2,6 +2,7 @@ import {
   BadgeCheck,
   Calculator,
   Scale,
+  Monitor,
   Contact,
   Settings,
   BookOpenText,
@@ -145,6 +146,13 @@ export const NAV: NavItem[] = [
     icon: Scale,
     group: 'finance',
     any: ['finance.gl.view', 'finance.bank.reconcile', 'finance.months.close'],
+  },
+  {
+    to: '/fixed-assets',
+    label: 'الأصول الثابتة',
+    icon: Monitor,
+    group: 'finance',
+    any: ['assets.manage', 'assets.transact', 'finance.gl.view'],
   },
   {
     to: '/reports',

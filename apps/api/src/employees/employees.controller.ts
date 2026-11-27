@@ -40,6 +40,8 @@ export class EmployeesController {
     'finance.fees.pay',
     'clients.view',
     'finance.shipment-account.view',
+    // who holds each fixed asset
+    'assets.manage',
   )
   options(@Query() query: EmployeeOptionsQueryDto) {
     return this.employees.options(query.department);

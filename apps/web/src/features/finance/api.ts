@@ -6,7 +6,7 @@ export type Currency = 'EGP' | 'USD';
 export type ApprovalStatus = 'PENDING' | 'REVIEWED' | 'MANAGER_APPROVED' | 'APPROVED' | 'REJECTED';
 export type OtherKind = 'FUNDING' | 'BANK_CHARGES' | 'ADJUSTMENT';
 export type Direction = 'IN' | 'OUT';
-export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_ADJUSTMENT' | 'FEE_PAYMENT' | 'INVOICE' | 'COLLECTION' | 'PARTY';
+export type DocType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_ADJUSTMENT' | 'FEE_PAYMENT' | 'INVOICE' | 'COLLECTION' | 'PARTY' | 'ASSET';
 
 export type BankPaymentMethod = 'TRANSFER' | 'CHEQUE';
 
@@ -239,6 +239,7 @@ const DOC_PATH: Record<DocType, string> = {
   INVOICE: '/finance/invoices',
   COLLECTION: '/finance/collections',
   PARTY: '/finance/party-movements',
+  ASSET: '/finance/asset-transactions',
 };
 
 /** One financial document in full (with its approval trail), for its drawer. */

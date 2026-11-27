@@ -3,7 +3,7 @@ import { api } from '@/lib/api-client';
 import type { Page } from '@/lib/mutations';
 import { financeKeys, today, type ApprovalStatus, type Currency } from './api';
 
-export type JournalType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_PAYMENT' | 'COLLECTION' | 'PARTY';
+export type JournalType = 'TRANSFER' | 'OTHER' | 'SALARY' | 'ADVANCE' | 'EXPENSE' | 'CUSTODY' | 'FEE_PAYMENT' | 'COLLECTION' | 'PARTY' | 'ASSET';
 export type Flow = 'IN' | 'OUT' | 'MOVE';
 
 export const JOURNAL_TYPES: Record<JournalType, { label: string; restricted?: boolean }> = {
@@ -14,6 +14,7 @@ export const JOURNAL_TYPES: Record<JournalType, { label: string; restricted?: bo
   FEE_PAYMENT: { label: 'أتعاب مستخلص' },
   COLLECTION: { label: 'تحصيل من عميل' },
   PARTY: { label: 'حساب داخلي' },
+  ASSET: { label: 'أصل ثابت' },
   SALARY: { label: 'مرتب', restricted: true },
   ADVANCE: { label: 'سلفة', restricted: true },
 };

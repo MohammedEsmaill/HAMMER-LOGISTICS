@@ -61,6 +61,7 @@ const TYPE_OPTIONS = [
   { value: 'INVOICE', label: 'الفواتير' },
   { value: 'COLLECTION', label: 'التحصيل' },
   { value: 'PARTY', label: 'الحسابات الداخلية' },
+  { value: 'ASSET', label: 'الأصول الثابتة' },
 ];
 
 type Tab = 'waiting' | 'rejected' | 'approved' | 'all';
