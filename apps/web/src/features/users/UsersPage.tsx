@@ -3,7 +3,7 @@ import { Landmark, KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Signature, Tras
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { useAuth } from '@/auth/auth-context';
+import { useAuth, useIsCeo } from '@/auth/auth-context';
 import { useListState } from '@/lib/use-list-state';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -93,7 +93,6 @@ function ExtraRoles({
 }
 
 function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { can } = useAuth();
   const { data: roles = [] } = useRoleOptions();
   const { register, handleSubmit, control, reset, setValue, formState } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -115,7 +114,7 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the drawer opens
   }, [open]);
 
-  const isCeo = can('roles.manage'); // only the CEO holds it, and only the CEO grants the CEO role
+  const isCeo = useIsCeo(); // only the CEO grants the CEO role
 
   return (
     <Drawer
@@ -186,7 +185,7 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
         />
         <SelectField
           label="الدور"
-          options={roles.map((r) => ({ value: r.id, label: r.name, disabled: r.isSystem && !isCeo }))}
+          options={roles.filter((r) => !r.isSystem || isCeo).map((r) => ({ value: r.id, label: r.name }))}
           error={formState.errors.roleId?.message}
           {...register('roleId')}
         />
@@ -204,7 +203,7 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
 }
 
 function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => void }) {
-  const { can, user: me } = useAuth();
+  const { user: me } = useAuth();
   const { data: roles = [] } = useRoleOptions();
   const { register, handleSubmit, control, formState } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
@@ -214,7 +213,7 @@ function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => v
       : undefined,
   });
   const mainRoleId = useWatch({ control, name: 'roleId' });
-  const isCeo = can('roles.manage');
+  const isCeo = useIsCeo();
   // nobody changes their own roles
   const self = user?.id === me?.id;
   const update = useAction((form: UserChanges) => usersApi.update(user!.id, form), {
@@ -252,7 +251,7 @@ function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => v
         <TextField label="إيميل الدخول" type="email" dir="ltr" error={formState.errors.email?.message} {...register('email')} />
         <SelectField
           label="الدور"
-          options={roles.map((r) => ({ value: r.id, label: r.name, disabled: r.isSystem && !isCeo }))}
+          options={roles.filter((r) => !r.isSystem || isCeo).map((r) => ({ value: r.id, label: r.name }))}
           error={formState.errors.roleId?.message}
           {...register('roleId')}
         />

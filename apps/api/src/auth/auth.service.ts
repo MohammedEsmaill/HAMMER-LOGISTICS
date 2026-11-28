@@ -26,7 +26,8 @@ export interface Profile {
   email: string;
   name: string;
   accountType: AuthUser['accountType'];
-  role: { id: number; name: string };
+  /** isSystem: the CEO */
+  role: { id: number; name: string; isSystem: boolean };
   /** All the role names, the main one first. */
   roles: string[];
   permissions: string[];
@@ -231,7 +232,7 @@ export class AuthService {
       email: user.email,
       name: record.employee?.fullName ?? record.clearer?.fullName ?? user.email,
       accountType: user.accountType,
-      role: { id: user.role.id, name: user.role.name },
+      role: { id: user.role.id, name: user.role.name, isSystem: user.role.isSystem },
       roles: user.roles,
       permissions: [...user.permissions],
     };

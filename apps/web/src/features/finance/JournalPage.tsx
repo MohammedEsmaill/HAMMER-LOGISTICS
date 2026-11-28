@@ -1,7 +1,7 @@
 import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, Building2, FileBarChart, DollarSign, HandCoins, HardHat, Plus, UserRound, Receipt, RotateCcw, Ship, Wallet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { useAuth } from '@/auth/auth-context';
+import { useAuth, useIsCeo } from '@/auth/auth-context';
 import { useListState, usePageSize } from '@/lib/use-list-state';
 import type { Permission } from '@/auth/permissions';
 import { Button } from '@/components/ui/Button';
@@ -170,7 +170,8 @@ export default function JournalPage() {
   // the accountant records by bank only, and has his own four forms
   const accountant = can('finance.bank.record') && !can('finance.movements.create') && !can('finance.custody.manage') && !can('finance.expenses.manage');
   // the treasury manager (not the CEO): his own forms
-  const treasury = can('finance.custody.manage') && !can('roles.manage');
+  const isCeo = useIsCeo();
+  const treasury = can('finance.custody.manage') && !isCeo;
   const own = accountant || treasury;
   const newKinds = (accountant ? ACCOUNTANT_KINDS : treasury ? TREASURY_KINDS : NEW_KINDS).filter((k) => k.any.some((p) => can(p)));
   const typeOptions = (Object.keys(JOURNAL_TYPES) as JournalType[])

@@ -69,7 +69,8 @@ export interface Profile {
   email: string;
   name: string;
   accountType: 'EMPLOYEE' | 'CLEARER';
-  role: { id: number; name: string };
+  /** isSystem: the CEO */
+  role: { id: number; name: string; isSystem?: boolean };
   /** Every role's name: the main one first, then the extra ones. */
   roles: string[];
   permissions: Permission[];

@@ -19,3 +19,5 @@ export function useAuth(): AuthContextValue {
   if (!value) throw new Error('useAuth must be used inside <AuthProvider>');
   return value;
 }
+/** The CEO (the system role): not just anyone who may manage roles, like the moderator. */
+export const useIsCeo = () => !!useAuth().user?.role.isSystem;
