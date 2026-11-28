@@ -207,13 +207,26 @@ export class PartiesService {
   }
 
   /** A payment into the party's own bank account: one of its accounts, still active. */
-  private async partyAccount(tx: Tx, partyId: number, kind: string, beneficiaryId?: number) {
+  private async partyAccount(tx: Tx, partyId: number, kind: string, currency: string, beneficiaryId?: number) {
     if (!beneficiaryId) return null;
     if (kind !== 'PAYMENT') throw new BadRequestException('حساب الجهة للصرف بس');
     const b = await tx.beneficiary.findUnique({ where: { id: beneficiaryId } });
     if (!b || b.kind !== 'PARTY' || b.partyId !== partyId) throw new BadRequestException('الحساب ده مش من حسابات الجهة');
     if (!b.isActive) throw new BadRequestException(`حساب ${b.bankName} موقوف`);
+    if (b.currency !== currency) throw new BadRequestException(`حساب ${b.bankName} بعملة تانية غير الحساب اللي بيدفع`);
     return b.id;
+  }
+
+  /** A payment to an owner into one of his personal accounts: a channel, recorded for reference. */
+  private async personalAccount(tx: Tx, partyId: number, kind: string, currency: string, id?: number, beneficiaryId?: number | null) {
+    if (!id) return null;
+    if (kind !== 'PAYMENT') throw new BadRequestException('الحساب الشخصي للصرف بس');
+    if (beneficiaryId) throw new BadRequestException('اختار حساب واحد بس');
+    const m = await tx.moneyAccount.findUnique({ where: { id } });
+    if (!m || m.ownership !== 'PERSONAL' || m.ownerPartyId !== partyId) throw new BadRequestException('الحساب ده مش من حسابات المالك الشخصية');
+    if (!m.isActive) throw new BadRequestException(`حساب ${m.name} موقوف`);
+    if (m.currency !== currency) throw new BadRequestException(`حساب ${m.name} بعملة تانية غير الحساب اللي بيدفع`);
+    return m.id;
   }
 
   async get(id: number) {
@@ -223,6 +236,7 @@ export class PartiesService {
         party: { select: { id: true, name: true, kind: true } },
         account: ACCOUNT,
         beneficiary: { select: { id: true, name: true, bankName: true, accountNumber: true } },
+        personalAccount: { select: { id: true, name: true, bankName: true, accountNumber: true } },
         ...DOCUMENT_INCLUDE,
       },
     });
@@ -243,7 +257,8 @@ export class PartiesService {
       assertMayRecordOn(actor, account, 'finance.movements.create');
       const direction = DIRECTION[dto.kind];
       const bank = this.payment(direction, account, dto);
-      const beneficiaryId = await this.partyAccount(tx, party.id, dto.kind, dto.beneficiaryId);
+      const beneficiaryId = await this.partyAccount(tx, party.id, dto.kind, account.currency, dto.beneficiaryId);
+      const personalAccountId = await this.personalAccount(tx, party.id, dto.kind, account.currency, dto.personalAccountId, beneficiaryId);
       const movement = await tx.partyMovement.create({
         data: {
           partyId: party.id,
@@ -255,6 +270,7 @@ export class PartiesService {
           movementDate: await openDate(tx, dto.movementDate, 'تاريخ الحركة'),
           payee,
           beneficiaryId,
+          personalAccountId,
           ...bank,
           notes: dto.notes,
           createdById: actor.id,

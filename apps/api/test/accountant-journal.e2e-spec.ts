@@ -73,11 +73,11 @@ describe("The accountant's journal (e2e)", () => {
       .expect(201);
     await ctx
       .api(accountant)
-      .post('/api/finance/beneficiaries', { name: 'حساب الشركة', kind: 'PARTY', partyId: partyA, bankName: 'CIB', accountNumber: 'EG220033' })
+      .post('/api/finance/beneficiaries', { name: 'حساب الشركة', kind: 'PARTY', partyId: partyA, currency: 'EGP', bankName: 'CIB', accountNumber: 'EG220033' })
       .expect(403);
     const own = await ctx
       .api(ctx.ceoToken)
-      .post('/api/finance/beneficiaries', { name: 'حساب الشركة', kind: 'PARTY', partyId: partyA, bankName: 'CIB', accountNumber: 'EG220033' })
+      .post('/api/finance/beneficiaries', { name: 'حساب الشركة', kind: 'PARTY', partyId: partyA, currency: 'EGP', bankName: 'CIB', accountNumber: 'EG220033' })
       .expect(201);
     const list = await ctx.api(accountant).get(`/api/finance/beneficiaries?partyId=${partyA}`).expect(200);
     expect(list.body.map((b: { id: number }) => b.id)).toEqual([own.body.id]);

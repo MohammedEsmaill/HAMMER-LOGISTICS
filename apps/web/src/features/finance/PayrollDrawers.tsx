@@ -44,6 +44,14 @@ function Footer({ onClose, form, busy, label }: { onClose: () => void; form: str
 }
 
 /** Pay one month's salary, or edit / view a salary already paid. */
+const REF = /^[A-Za-z0-9/-]{1,40}$/;
+
+/** From a bank a salary or an advance goes by transfer, with its reference; from the cash box, neither. */
+const transferBody = (accounts: { id: number; type: string }[], accountId: number | '', reference: string) =>
+  accounts.find((a) => a.id === accountId)?.type === 'BANK'
+    ? { paymentMethod: 'TRANSFER' as const, reference: reference.trim() }
+    : { paymentMethod: null, reference: null };
+
 export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null; open: boolean; onClose: () => void }) {
   const editable = useEditable(salary, 'finance.payroll.manage');
   const { data: employees = [] } = useEmployeeOptions(undefined, open && !salary);
@@ -54,6 +62,7 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [advanceDeduction, setAdvanceDeduction] = useState<number | string>('');
   const [accountId, setAccountId] = useState<number | ''>('');
+  const [reference, setReference] = useState('');
   const [paymentDate, setPaymentDate] = useState(today());
   const [notes, setNotes] = useState('');
   const [problems, setProblems] = useState<Record<string, string>>({});
@@ -65,6 +74,7 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
         adjustments: adjustments.map((a) => ({ kind: a.kind, amount: Number(a.amount), reason: a.reason.trim() })),
         advanceDeduction: Number(advanceDeduction || 0),
         accountId: Number(accountId),
+        ...transferBody(egp, accountId, reference),
         paymentDate,
         notes: notes.trim() || null,
       };
@@ -84,6 +94,7 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
     setAdjustments(salary?.adjustments ?? []);
     setAdvanceDeduction(salary ? salary.advanceDeduction : '');
     setAccountId(salary?.account.id ?? egp.find((a) => a.type === 'CASH')?.id ?? '');
+    setReference(salary?.reference ?? '');
     setPaymentDate(salary?.paymentDate.slice(0, 10) ?? today());
     setNotes(salary?.notes ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when the drawer opens
@@ -113,6 +124,7 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
     if (advanceBalance !== undefined && Number(advanceDeduction || 0) > Number(advanceBalance)) p.advance = `أكبر من رصيد السلف (${money(advanceBalance)})`;
     if (totals.net < 0) p.net = 'الخصومات أكبر من المرتب';
     if (!accountId) p.account = 'اختار الخزنة أو الحساب';
+    if (egp.find((a) => a.id === accountId)?.type === 'BANK' && !REF.test(reference.trim())) p.reference = 'الرقم المرجعي إجباري (حروف وأرقام)';
     if (!paymentDate || paymentDate > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
     setProblems(p);
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(onClose, () => undefined);
@@ -220,6 +232,9 @@ export function SalaryDrawer({ salary, open, onClose }: { salary: Salary | null;
               onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
               error={problems.account}
             />
+            {egp.find((a) => a.id === accountId)?.type === 'BANK' && (
+              <TextField label="الرقم المرجعي للتحويل" dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} error={problems.reference} />
+            )}
             <TextField label="تاريخ الصرف" type="date" max={today()} value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} error={problems.date} />
             <TextField label="ملاحظات (اختياري)" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} />
           </div>
@@ -275,14 +290,15 @@ export function AdvanceDrawer({
   const [employeeId, setEmployeeId] = useState<number | ''>('');
   const [amount, setAmount] = useState<number | string>('');
   const [accountId, setAccountId] = useState<number | ''>('');
+  const [reference, setReference] = useState('');
   const [advanceDate, setAdvanceDate] = useState(today());
   const [notes, setNotes] = useState('');
   const [problems, setProblems] = useState<Record<string, string>>({});
   const save = useAction(
     () =>
       advance
-        ? officeApi.updateAdvance(advance.id, { version: advance.version, amount: Number(amount), accountId: Number(accountId), advanceDate, notes: notes.trim() || null })
-        : officeApi.createAdvance({ employeeId: Number(employeeId), amount: Number(amount), accountId: Number(accountId), advanceDate, notes: notes.trim() || undefined }),
+        ? officeApi.updateAdvance(advance.id, { version: advance.version, amount: Number(amount), accountId: Number(accountId), ...transferBody(egp, accountId, reference), advanceDate, notes: notes.trim() || null })
+        : officeApi.createAdvance({ employeeId: Number(employeeId), amount: Number(amount), accountId: Number(accountId), ...transferBody(egp, accountId, reference), advanceDate, notes: notes.trim() || undefined }),
     { success: advance ? 'اتحفظت السلفة' : 'اتصرفت السلفة', invalidate: [financeKeys.all] },
   );
 
@@ -293,6 +309,7 @@ export function AdvanceDrawer({
     setEmployeeId(advance?.employee.id ?? presetEmployee ?? '');
     setAmount(advance?.amount ?? '');
     setAccountId(advance?.account.id ?? egp.find((a) => a.type === 'CASH')?.id ?? '');
+    setReference(advance?.reference ?? '');
     setAdvanceDate(advance?.advanceDate.slice(0, 10) ?? today());
     setNotes(advance?.notes ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when the drawer opens
@@ -304,6 +321,7 @@ export function AdvanceDrawer({
     if (!advance && !employeeId) p.employee = 'اختار الموظف';
     if (!validAmount(amount)) p.amount = 'اكتب مبلغ صحيح (رقمين عشريين بالكتير)';
     if (!accountId) p.account = 'اختار الخزنة أو الحساب';
+    if (egp.find((a) => a.id === accountId)?.type === 'BANK' && !REF.test(reference.trim())) p.reference = 'الرقم المرجعي إجباري (حروف وأرقام)';
     if (!advanceDate || advanceDate > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
     setProblems(p);
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(onClose, () => undefined);
@@ -335,6 +353,9 @@ export function AdvanceDrawer({
             onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
             error={problems.account}
           />
+          {egp.find((a) => a.id === accountId)?.type === 'BANK' && (
+            <TextField label="الرقم المرجعي للتحويل" dir="ltr" value={reference} onChange={(e) => setReference(e.target.value)} error={problems.reference} />
+          )}
           <TextField label="التاريخ" type="date" max={today()} value={advanceDate} onChange={(e) => setAdvanceDate(e.target.value)} error={problems.date} />
           <TextField label="ملاحظات (اختياري)" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} />
         </fieldset>

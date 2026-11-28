@@ -313,6 +313,8 @@ export interface Beneficiary {
   kind: BeneficiaryKind;
   clearer: { id: number; fullName: string } | null;
   party?: { id: number; name: string } | null;
+  /** kind PARTY: the account's currency */
+  currency?: Currency | null;
   bankName: string;
   accountNumber: string;
   isActive: boolean;
@@ -327,7 +329,7 @@ export const useBeneficiaries = (q: { clearerId?: number; partyId?: number; kind
   });
 
 export const beneficiariesApi = {
-  create: (input: { name: string; kind: BeneficiaryKind; clearerId?: number; partyId?: number; bankName: string; accountNumber: string; notes?: string }) =>
+  create: (input: { name: string; kind: BeneficiaryKind; clearerId?: number; partyId?: number; currency?: Currency; bankName: string; accountNumber: string; notes?: string }) =>
     api.post<Beneficiary>('/finance/beneficiaries', input),
   update: (id: number, input: { name?: string; bankName?: string; accountNumber?: string; isActive?: boolean }) =>
     api.patch<Beneficiary>(`/finance/beneficiaries/${id}`, input),

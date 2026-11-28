@@ -7,7 +7,7 @@ import { Drawer } from '@/components/ui/Drawer';
 import { SelectField } from '@/components/ui/SelectField';
 import { TextField } from '@/components/ui/TextField';
 import { toastError, useAction } from '@/lib/mutations';
-import { BANK_METHODS, CURRENCIES, EXPENSE_CATEGORIES, financeKeys, money, today, useAccounts, type BankPaymentMethod, type MoneyAccount } from './api';
+import { BANK_METHODS, CURRENCIES, EXPENSE_CATEGORIES, financeApi, financeKeys, money, today, useAccounts, type BankPaymentMethod, type MoneyAccount } from './api';
 import { beneficiariesApi, custodyApi, useBeneficiaries, useCustodies, useShipmentSearch, type CustodiesQuery, type Purpose } from './custody-api';
 import { officeApi, useExpenseTypes } from './office-api';
 import { partiesApi, usePartyOptions, PARTY_KINDS } from './parties-api';
@@ -135,6 +135,42 @@ function bankProblems(p: Record<string, string>, account: MoneyAccount | undefin
   if (charges && !/^\d+(\.\d{1,2})?$/.test(charges)) p.charges = 'مبلغ غير صحيح';
   if (!validAmount(amount)) p.amount = 'اكتب مبلغ صحيح';
   else if (account && Number(amount) + Number(charges || 0) > Number(account.balance)) p.amount = `رصيد ${account.name} ${money(account.balance)} بس`;
+}
+
+const egpBox = (accounts: MoneyAccount[]) => accounts.find((a) => a.type === 'CASH' && a.currency === 'EGP' && a.isActive);
+
+function cashProblems(p: Record<string, string>, box: MoneyAccount | undefined, amount: string) {
+  if (!box) p.amount = 'خزنة الجنيه مش موجودة';
+  else if (!validAmount(amount)) p.amount = 'اكتب مبلغ صحيح';
+  else if (Number(amount) > Number(box.balance)) p.amount = `رصيد ${box.name} ${money(box.balance)} بس`;
+}
+
+/** Cash from the cash box, or by bank. */
+function PaySegment({ byBank, onChange }: { byBank: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <Field label="طريقة الصرف">
+      <Segment
+        value={byBank ? 'BANK' : 'CASH'}
+        options={[
+          ['CASH', 'نقدي'],
+          ['BANK', 'تحويل بنكي'],
+        ]}
+        onChange={(v) => onChange(v === 'BANK')}
+      />
+    </Field>
+  );
+}
+
+function CashFields({ box, amount, setAmount, date, setDate, notes, setNotes, problems }: { box: MoneyAccount | undefined; amount: string; setAmount: (v: string) => void; date: string; setDate: (v: string) => void; notes: string; setNotes: (v: string) => void; problems: Record<string, string> }) {
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField label="المبلغ" dir="ltr" inputMode="decimal" value={amount} error={problems.amount} hint={box ? `${box.name} · ${money(box.balance, box.currency)}` : undefined} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />
+        <TextField label="التاريخ" type="date" value={date} max={today()} error={problems.date} onChange={(e) => setDate(e.target.value)} />
+      </div>
+      <TextField label="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
+    </>
+  );
 }
 
 /** 1 · A transfer to a shipping line: a custody on the shipment, settled onto its account. */
@@ -299,10 +335,12 @@ export function ShippingLineDrawer({ open, onClose }: { open: boolean; onClose: 
   );
 }
 
-/** 2 · A clearer's custody, by bank into one of his own saved accounts. */
-export function ClearerCustodyDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** 2 · A clearer's custody, by bank into one of his own saved accounts (the treasury manager: or cash). */
+export function ClearerCustodyDrawer({ open, onClose, cash = false }: { open: boolean; onClose: () => void; cash?: boolean }) {
   const { data: accounts = [] } = useAccounts();
   const banks = accounts.filter((a) => a.type === 'BANK' && a.ownership === 'COMPANY' && a.isActive && a.currency === 'EGP');
+  const box = egpBox(accounts);
+  const [byBank, setByBank] = useState(!cash);
   const [search, setSearch] = useState('');
   const { data: shipments } = useShipmentSearch(search);
   const [shipmentId, setShipmentId] = useState<number | ''>('');
@@ -321,10 +359,11 @@ export function ClearerCustodyDrawer({ open, onClose }: { open: boolean; onClose
   const [notes, setNotes] = useState('');
   const [problems, setProblems] = useState<Record<string, string>>({});
   const account = banks.find((a) => a.id === accountId);
-  const noAccount = !!clearer && !loadingAccounts && clearerAccounts.length === 0;
+  const noAccount = byBank && !!clearer && !loadingAccounts && clearerAccounts.length === 0;
 
   useEffect(() => {
     if (!open) return;
+    setByBank(!cash);
     setShipmentId('');
     setBeneficiaryId('');
     setAccountId('');
@@ -343,11 +382,9 @@ export function ClearerCustodyDrawer({ open, onClose }: { open: boolean; onClose
       custodyApi.issue({
         shipmentId: Number(shipmentId),
         holderType: 'CLEARER',
-        bankAccountId: Number(accountId),
-        beneficiaryId: Number(beneficiaryId),
-        paymentMethod: method,
-        transferRef: reference.trim(),
-        bankCharges: Number(charges || 0),
+        ...(byBank
+          ? { bankAccountId: Number(accountId), beneficiaryId: Number(beneficiaryId), paymentMethod: method, transferRef: reference.trim(), bankCharges: Number(charges || 0) }
+          : {}),
         amount: Number(amount),
         issueDate: date,
         notes: notes.trim() || undefined,
@@ -360,9 +397,11 @@ export function ClearerCustodyDrawer({ open, onClose }: { open: boolean; onClose
     const p: Record<string, string> = {};
     if (!shipmentId) p.shipment = 'اختار الشحنة';
     else if (live) p.shipment = `الشحنة عليها عهدة مستخلص ${live.custodyNo}: زوّد مبلغها`;
-    if (noAccount) p.beneficiary = 'المستخلص ملوش حساب بنكي متسجل';
-    else if (!beneficiaryId) p.beneficiary = 'اختار حساب المستخلص';
-    bankProblems(p, account, reference, amount, charges);
+    if (byBank) {
+      if (noAccount) p.beneficiary = 'المستخلص ملوش حساب بنكي متسجل';
+      else if (!beneficiaryId) p.beneficiary = 'اختار حساب المستخلص';
+      bankProblems(p, account, reference, amount, charges);
+    } else cashProblems(p, box, amount);
     if (!date || date > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
     setProblems(p);
     if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(onClose, () => undefined);
@@ -386,7 +425,10 @@ export function ClearerCustodyDrawer({ open, onClose }: { open: boolean; onClose
           </div>
         )}
         <TextField label="المستخلص" value={clearer?.fullName ?? ''} readOnly disabled />
-        {noAccount ? (
+        {cash && <PaySegment byBank={byBank} onChange={setByBank} />}
+        {!byBank ? (
+          <CashFields box={box} amount={amount} setAmount={setAmount} date={date} setDate={setDate} notes={notes} setNotes={setNotes} problems={problems} />
+        ) : noAccount ? (
           <div className="flex gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" /> المستخلص ملوش حساب بنكي متسجل
           </div>
@@ -401,7 +443,7 @@ export function ClearerCustodyDrawer({ open, onClose }: { open: boolean; onClose
             onChange={(e) => setBeneficiaryId(e.target.value ? Number(e.target.value) : '')}
           />
         )}
-        {!noAccount && (
+        {byBank && !noAccount && (
           <>
             <BankFields
               banks={banks}
@@ -427,10 +469,12 @@ export function ClearerCustodyDrawer({ open, onClose }: { open: boolean; onClose
   );
 }
 
-/** 3 · A general expense: an item from the fixed list, paid from a bank. */
-export function AccountantExpenseDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** 3 · A general expense: an item from the fixed list, paid from a bank (the treasury manager: or cash). */
+export function AccountantExpenseDrawer({ open, onClose, cash = false }: { open: boolean; onClose: () => void; cash?: boolean }) {
   const { data: accounts = [] } = useAccounts();
   const banks = accounts.filter((a) => a.type === 'BANK' && a.ownership === 'COMPANY' && a.isActive && a.currency === 'EGP');
+  const box = egpBox(accounts);
+  const [byBank, setByBank] = useState(!cash);
   const { data: types = [] } = useExpenseTypes();
   const [typeId, setTypeId] = useState<number | ''>('');
   const [amount, setAmount] = useState('');
@@ -449,6 +493,7 @@ export function AccountantExpenseDrawer({ open, onClose }: { open: boolean; onCl
 
   useEffect(() => {
     if (!open) return;
+    setByBank(!cash);
     setTypeId('');
     setAmount('');
     setAccountId('');
@@ -466,10 +511,9 @@ export function AccountantExpenseDrawer({ open, onClose }: { open: boolean; onCl
       officeApi.createExpense({
         expenseType: type!.name,
         amount: Number(amount),
-        accountId: Number(accountId),
-        paymentMethod: method,
-        reference: reference.trim(),
-        bankCharges: Number(charges || 0),
+        ...(byBank
+          ? { accountId: Number(accountId), paymentMethod: method, reference: reference.trim(), bankCharges: Number(charges || 0) }
+          : { accountId: box!.id }),
         receiptNo: receiptNo.trim(),
         expenseDate: date,
         notes: notes.trim() || undefined,
@@ -481,7 +525,8 @@ export function AccountantExpenseDrawer({ open, onClose }: { open: boolean; onCl
     e.preventDefault();
     const p: Record<string, string> = {};
     if (!type) p.type = 'اختار البند';
-    bankProblems(p, account, reference, amount, charges);
+    if (byBank) bankProblems(p, account, reference, amount, charges);
+    else cashProblems(p, box, amount);
     if (!/^[A-Za-z0-9/-]{1,30}$/.test(receiptNo.trim())) p.receipt = 'رقم الإيصال (حروف وأرقام)';
     if (!date || date > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
     setProblems(p);
@@ -500,6 +545,10 @@ export function AccountantExpenseDrawer({ open, onClose }: { open: boolean; onCl
           error={problems.type}
         />
         <TextField label="المبلغ" dir="ltr" inputMode="decimal" value={amount} error={problems.amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />
+        {cash && <PaySegment byBank={byBank} onChange={setByBank} />}
+        {!byBank ? (
+          box && <div className="text-sm text-muted">من {box.name} · رصيد {money(box.balance, box.currency)}</div>
+        ) : (
         <BankFields
           banks={banks}
           accountId={accountId}
@@ -513,6 +562,7 @@ export function AccountantExpenseDrawer({ open, onClose }: { open: boolean; onCl
           problems={problems}
           accountLabel="اتدفع من"
         />
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label="رقم الإيصال" dir="ltr" value={receiptNo} error={problems.receipt} onChange={(e) => setReceiptNo(e.target.value)} />
           <TextField label="التاريخ" type="date" value={date} max={today()} error={problems.date} onChange={(e) => setDate(e.target.value)} />
@@ -650,6 +700,204 @@ export function InternalTransferDrawer({ open, onClose }: { open: boolean; onClo
             <TextField label="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </>
         )}
+      </form>
+    </Shell>
+  );
+}
+
+type Between = 'ASSETS' | 'SISTER_COMPANY' | 'OWNER';
+
+/**
+ * The treasury manager's internal transfer: between the company's own cash boxes and
+ * banks, or funding from / a payment to a sister company or an owner. Same currency
+ * on both sides.
+ */
+export function TreasuryTransferDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data: all = [] } = useAccounts();
+  const accounts = all.filter((a) => a.ownership === 'COMPANY' && a.isActive);
+  const { data: parties = [] } = usePartyOptions(open);
+  const [between, setBetween] = useState<Between>('ASSETS');
+  const [partyId, setPartyId] = useState<number | ''>('');
+  const [kind, setKind] = useState<'FUNDING' | 'PAYMENT'>('FUNDING');
+  const [accountId, setAccountId] = useState<number | ''>('');
+  const [toId, setToId] = useState<number | ''>('');
+  const [target, setTarget] = useState('');
+  const [method, setMethod] = useState<BankPaymentMethod>('TRANSFER');
+  const [reference, setReference] = useState('');
+  const [amount, setAmount] = useState('');
+  const [charges, setCharges] = useState('');
+  const [date, setDate] = useState(today());
+  const [notes, setNotes] = useState('');
+  const [problems, setProblems] = useState<Record<string, string>>({});
+  const account = accounts.find((a) => a.id === accountId);
+  const isBank = account?.type === 'BANK';
+  const paying = between === 'ASSETS' || kind === 'PAYMENT';
+  const { data: partyAccounts = [] } = useBeneficiaries({ partyId: partyId || undefined }, !!partyId && kind === 'PAYMENT');
+  // where a payment goes: the party's bank accounts, and an owner's personal accounts, in the paying account's currency
+  const targets = [
+    ...partyAccounts.filter((b) => b.currency === account?.currency).map((b) => ({ value: `B:${b.id}`, label: `${b.bankName} · ${b.accountNumber}` })),
+    ...(between === 'OWNER'
+      ? all
+          .filter((a) => a.ownership === 'PERSONAL' && a.isActive && a.ownerParty?.id === partyId && a.currency === account?.currency)
+          .map((a) => ({ value: `P:${a.id}`, label: `${a.name}${a.bankName ? ` · ${a.bankName}` : ''}` }))
+      : []),
+  ];
+  const toChoices = accounts.filter((a) => a.id !== accountId && a.currency === account?.currency);
+
+  useEffect(() => {
+    if (!open) return;
+    setBetween('ASSETS');
+    setPartyId('');
+    setKind('FUNDING');
+    setAccountId('');
+    setToId('');
+    setTarget('');
+    setMethod('TRANSFER');
+    setReference('');
+    setAmount('');
+    setCharges('');
+    setDate(today());
+    setNotes('');
+    setProblems({});
+  }, [open]);
+  useEffect(() => {
+    setPartyId('');
+    setTarget('');
+  }, [between]);
+  useEffect(() => setTarget(''), [partyId, kind, accountId]);
+  useEffect(() => setToId(''), [accountId]);
+
+  const bank = isBank ? { paymentMethod: method, reference: reference.trim(), bankCharges: paying ? Number(charges || 0) : 0 } : {};
+  const save = useAction(
+    async (): Promise<unknown> => {
+      if (between === 'ASSETS')
+        return financeApi.createTransfer({
+          fromAccountId: Number(accountId),
+          toAccountId: Number(toId),
+          amount: Number(amount),
+          ...(isBank ? { paymentMethod: method, chequeNo: reference.trim(), bankCharges: Number(charges || 0) } : {}),
+          transferDate: date,
+          notes: notes.trim() || undefined,
+        });
+      const [t, id] = target.split(':');
+      return partiesApi.createMovement({
+        partyId: Number(partyId),
+        kind,
+        accountId: Number(accountId),
+        amount: Number(amount),
+        ...bank,
+        ...(kind === 'PAYMENT' && t === 'B' ? { beneficiaryId: Number(id) } : {}),
+        ...(kind === 'PAYMENT' && t === 'P' ? { personalAccountId: Number(id) } : {}),
+        movementDate: date,
+        notes: notes.trim() || undefined,
+      });
+    },
+    { success: 'اتسجل التحويل', invalidate: [financeKeys.all] },
+  );
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const p: Record<string, string> = {};
+    if (between !== 'ASSETS' && !partyId) p.party = 'اختار الجهة';
+    if (!account) p.account = 'اختار الخزنة أو الحساب';
+    if (between === 'ASSETS' && !toId) p.to = 'اختار الحساب المستلم';
+    if (between !== 'ASSETS' && kind === 'PAYMENT' && isBank && !target) p.target = targets.length ? 'اختار الحساب' : 'مفيش حساب بنفس العملة';
+    if (isBank && !REF.test(reference.trim())) p.reference = 'الرقم المرجعي إجباري (حروف وأرقام)';
+    if (charges && !/^\d+(\.\d{1,2})?$/.test(charges)) p.charges = 'مبلغ غير صحيح';
+    if (!validAmount(amount)) p.amount = 'اكتب مبلغ صحيح';
+    else if (paying && account && Number(amount) + Number(charges || 0) > Number(account.balance)) p.amount = `رصيد ${account.name} ${money(account.balance)} بس`;
+    if (!date || date > today()) p.date = 'التاريخ مينفعش يبقى فاضي أو في المستقبل';
+    setProblems(p);
+    if (Object.keys(p).length === 0) save.mutateAsync(undefined).then(onClose, () => undefined);
+  };
+
+  const options = (list: MoneyAccount[]) => list.map((a) => ({ value: a.id, label: `${a.name} · ${money(a.balance, a.currency)}` }));
+  return (
+    <Shell open={open} onClose={onClose} title="تحويل داخلي" saving={save.isPending} submitLabel="تسجيل" formId="treasury-transfer-form">
+      <form id="treasury-transfer-form" noValidate onSubmit={submit} className="space-y-4">
+        <Field label="بين">
+          <Segment<Between>
+            value={between}
+            options={[
+              ['ASSETS', 'أصول الشركة'],
+              ['SISTER_COMPANY', 'شركة شقيقة'],
+              ['OWNER', 'مالك'],
+            ]}
+            onChange={setBetween}
+          />
+        </Field>
+        {between !== 'ASSETS' && (
+          <>
+            <SelectField
+              label={between === 'OWNER' ? 'المالك' : 'الشركة'}
+              placeholder="اختار"
+              options={parties.filter((p) => p.kind === between).map((p) => ({ value: p.id, label: p.name }))}
+              value={partyId}
+              error={problems.party}
+              onChange={(e) => setPartyId(e.target.value ? Number(e.target.value) : '')}
+            />
+            <Field label="النوع">
+              <Segment
+                value={kind}
+                options={[
+                  ['FUNDING', 'تغذية'],
+                  ['PAYMENT', 'صرف'],
+                ]}
+                onChange={setKind}
+              />
+            </Field>
+          </>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SelectField
+            label={between === 'ASSETS' ? 'من' : kind === 'FUNDING' ? 'دخلت على' : 'اتصرفت من'}
+            placeholder="اختار"
+            options={options(accounts)}
+            value={accountId}
+            error={problems.account}
+            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
+          />
+          {between === 'ASSETS' ? (
+            <SelectField
+              label="إلى"
+              placeholder={account ? 'اختار' : 'اختار "من" الأول'}
+              disabled={!account}
+              options={options(toChoices)}
+              value={toId}
+              error={problems.to}
+              onChange={(e) => setToId(e.target.value ? Number(e.target.value) : '')}
+            />
+          ) : (
+            kind === 'PAYMENT' &&
+            isBank && (
+              <SelectField
+                label="لحساب"
+                placeholder={partyId ? 'اختار' : 'اختار الجهة الأول'}
+                disabled={!partyId}
+                options={targets}
+                value={target}
+                error={problems.target}
+                onChange={(e) => setTarget(e.target.value)}
+              />
+            )
+          )}
+        </div>
+        {isBank && (
+          <>
+            <Field label="طريقة الدفع">
+              <Segment value={method} options={Object.entries(BANK_METHODS).map(([k, v]) => [k as BankPaymentMethod, v])} onChange={setMethod} />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <TextField label="الرقم المرجعي" dir="ltr" value={reference} error={problems.reference} onChange={(e) => setReference(e.target.value)} />
+              {paying && <TextField label="مصاريف بنكية" dir="ltr" inputMode="decimal" value={charges} error={problems.charges} onChange={(e) => setCharges(e.target.value.replace(/[^\d.]/g, ''))} />}
+            </div>
+          </>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextField label={`المبلغ${account ? ` (${CURRENCIES[account.currency].label})` : ''}`} dir="ltr" inputMode="decimal" value={amount} error={problems.amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))} />
+          <TextField label="التاريخ" type="date" value={date} max={today()} error={problems.date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <TextField label="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </form>
     </Shell>
   );

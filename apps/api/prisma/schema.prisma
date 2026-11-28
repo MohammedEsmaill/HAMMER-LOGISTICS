@@ -838,7 +838,8 @@ model MoneyAccount {
   feePayments        ClearerFeePayment[]
   collections        Collection[]
   journalDayAccounts JournalDayAccount[]
-  partyMovements     PartyMovement[]
+  partyMovements     PartyMovement[]          @relation("PartyMovementAccount")
+  partyPaidInto      PartyMovement[]          @relation("PartyPaidPersonal")
   custodyExtras      Custody[]                @relation("CustodyExtraAccount")
   ownerParty         InternalParty?           @relation(fields: [ownerPartyId], references: [id], onDelete: Restrict)
 
@@ -983,19 +984,22 @@ model OtherMovement {
 
 /// One month's salary of one employee, paid once (UNIQUE employee + month).
 model SalaryPayment {
-  id               Int      @id @default(autoincrement())
-  employeeId       Int      @map("employee_id")
-  salaryMonth      DateTime @map("salary_month") @db.Date // the 1st of the month
-  basic            Decimal  @db.Decimal(14, 2) // the employee's basic salary when paid
+  id               Int                @id @default(autoincrement())
+  employeeId       Int                @map("employee_id")
+  salaryMonth      DateTime           @map("salary_month") @db.Date // the 1st of the month
+  basic            Decimal            @db.Decimal(14, 2) // the employee's basic salary when paid
   /// [{ kind: BONUS | OVERTIME | PENALTY | ABSENCE, amount, reason }]
-  adjustments      Json     @default("[]")
-  additions        Decimal  @default(0) @db.Decimal(14, 2)
-  deductions       Decimal  @default(0) @db.Decimal(14, 2)
-  advanceDeduction Decimal  @default(0) @map("advance_deduction") @db.Decimal(14, 2)
-  net              Decimal  @db.Decimal(14, 2) // basic + additions − deductions − advance deduction
-  accountId        Int      @map("account_id")
-  currency         Currency @default(EGP)
-  paymentDate      DateTime @map("payment_date") @db.Date
+  adjustments      Json               @default("[]")
+  additions        Decimal            @default(0) @db.Decimal(14, 2)
+  deductions       Decimal            @default(0) @db.Decimal(14, 2)
+  advanceDeduction Decimal            @default(0) @map("advance_deduction") @db.Decimal(14, 2)
+  net              Decimal            @db.Decimal(14, 2) // basic + additions − deductions − advance deduction
+  accountId        Int                @map("account_id")
+  /// Paid from a bank: by transfer only, with its reference.
+  paymentMethod    BankPaymentMethod? @map("payment_method")
+  reference        String?
+  currency         Currency           @default(EGP)
+  paymentDate      DateTime           @map("payment_date") @db.Date
   notes            String?
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
@@ -1029,13 +1033,16 @@ model SalaryPayment {
 
 /// An advance paid to an employee; repaid only by deductions from salaries.
 model EmployeeAdvance {
-  id          Int      @id @default(autoincrement())
-  employeeId  Int      @map("employee_id")
-  amount      Decimal  @db.Decimal(14, 2)
-  advanceDate DateTime @map("advance_date") @db.Date
-  accountId   Int      @map("account_id")
-  currency    Currency @default(EGP)
-  notes       String?
+  id            Int                @id @default(autoincrement())
+  employeeId    Int                @map("employee_id")
+  amount        Decimal            @db.Decimal(14, 2)
+  advanceDate   DateTime           @map("advance_date") @db.Date
+  accountId     Int                @map("account_id")
+  /// Paid from a bank: by transfer only, with its reference.
+  paymentMethod BankPaymentMethod? @map("payment_method")
+  reference     String?
+  currency      Currency           @default(EGP)
+  notes         String?
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1352,6 +1359,8 @@ model Beneficiary {
   kind          BeneficiaryKind
   clearerId     Int?            @map("clearer_id") // kind CLEARER: whose account it is
   partyId       Int?            @map("party_id") // kind PARTY: the sister company or owner
+  /// kind PARTY: the account's currency
+  currency      Currency?
   bankName      String          @map("bank_name")
   accountNumber String          @map("account_number") // account number or IBAN
   isActive      Boolean         @default(true) @map("is_active")
@@ -1794,24 +1803,26 @@ model InternalParty {
 
 /// One movement between the office and a party; posts one ledger line on its account.
 model PartyMovement {
-  id            Int                @id @default(autoincrement())
-  partyId       Int                @map("party_id")
-  accountId     Int                @map("account_id")
-  currency      Currency
-  kind          PartyMovementKind
-  direction     MoneyDirection
-  amount        Decimal            @db.Decimal(14, 2)
-  movementDate  DateTime           @map("movement_date") @db.Date
+  id                Int                @id @default(autoincrement())
+  partyId           Int                @map("party_id")
+  accountId         Int                @map("account_id")
+  currency          Currency
+  kind              PartyMovementKind
+  direction         MoneyDirection
+  amount            Decimal            @db.Decimal(14, 2)
+  movementDate      DateTime           @map("movement_date") @db.Date
   /// SHARED_DEBT: who was paid.
-  payee         String?
+  payee             String?
   /// PAYMENT: the party's own bank account it was paid into
-  beneficiaryId Int?               @map("beneficiary_id")
-  reference     String?
-  notes         String?
+  beneficiaryId     Int?               @map("beneficiary_id")
+  /// PAYMENT to an owner: his personal account it went into (a channel, no balance of its own)
+  personalAccountId Int?               @map("personal_account_id")
+  reference         String?
+  notes             String?
   /// Paid from a bank: by transfer or cheque (null when paid in cash).
-  paymentMethod BankPaymentMethod? @map("payment_method")
+  paymentMethod     BankPaymentMethod? @map("payment_method")
   /// The bank's charges on this payment, taken from the same account with it.
-  bankCharges   Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
+  bankCharges       Decimal            @default(0) @map("bank_charges") @db.Decimal(14, 2)
 
   approvalStatus  ApprovalStatus @default(PENDING) @map("approval_status")
   reviewedById    Int?           @map("reviewed_by")
@@ -1828,15 +1839,16 @@ model PartyMovement {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  party       InternalParty   @relation(fields: [partyId], references: [id], onDelete: Restrict)
-  account     MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
-  beneficiary Beneficiary?    @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
-  movements   MoneyMovement[]
-  createdBy   User            @relation("PartyMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  reviewedBy  User?           @relation("PartyMovementReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
-  managerBy   User?           @relation("PartyMovementManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
-  approvedBy  User?           @relation("PartyMovementApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
-  rejectedBy  User?           @relation("PartyMovementRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+  party           InternalParty   @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  account         MoneyAccount    @relation("PartyMovementAccount", fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  beneficiary     Beneficiary?    @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  personalAccount MoneyAccount?   @relation("PartyPaidPersonal", fields: [personalAccountId, currency], references: [id, currency], onDelete: Restrict)
+  movements       MoneyMovement[]
+  createdBy       User            @relation("PartyMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy      User?           @relation("PartyMovementReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy       User?           @relation("PartyMovementManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy      User?           @relation("PartyMovementApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy      User?           @relation("PartyMovementRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
 
   @@index([partyId, movementDate])
   @@index([approvalStatus])

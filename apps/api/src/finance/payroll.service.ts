@@ -22,6 +22,7 @@ import {
 import { LedgerService } from './ledger.service';
 import { decimal, formatAmount, todayCairo } from './money';
 import { egpPayingAccount } from './paying-account';
+import { transferPayment } from './bank-payment';
 import { assertDayEditable, openDate } from './days';
 import { DOCUMENT_INCLUDE } from './transfers.service';
 
@@ -152,6 +153,7 @@ export class PayrollService {
           adjustments: adjustments as unknown as Prisma.InputJsonValue,
           ...figures,
           accountId: account.id,
+          ...transferPayment(account, dto),
           paymentDate: await openDate(tx, dto.paymentDate, 'تاريخ الصرف'),
           notes: dto.notes,
           createdById: actor.id,
@@ -209,7 +211,11 @@ export class PayrollService {
         balance,
       );
       const accountId = dto.accountId ?? before.accountId;
-      if (dto.accountId !== undefined) await egpPayingAccount(tx, accountId);
+      const account = await egpPayingAccount(tx, accountId);
+      const bank = transferPayment(account, {
+        paymentMethod: dto.paymentMethod !== undefined ? dto.paymentMethod : account.type === 'CASH' ? null : before.paymentMethod,
+        reference: dto.reference !== undefined ? dto.reference : account.type === 'CASH' ? null : before.reference,
+      });
       const paymentDate =
         dto.paymentDate !== undefined
           ? await openDate(tx, dto.paymentDate, 'تاريخ الصرف', actor)
@@ -227,6 +233,7 @@ export class PayrollService {
           adjustments: adjustments as unknown as Prisma.InputJsonValue,
           ...figures,
           accountId,
+          ...bank,
           paymentDate,
           notes: dto.notes === undefined ? undefined : dto.notes,
           ...(resetApproval ? APPROVAL_RESET : {}),
@@ -366,6 +373,7 @@ export class PayrollService {
           employeeId: employee.id,
           amount: decimal(dto.amount),
           accountId: account.id,
+          ...transferPayment(account, dto),
           advanceDate: await openDate(tx, dto.advanceDate, 'تاريخ السلفة'),
           notes: dto.notes,
           createdById: actor.id,
@@ -417,7 +425,11 @@ export class PayrollService {
         );
       }
       const accountId = dto.accountId ?? before.accountId;
-      if (dto.accountId !== undefined) await egpPayingAccount(tx, accountId);
+      const account = await egpPayingAccount(tx, accountId);
+      const bank = transferPayment(account, {
+        paymentMethod: dto.paymentMethod !== undefined ? dto.paymentMethod : account.type === 'CASH' ? null : before.paymentMethod,
+        reference: dto.reference !== undefined ? dto.reference : account.type === 'CASH' ? null : before.reference,
+      });
       const advanceDate =
         dto.advanceDate !== undefined
           ? await openDate(tx, dto.advanceDate, 'تاريخ السلفة', actor)
@@ -433,6 +445,7 @@ export class PayrollService {
         data: {
           amount,
           accountId,
+          ...bank,
           advanceDate,
           notes: dto.notes === undefined ? undefined : dto.notes,
           ...(resetApproval ? APPROVAL_RESET : {}),

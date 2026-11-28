@@ -1,4 +1,4 @@
-import { ApprovalStatus } from '@prisma/client';
+import { ApprovalStatus, BankPaymentMethod } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -69,6 +69,17 @@ export class CreateSalaryDto {
   @Min(1)
   accountId!: number;
 
+  /** From a bank: by transfer only, with its reference. */
+  @IsOptional()
+  @IsEnum(BankPaymentMethod)
+  paymentMethod?: BankPaymentMethod;
+
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(50)
+  reference?: string;
+
   @IsOptional()
   @Type(() => Date)
   @IsDate()
@@ -101,6 +112,17 @@ export class UpdateSalaryDto {
   @IsInt()
   @Min(1)
   accountId?: number;
+
+  /** From a bank: by transfer only, with its reference. */
+  @IsOptional()
+  @IsEnum(BankPaymentMethod)
+  paymentMethod?: BankPaymentMethod;
+
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(50)
+  reference?: string;
 
   @IsOptional()
   @Type(() => Date)
@@ -152,6 +174,17 @@ export class CreateAdvanceDto {
   @Min(1)
   accountId!: number;
 
+  /** From a bank: by transfer only, with its reference. */
+  @IsOptional()
+  @IsEnum(BankPaymentMethod)
+  paymentMethod?: BankPaymentMethod;
+
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(50)
+  reference?: string;
+
   @IsOptional()
   @Type(() => Date)
   @IsDate()
@@ -177,6 +210,17 @@ export class UpdateAdvanceDto {
   @IsInt()
   @Min(1)
   accountId?: number;
+
+  /** From a bank: by transfer only, with its reference. */
+  @IsOptional()
+  @IsEnum(BankPaymentMethod)
+  paymentMethod?: BankPaymentMethod;
+
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MaxLength(50)
+  reference?: string;
 
   @IsOptional()
   @Type(() => Date)

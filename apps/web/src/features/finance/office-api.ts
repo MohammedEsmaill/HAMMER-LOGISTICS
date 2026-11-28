@@ -42,6 +42,8 @@ export interface Salary extends Approval {
   advanceDeduction: string;
   net: string;
   account: AccountRef;
+  paymentMethod: 'TRANSFER' | null;
+  reference: string | null;
   paymentDate: string;
   notes: string | null;
 }
@@ -52,6 +54,8 @@ export interface Advance extends Approval {
   amount: string;
   advanceDate: string;
   account: AccountRef;
+  paymentMethod: 'TRANSFER' | null;
+  reference: string | null;
   notes: string | null;
 }
 
@@ -185,6 +189,9 @@ export interface SalaryInput {
   adjustments: { kind: AdjustmentKind; amount: number; reason: string }[];
   advanceDeduction: number;
   accountId: number;
+  /** from a bank: by transfer, with its reference */
+  paymentMethod?: 'TRANSFER' | null;
+  reference?: string | null;
   paymentDate?: string;
   notes?: string | null;
 }
@@ -193,9 +200,9 @@ export const officeApi = {
   createSalary: (input: SalaryInput) => api.post<Salary>('/finance/salaries', input),
   updateSalary: (id: number, input: Partial<Omit<SalaryInput, 'employeeId' | 'salaryMonth'>> & { version: number }) =>
     api.patch<Salary>(`/finance/salaries/${id}`, input),
-  createAdvance: (input: { employeeId: number; amount: number; accountId: number; advanceDate?: string; notes?: string }) =>
+  createAdvance: (input: { employeeId: number; amount: number; accountId: number; paymentMethod?: 'TRANSFER' | null; reference?: string | null; advanceDate?: string; notes?: string }) =>
     api.post<Advance>('/finance/advances', input),
-  updateAdvance: (id: number, input: { version: number; amount?: number; accountId?: number; advanceDate?: string; notes?: string | null }) =>
+  updateAdvance: (id: number, input: { version: number; amount?: number; accountId?: number; paymentMethod?: 'TRANSFER' | null; reference?: string | null; advanceDate?: string; notes?: string | null }) =>
     api.patch<Advance>(`/finance/advances/${id}`, input),
   createExpense: (input: {
     expenseType: string;

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, Building2, FileBarChart, HandCoins, HardHat, Plus, Receipt, RotateCcw, Ship, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, Building2, FileBarChart, DollarSign, HandCoins, HardHat, Plus, UserRound, Receipt, RotateCcw, Ship, Wallet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
@@ -15,7 +15,7 @@ import { SelectField } from '@/components/ui/SelectField';
 import { formatDate } from '@/lib/format';
 import { CURRENCIES, money, STATUS, today, useAccounts, type ApprovalStatus, type Currency } from './api';
 import { IssueCustodyDrawer } from './CustodyDrawers';
-import { AccountantExpenseDrawer, ClearerCustodyDrawer, InternalTransferDrawer, ShippingLineDrawer, type AccountantForm } from './AccountantForms';
+import { AccountantExpenseDrawer, ClearerCustodyDrawer, InternalTransferDrawer, ShippingLineDrawer, TreasuryTransferDrawer, type AccountantForm } from './AccountantForms';
 import { DocumentDrawers, type OpenDocument } from './DocumentDrawers';
 import { ExpenseDrawer } from './ExpensesPage';
 import { PartyMovementDrawer } from './PartyDrawers';
@@ -35,7 +35,7 @@ import { FormTabs } from '../shipments/FormTabs';
 import { OtherDrawer, TransferDrawer } from './MovementDrawers';
 import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
 
-type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANCE' | 'PARTY' | AccountantForm;
+type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANCE' | 'PARTY' | 'AGENT' | 'WAY_OUT' | 'T_INTERNAL' | AccountantForm;
 
 /** What can be recorded from the journal, each by who may record it (the accountant: from a bank). */
 /** The accountant (bank only): four forms of his own. */
@@ -44,6 +44,18 @@ const ACCOUNTANT_KINDS: { kind: NewKind; label: string; icon: LucideIcon; any: P
   { kind: 'CLEARER', label: 'عهدة مستخلص', icon: HardHat, any: ['finance.bank.record'] },
   { kind: 'EXPENSE' as NewKind, label: 'مصروف عمومي', icon: Receipt, any: ['finance.bank.record'] },
   { kind: 'INTERNAL', label: 'تحويل داخلي', icon: Building2, any: ['finance.parties.record'] },
+];
+
+/** The treasury manager: his own forms, cash or bank. */
+const TREASURY_KINDS: { kind: NewKind; label: string; icon: LucideIcon; any: Permission[] }[] = [
+  { kind: 'SHIP', label: 'تحويل لخط ملاحي', icon: Ship, any: ['finance.custody.manage'] },
+  { kind: 'CLEARER', label: 'عهدة مستخلص', icon: HardHat, any: ['finance.custody.manage'] },
+  { kind: 'AGENT', label: 'عهدة مندوب', icon: UserRound, any: ['finance.custody.manage'] },
+  { kind: 'WAY_OUT', label: 'إيداع دولاري', icon: DollarSign, any: ['finance.custody.manage'] },
+  { kind: 'EXPENSE', label: 'مصروف عمومي', icon: Receipt, any: ['finance.expenses.manage'] },
+  { kind: 'T_INTERNAL', label: 'تحويل داخلي', icon: Building2, any: ['finance.movements.create'] },
+  { kind: 'SALARY', label: 'مرتب', icon: Wallet, any: ['finance.payroll.manage'] },
+  { kind: 'ADVANCE', label: 'سلفة', icon: HandCoins, any: ['finance.payroll.manage'] },
 ];
 
 const NEW_KINDS: { kind: NewKind; label: string; icon: LucideIcon; any: Permission[] }[] = [
@@ -157,7 +169,10 @@ export default function JournalPage() {
     setList({ ...patch, ...(patch.types ? { types: patch.types.join(',') } : {}) } as Partial<typeof list>);
   // the accountant records by bank only, and has his own four forms
   const accountant = can('finance.bank.record') && !can('finance.movements.create') && !can('finance.custody.manage') && !can('finance.expenses.manage');
-  const newKinds = (accountant ? ACCOUNTANT_KINDS : NEW_KINDS).filter((k) => k.any.some((p) => can(p)));
+  // the treasury manager (not the CEO): his own forms
+  const treasury = can('finance.custody.manage') && !can('roles.manage');
+  const own = accountant || treasury;
+  const newKinds = (accountant ? ACCOUNTANT_KINDS : treasury ? TREASURY_KINDS : NEW_KINDS).filter((k) => k.any.some((p) => can(p)));
   const typeOptions = (Object.keys(JOURNAL_TYPES) as JournalType[])
     .filter((t) => salaryData || !JOURNAL_TYPES[t].restricted)
     .map((t) => ({ value: t, label: JOURNAL_TYPES[t].label }));
@@ -323,10 +338,13 @@ export default function JournalPage() {
 
       <TransferDrawer transfer={null} open={creating === 'TRANSFER'} onClose={() => setCreating(null)} />
       <OtherDrawer movement={null} open={creating === 'OTHER'} onClose={() => setCreating(null)} />
-      <ExpenseDrawer expense={null} open={!accountant && creating === 'EXPENSE'} onClose={() => setCreating(null)} />
+      <ExpenseDrawer expense={null} open={!own && creating === 'EXPENSE'} onClose={() => setCreating(null)} />
       <ShippingLineDrawer open={creating === 'SHIP'} onClose={() => setCreating(null)} />
-      <ClearerCustodyDrawer open={creating === 'CLEARER'} onClose={() => setCreating(null)} />
-      <AccountantExpenseDrawer open={accountant && creating === 'EXPENSE'} onClose={() => setCreating(null)} />
+      <ClearerCustodyDrawer open={creating === 'CLEARER'} onClose={() => setCreating(null)} cash={treasury} />
+      <AccountantExpenseDrawer open={own && creating === 'EXPENSE'} onClose={() => setCreating(null)} cash={treasury} />
+      <IssueCustodyDrawer open={creating === 'AGENT'} onClose={() => setCreating(null)} holder="AGENT" title="عهدة مندوب" />
+      <IssueCustodyDrawer open={creating === 'WAY_OUT'} onClose={() => setCreating(null)} holder="WAY_OUT" title="إيداع دولاري" />
+      <TreasuryTransferDrawer open={creating === 'T_INTERNAL'} onClose={() => setCreating(null)} />
       <InternalTransferDrawer open={creating === 'INTERNAL'} onClose={() => setCreating(null)} />
       <IssueCustodyDrawer open={creating === 'CUSTODY'} onClose={() => setCreating(null)} />
       <SalaryDrawer salary={null} open={creating === 'SALARY'} onClose={() => setCreating(null)} />

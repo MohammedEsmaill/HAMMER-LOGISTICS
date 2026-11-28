@@ -1,4 +1,4 @@
-import { BeneficiaryKind } from '@prisma/client';
+import { BeneficiaryKind, Currency } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -40,6 +40,11 @@ export class CreateBeneficiaryDto {
   @IsInt()
   @Min(1)
   partyId?: number;
+
+  /** kind PARTY: the account's currency. */
+  @IsOptional()
+  @IsEnum(Currency)
+  currency?: Currency;
 
   @Trim()
   @IsString()

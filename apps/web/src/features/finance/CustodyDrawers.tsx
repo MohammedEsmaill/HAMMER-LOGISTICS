@@ -37,7 +37,20 @@ const cents = (v: number | string) => Math.round(Number(v || 0) * 100);
 const validAmount = (v: number | string) => v !== '' && Number(v) > 0 && Math.abs(Number(v) * 100 - Math.round(Number(v) * 100)) < 1e-6;
 
 /** A new custody on a shipment. */
-export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean; onClose: () => void; onIssued?: (c: Custody) => void }) {
+export function IssueCustodyDrawer({
+  open,
+  onClose,
+  onIssued,
+  holder,
+  title = 'صرف عهدة',
+}: {
+  open: boolean;
+  onClose: () => void;
+  onIssued?: (c: Custody) => void;
+  /** one holder only (the treasury journal's own forms): no holder choice */
+  holder?: HolderType;
+  title?: string;
+}) {
   const [search, setSearch] = useState('');
   const { data: shipments } = useShipmentSearch(search);
   const { data: agents = [] } = useEmployeeOptions('AGENTS', open);
@@ -48,7 +61,8 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
   const cash = can('finance.custody.manage');
   const holders = (Object.keys(HOLDERS) as HolderType[]).filter((h) => cash || h === 'BANK_TRANSFER' || h === 'CLEARER');
   const [shipmentId, setShipmentId] = useState<number | ''>('');
-  const [holderType, setHolderType] = useState<HolderType>(cash ? 'AGENT' : 'BANK_TRANSFER');
+  const initialHolder: HolderType = holder ?? (cash ? 'AGENT' : 'BANK_TRANSFER');
+  const [holderType, setHolderType] = useState<HolderType>(initialHolder);
   const [clearerByBank, setClearerByBank] = useState(!cash);
   const [pay, setPay] = useState<BankPaymentValue>(EMPTY_BANK_PAYMENT);
   const [agentId, setAgentId] = useState<number | ''>('');
@@ -94,7 +108,7 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
     setProblems({});
     setSearch('');
     setShipmentId('');
-    setHolderType(cash ? 'AGENT' : 'BANK_TRANSFER');
+    setHolderType(initialHolder);
     setClearerByBank(!cash);
     setPay(EMPTY_BANK_PAYMENT);
     setAgentId('');
@@ -135,7 +149,7 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
       open={open}
       onClose={onClose}
       width="max-w-xl"
-      title="صرف عهدة"
+      title={title}
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -164,7 +178,7 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
             العهدة دي.
           </div>
         )}
-        <div>
+        {!holder && (<div>
           <div className="mb-1.5 text-sm font-medium text-muted">المستلم</div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup">
             {holders.map((h) => (
@@ -182,7 +196,7 @@ export function IssueCustodyDrawer({ open, onClose, onIssued }: { open: boolean;
               </button>
             ))}
           </div>
-        </div>
+        </div>)}
         {holderType === 'AGENT' && (
           <ComboField
             label="المندوب"

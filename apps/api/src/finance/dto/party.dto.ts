@@ -87,6 +87,12 @@ export class CreatePartyMovementDto extends BankPaymentDto {
   @Min(1)
   beneficiaryId?: number;
 
+  /** PAYMENT to an owner: his personal account it goes to */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  personalAccountId?: number;
+
   @IsOptional()
   @Trim()
   @IsString()

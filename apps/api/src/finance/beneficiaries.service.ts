@@ -25,6 +25,7 @@ const SELECT = {
   party: { select: { id: true, name: true, kind: true } },
   bankName: true,
   accountNumber: true,
+  currency: true,
   isActive: true,
   notes: true,
 } as const;
@@ -66,11 +67,13 @@ export class BeneficiariesService {
       assertMayKeep(actor, dto.kind);
       await this.checkClearer(tx, dto.kind, dto.clearerId);
       await this.checkParty(tx, dto.kind, dto.partyId);
+      if (dto.kind === 'PARTY' && !dto.currency) throw new BadRequestException('اختار عملة الحساب');
       const created = await tx.beneficiary.create({
         data: {
           ...dto,
           clearerId: dto.kind === 'CLEARER' ? dto.clearerId : null,
           partyId: dto.kind === 'PARTY' ? dto.partyId : null,
+          currency: dto.kind === 'PARTY' ? dto.currency : null,
           accountNumber: normalise(dto.accountNumber),
           createdById: actor.id,
         },

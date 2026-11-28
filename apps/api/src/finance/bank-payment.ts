@@ -122,3 +122,24 @@ export function assertMayRecordOn(
       : 'ليس لديك صلاحية تسجيل الحركة دي',
   );
 }
+
+/**
+ * A salary or an advance: from the cash box, or from a bank by transfer only (no
+ * cheques, no charges), with the transfer's reference.
+ */
+export function transferPayment(
+  account: Pick<MoneyAccount, 'type'>,
+  input: { paymentMethod?: BankPaymentMethod | null; reference?: string | null },
+): { paymentMethod: BankPaymentMethod | null; reference: string | null } {
+  if (account.type === 'CASH') {
+    if (input.paymentMethod || input.reference) {
+      throw new BadRequestException('طريقة الدفع والرقم المرجعي للصرف من البنك بس');
+    }
+    return { paymentMethod: null, reference: null };
+  }
+  if (input.paymentMethod && input.paymentMethod !== 'TRANSFER') {
+    throw new BadRequestException('الصرف من البنك هنا بالتحويل بس');
+  }
+  if (!input.reference) throw new BadRequestException('اكتب الرقم المرجعي للتحويل');
+  return { paymentMethod: 'TRANSFER', reference: input.reference };
+}
