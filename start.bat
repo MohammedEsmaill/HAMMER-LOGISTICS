@@ -57,9 +57,46 @@ if not exist "apps\web\dist\index.html" (
 echo [2/4] API on http://localhost:3000 ...
 start "HAMMER - API" %MIN% /d "%~dp0apps\api" cmd /k node dist/main.js
 
+rem the fixed link: public-url.txt holds its address (e.g. app.hammerline.com), and
+rem cloudflare-token.txt the tunnel's token (secret: never shared, never committed)
+set "PUBLIC_HOST="
+if exist "%~dp0public-url.txt" set /p PUBLIC_HOST=<"%~dp0public-url.txt"
+if defined PUBLIC_HOST set "PUBLIC_HOST=%PUBLIC_HOST:https://=%"
+if defined PUBLIC_HOST set "PUBLIC_HOST=%PUBLIC_HOST:/=%"
+if defined PUBLIC_HOST set "PUBLIC_HOST=%PUBLIC_HOST: =%"
+
 echo [3/4] Web app on http://localhost:4173 ...
 start "HAMMER - WEB" %MIN% /d "%~dp0apps\web" cmd /k npx vite preview
 
+if exist "%~dp0cloudflare-token.txt" goto fixedlink
+
+goto notfixed
+
+:fixedlink
+set "CF="
+if exist "%~dp0cloudflared.exe" set "CF=%~dp0cloudflared.exe"
+if not defined CF if exist "%~dp0..\cloudflared.exe" set "CF=%~dp0..\cloudflared.exe"
+if not defined CF for /f "delims=" %%i in ('where cloudflared 2^>nul') do if not defined CF set "CF=%%i"
+if not defined CF goto nocf
+set "TUNNEL_TOKEN="
+set /p TUNNEL_TOKEN=<"%~dp0cloudflare-token.txt"
+set "TUNNEL_TOKEN=%TUNNEL_TOKEN: =%"
+echo [4/4] Fixed link...
+rem the token goes in the environment, not on the command line; http2 over TCP: QUIC (UDP) drops on many networks
+start "HAMMER - LINK" /min "%CF%" tunnel --no-autoupdate --protocol http2 run
+set "TUNNEL_TOKEN="
+echo.
+echo ================================================================
+if defined PUBLIC_HOST (
+  echo   The fixed link: https://%PUBLIC_HOST%
+) else (
+  echo   The fixed link is up. Write its address in public-url.txt to see it here.
+)
+echo   It works while this computer and the HAMMER windows stay on.
+echo ================================================================
+goto opened
+
+:notfixed
 rem The web app on Vercel reaches this computer's API through a fixed ngrok link,
 rem when ngrok-domain.txt (next to start.bat) holds the domain, e.g. hammer.ngrok-free.app
 if not exist "%~dp0ngrok-domain.txt" goto cloudflare

@@ -6,3 +6,6 @@ coverage/
 cloudflared.exe
 ngrok-domain.txt
 ngrok.exe
+# the fixed link: the tunnel token is secret
+cloudflare-token.txt
+public-url.txt
