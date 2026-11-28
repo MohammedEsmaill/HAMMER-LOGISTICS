@@ -65,6 +65,10 @@ export function bankPayment(
       'اختار طريقة الدفع من البنك: تحويل بنكي ولا شيك',
     );
   }
+  // a transfer carries the bank's charges; a cheque none
+  if (input.paymentMethod === 'CHEQUE' && charges.greaterThan(0)) {
+    throw new BadRequestException('الشيك مالوش مصاريف بنكية، المصاريف على التحويل بس');
+  }
   if (!input.reference) {
     throw new BadRequestException(
       input.paymentMethod === 'CHEQUE'

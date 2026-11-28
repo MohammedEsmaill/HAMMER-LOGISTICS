@@ -206,14 +206,26 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
         .expect(400);
     });
 
-    it('the treasury manager may pay from the bank too', async () => {
-      await ctx
+    it('the treasury manager may pay from the bank too: a transfer with charges, a cheque without', async () => {
+      const cheque = await ctx
         .api(treasury)
         .post('/api/finance/transfers', {
           fromAccountId: bankEgp,
           toAccountId: cashEgp,
           amount: 1000,
           paymentMethod: 'CHEQUE',
+          chequeNo: '7781',
+          bankCharges: 3,
+        })
+        .expect(400);
+      expect(cheque.body.message).toContain('الشيك مالوش مصاريف');
+      await ctx
+        .api(treasury)
+        .post('/api/finance/transfers', {
+          fromAccountId: bankEgp,
+          toAccountId: cashEgp,
+          amount: 1000,
+          paymentMethod: 'TRANSFER',
           chequeNo: '7781',
           bankCharges: 3,
         })

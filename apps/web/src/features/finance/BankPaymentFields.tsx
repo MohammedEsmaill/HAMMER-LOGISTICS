@@ -31,7 +31,8 @@ export function bankPaymentProblems(v: BankPaymentValue): Partial<Record<keyof B
 /** The body fields of a bank payment, for the API. */
 export const bankPaymentBody = (v: BankPaymentValue) => ({
   paymentMethod: v.paymentMethod || undefined,
-  bankCharges: v.bankCharges ? Number(v.bankCharges) : 0,
+  // a cheque has no bank charges
+  bankCharges: v.bankCharges && v.paymentMethod !== 'CHEQUE' ? Number(v.bankCharges) : 0,
 });
 
 /**
@@ -58,7 +59,9 @@ export function BankPaymentFields({
           label="طريقة الدفع"
           options={Object.entries(BANK_METHODS).map(([v, l]) => ({ value: v, label: l }))}
           value={value.paymentMethod}
-          onChange={set('paymentMethod')}
+          onChange={(e) =>
+            onChange({ ...value, paymentMethod: e.target.value as BankPaymentMethod | '', ...(e.target.value === 'CHEQUE' ? { bankCharges: '' } : {}) })
+          }
           error={errors.paymentMethod}
         />
         <TextField
@@ -70,6 +73,7 @@ export function BankPaymentFields({
           error={errors.reference}
         />
       </div>
+      {value.paymentMethod !== 'CHEQUE' && (
       <TextField
         label={`مصاريف البنك (${currency}، اختياري)`}
         type="number"
@@ -80,6 +84,7 @@ export function BankPaymentFields({
         onChange={set('bankCharges')}
         error={errors.bankCharges}
       />
+      )}
       {value.paymentMethod === 'CHEQUE' && <p className="text-xs text-muted">الشيك بيتسجّل بتاريخ صرفه من البنك.</p>}
     </div>
   );

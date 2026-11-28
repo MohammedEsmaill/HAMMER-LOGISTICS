@@ -116,12 +116,20 @@ function BankFields({
           onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : '')}
         />
         <Field label="طريقة الدفع">
-          <Segment value={method} options={Object.entries(BANK_METHODS).map(([k, v]) => [k as BankPaymentMethod, v])} onChange={setMethod} />
+          <Segment
+            value={method}
+            options={Object.entries(BANK_METHODS).map(([k, v]) => [k as BankPaymentMethod, v])}
+            onChange={(m) => {
+              setMethod(m);
+              // a cheque has no bank charges
+              if (m === 'CHEQUE') setCharges?.('');
+            }}
+          />
         </Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField label="الرقم المرجعي" dir="ltr" value={reference} error={problems.reference} onChange={(e) => setReference(e.target.value)} />
-        {withCharges && setCharges && (
+        {withCharges && setCharges && method !== 'CHEQUE' && (
           <TextField label="مصاريف بنكية" dir="ltr" inputMode="decimal" value={charges} error={problems.charges} onChange={(e) => setCharges(e.target.value.replace(/[^\d.]/g, ''))} />
         )}
       </div>
@@ -885,11 +893,18 @@ export function TreasuryTransferDrawer({ open, onClose }: { open: boolean; onClo
         {isBank && (
           <>
             <Field label="طريقة الدفع">
-              <Segment value={method} options={Object.entries(BANK_METHODS).map(([k, v]) => [k as BankPaymentMethod, v])} onChange={setMethod} />
+              <Segment
+                value={method}
+                options={Object.entries(BANK_METHODS).map(([k, v]) => [k as BankPaymentMethod, v])}
+                onChange={(m) => {
+                  setMethod(m);
+                  if (m === 'CHEQUE') setCharges('');
+                }}
+              />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <TextField label="الرقم المرجعي" dir="ltr" value={reference} error={problems.reference} onChange={(e) => setReference(e.target.value)} />
-              {paying && <TextField label="مصاريف بنكية" dir="ltr" inputMode="decimal" value={charges} error={problems.charges} onChange={(e) => setCharges(e.target.value.replace(/[^\d.]/g, ''))} />}
+              {paying && method !== 'CHEQUE' && <TextField label="مصاريف بنكية" dir="ltr" inputMode="decimal" value={charges} error={problems.charges} onChange={(e) => setCharges(e.target.value.replace(/[^\d.]/g, ''))} />}
             </div>
           </>
         )}
