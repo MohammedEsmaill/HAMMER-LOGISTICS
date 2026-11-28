@@ -5,8 +5,13 @@ setlocal
 cd /d "%~dp0.."
 set /p CODE=Employee code (example 22): 
 set /p MONTH=Salary month as YYYY-MM (example 2026-11): 
+rem spaces typed around the values would match nothing
+set "CODE=%CODE: =%"
+set "MONTH=%MONTH: =%"
 if "%CODE%"=="" goto usage
 if "%MONTH%"=="" goto usage
+echo %MONTH%| findstr /r /x "[0-9][0-9][0-9][0-9]-[0-9][0-9]" >nul || goto usage
+echo Deleting the salary of employee %CODE% for %MONTH%...
 
 docker compose up -d db >nul || goto failed
 for /f %%t in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd_HH-mm-ss"') do set "STAMP=%%t"
@@ -27,7 +32,7 @@ pause
 exit /b 0
 
 :usage
-echo Enter the employee code and the month.
+echo Enter the employee code (example 22) and the month as YYYY-MM (example 2026-11).
 pause
 exit /b 1
 
