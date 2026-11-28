@@ -46,7 +46,7 @@ set "PLAIN=0"
 docker compose cp "apps\api\backups\%~1" db:/tmp/hammer_restore.dump >nul 2>&1 || exit /b 0
 docker compose exec -T db psql -U hammer -d postgres -q -c "DROP DATABASE IF EXISTS hammer_restore" -c "CREATE DATABASE hammer_restore" >nul 2>&1 || exit /b 0
 docker compose exec -T db pg_restore -U hammer -d hammer_restore --no-owner --no-privileges /tmp/hammer_restore.dump >nul 2>&1
-for /f "usebackq" %%n in (`docker compose exec -T db psql -U hammer -d hammer_restore -tAc "SELECT count(*) FROM employees WHERE left(national_id, 4) <> 'enc:'"`) do set "PLAIN=%%n"
+for /f "usebackq" %%n in (`docker compose exec -T db psql -U hammer -d hammer_restore -tAc "SELECT CASE WHEN bool_and(left(national_id, 4) <> 'enc:') THEN count(*) ELSE 0 END FROM employees"`) do set "PLAIN=%%n"
 echo   %~1: %PLAIN% in plain text
 if not "%PLAIN%"=="0" if not "%PLAIN%"=="" set "SRC=%~1"
 exit /b 0
