@@ -8,7 +8,6 @@ import {
   BookOpenText,
   Briefcase,
   HandCoins,
-  Receipt,
   Landmark,
   Building2,
   Container,
@@ -104,13 +103,6 @@ export const NAV: NavItem[] = [
     icon: HandCoins,
     group: 'finance',
     any: ['finance.payroll.manage', 'finance.approve'],
-  },
-  {
-    to: '/expenses',
-    label: 'المصاريف العمومية',
-    icon: Receipt,
-    group: 'finance',
-    any: ['finance.expenses.manage', 'finance.expenses.report', 'finance.bank.record'],
   },
   {
     to: '/custodies',
