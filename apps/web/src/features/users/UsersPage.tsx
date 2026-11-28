@@ -208,8 +208,9 @@ function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => v
   const { data: roles = [] } = useRoleOptions();
   const { register, handleSubmit, control, formState } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
+    defaultValues: { extraRoleIds: [] },
     values: user
-      ? { email: user.email, roleId: user.role.id, extraRoleIds: user.extraRoles.map((r) => r.role.id) }
+      ? { email: user.email, roleId: user.role.id, extraRoleIds: (user.extraRoles ?? []).map((r) => r.role.id) }
       : undefined,
   });
   const mainRoleId = useWatch({ control, name: 'roleId' });
@@ -265,7 +266,7 @@ function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => v
               <ExtraRoles
                 roles={roles}
                 mainRoleId={mainRoleId}
-                value={field.value.filter((id) => id !== Number(mainRoleId))}
+                value={(field.value ?? []).filter((id) => id !== Number(mainRoleId))}
                 onChange={field.onChange}
                 isCeo={isCeo}
               />
