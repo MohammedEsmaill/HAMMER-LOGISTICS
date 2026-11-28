@@ -17,7 +17,7 @@ export async function assertContactFree(
   ];
   for (const [field, hashField, label] of checks) {
     const value = input[field];
-    if (value === undefined) continue;
+    if (value === undefined || !value.replace(/\D/g, '')) continue;
     const hash = blindIndex(value);
     const employee = await tx.employee.findFirst({
       where: { [hashField]: hash, deletedAt: null, ...(self.employeeId ? { id: { not: self.employeeId } } : {}) },

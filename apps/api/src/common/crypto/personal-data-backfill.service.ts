@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { blindIndex, encrypt, isEncrypted } from './personal-data';
+import { encrypt, hashOf, isEncrypted } from './personal-data';
 
 /**
  * At start: the employees and clearers still kept in plain text (from before) get their
@@ -41,9 +41,9 @@ export class PersonalDataBackfill implements OnApplicationBootstrap {
     try {
       await save({
         nationalId: encrypt(row.nationalId),
-        nationalIdHash: blindIndex(row.nationalId),
+        nationalIdHash: hashOf(row.nationalId),
         phone: encrypt(row.phone),
-        phoneHash: blindIndex(row.phone),
+        phoneHash: hashOf(row.phone),
       });
       return 1;
     } catch {

@@ -1,5 +1,5 @@
 import { assertContactFree, contactSearch } from '../common/crypto/contact-unique';
-import { blindIndex, encrypt, openContact, sealContact } from '../common/crypto/personal-data';
+import { encrypt, hashOf, openContact, sealContact } from '../common/crypto/personal-data';
 import {
   BadRequestException,
   ConflictException,
@@ -170,9 +170,9 @@ export class ClearersService {
         data: {
           fullName: dto.fullName,
           phone: encrypt(dto.phone),
-          phoneHash: blindIndex(dto.phone),
+          phoneHash: hashOf(dto.phone),
           nationalId: encrypt(dto.nationalId),
-          nationalIdHash: blindIndex(dto.nationalId),
+          nationalIdHash: hashOf(dto.nationalId),
           notes: dto.notes,
           ...prices,
         },

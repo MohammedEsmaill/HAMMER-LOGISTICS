@@ -58,13 +58,16 @@ export function blindIndex(value: string): string {
   return createHmac('sha256', load().mac).update(digits).digest('hex');
 }
 
+/** The hash of a number; an empty one has none (it is no one's number). */
+export const hashOf = (value: string) => (value.replace(/\D/g, '') ? blindIndex(value) : null);
+
 /** What is stored for a national ID and a phone: each encrypted, with its hash. */
 export function sealContact(input: { nationalId?: string; phone?: string }) {
   return {
     ...(input.nationalId !== undefined
-      ? { nationalId: encrypt(input.nationalId), nationalIdHash: blindIndex(input.nationalId) }
+      ? { nationalId: encrypt(input.nationalId), nationalIdHash: hashOf(input.nationalId) }
       : {}),
-    ...(input.phone !== undefined ? { phone: encrypt(input.phone), phoneHash: blindIndex(input.phone) } : {}),
+    ...(input.phone !== undefined ? { phone: encrypt(input.phone), phoneHash: hashOf(input.phone) } : {}),
   };
 }
 
