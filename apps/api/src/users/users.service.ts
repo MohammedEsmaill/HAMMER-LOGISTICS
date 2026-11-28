@@ -1,3 +1,4 @@
+import { openContact } from '../common/crypto/personal-data';
 import { HEAD_MANAGER_ROLE } from '../auth/permissions';
 import {
   BadRequestException,
@@ -54,11 +55,13 @@ export class UsersService {
           select: { id: true, fullName: true, code: true, department: true },
           orderBy: { fullName: 'asc' },
         })
-      : this.prisma.clearer.findMany({
-          where: { deletedAt: null, isActive: true, ...noLiveAccount },
-          select: { id: true, fullName: true, phone: true },
-          orderBy: { fullName: 'asc' },
-        });
+      : this.prisma.clearer
+          .findMany({
+            where: { deletedAt: null, isActive: true, ...noLiveAccount },
+            select: { id: true, fullName: true, phone: true },
+            orderBy: { fullName: 'asc' },
+          })
+          .then((rows) => rows.map(openContact));
   }
 
   async create(actor: AuthUser, dto: CreateUserDto) {

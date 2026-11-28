@@ -1,3 +1,5 @@
+import { assertContactFree, contactSearch } from '../common/crypto/contact-unique';
+import { blindIndex, encrypt, openContact, sealContact } from '../common/crypto/personal-data';
 import {
   BadRequestException,
   ConflictException,
@@ -48,7 +50,7 @@ type ClearerRow = Prisma.ClearerGetPayload<{ select: typeof CLEARER_SELECT }>;
 
 /** جهة التخليص as plain lists: ports and free zones. */
 const flat = ({ ports, freeZones, ...c }: ClearerRow) => ({
-  ...c,
+  ...openContact(c),
   ports: ports.map((p) => p.port),
   freeZones: freeZones.map((z) => z.freeZone),
 });
@@ -71,8 +73,8 @@ export class ClearersService {
         ? {
             OR: [
               { fullName: { contains: query.search, mode: 'insensitive' } },
-              { nationalId: { contains: query.search } },
-              { phone: { contains: query.search } },
+              // national IDs and phones are encrypted: a whole number is found by its hash
+              ...(contactSearch(query.search) ? [contactSearch(query.search)!] : []),
             ],
           }
         : {}),
@@ -163,11 +165,14 @@ export class ClearersService {
     ) as Record<(typeof PRICE_FIELDS)[number], Prisma.Decimal>;
 
     return this.prisma.$transaction(async (tx) => {
+      await assertContactFree(tx, dto);
       const created = await tx.clearer.create({
         data: {
           fullName: dto.fullName,
-          phone: dto.phone,
-          nationalId: dto.nationalId,
+          phone: encrypt(dto.phone),
+          phoneHash: blindIndex(dto.phone),
+          nationalId: encrypt(dto.nationalId),
+          nationalIdHash: blindIndex(dto.nationalId),
           notes: dto.notes,
           ...prices,
         },
@@ -198,7 +203,8 @@ export class ClearersService {
     const before = await this.get(id);
     return this.prisma.$transaction(async (tx) => {
       const { portIds, freeZoneIds, ...data } = dto;
-      await tx.clearer.update({ where: { id }, data });
+      await assertContactFree(tx, data, { clearerId: id });
+      await tx.clearer.update({ where: { id }, data: { ...data, ...sealContact(data) } });
       await this.workplaces(tx, id, { portIds, freeZoneIds });
       const clearer = flat(
         await tx.clearer.findUniqueOrThrow({

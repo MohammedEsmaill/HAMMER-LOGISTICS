@@ -300,7 +300,7 @@ export default function ClearersPage() {
           <SearchInput
             value={search}
             onChange={(s) => setList({ search: s })}
-            placeholder="بحث بالاسم أو الرقم القومي أو التليفون"
+            placeholder="بحث بالاسم أو الرقم القومي أو الموبايل كامل"
           />
         }
         active={[place].filter(Boolean).length}

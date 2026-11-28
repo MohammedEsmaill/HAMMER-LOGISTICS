@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { AuthUser } from './auth-user';
 import { ALL_PERMISSIONS, isPermission } from './permissions';
@@ -20,6 +20,9 @@ export type UserWithOwner = Prisma.UserGetPayload<{
  * One active session per user: users.session_id holds it, every token carries it,
  * and a new login, a logout, a password change or a deactivation replaces or clears it.
  */
+/** The database keeps a session id's sha256: a copy of the database opens no session. */
+export const sessionDigest = (id: string) => createHash('sha256').update(id).digest('hex');
+
 @Injectable()
 export class SessionService {
   constructor(private readonly prisma: PrismaService) {}
@@ -29,7 +32,7 @@ export class SessionService {
       where: { id: userId },
       include: USER_WITH_OWNER,
     });
-    if (!user || user.sessionId !== sessionId) {
+    if (!user || user.sessionId !== sessionDigest(sessionId)) {
       throw new UnauthorizedException(
         'الجلسة انتهت أو اتفتح حسابك من جهاز تاني',
       );
@@ -51,7 +54,7 @@ export class SessionService {
 
   async open(userId: number, tx: Tx = this.prisma): Promise<string> {
     const sessionId = randomUUID();
-    await tx.user.update({ where: { id: userId }, data: { sessionId } });
+    await tx.user.update({ where: { id: userId }, data: { sessionId: sessionDigest(sessionId) } });
     return sessionId;
   }
 
@@ -61,11 +64,11 @@ export class SessionService {
     const { count } = await this.prisma.user.updateMany({
       where: {
         id: userId,
-        sessionId: current,
+        sessionId: sessionDigest(current),
         isActive: true,
         deletedAt: null,
       },
-      data: { sessionId: next },
+      data: { sessionId: sessionDigest(next) },
     });
     if (count !== 1) {
       throw new UnauthorizedException('انتهت الجلسة، سجّل الدخول تاني');

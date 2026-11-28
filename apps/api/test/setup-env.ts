@@ -8,6 +8,8 @@ process.env.DATABASE_URL =
 process.env.JWT_ACCESS_SECRET = 'test-access-secret-0123456789abcdef0123456789';
 process.env.JWT_REFRESH_SECRET =
   'test-refresh-secret-0123456789abcdef012345678';
+// a fixed test key (never a real one)
+process.env.FIELD_ENCRYPTION_KEY = 'dGVzdC1maWVsZC1rZXktMDEyMzQ1Njc4OWFiY2RlZiE=';
 process.env.LOGIN_RATE_LIMIT = '1000';
 // backups of the test database go to a throwaway folder
 process.env.BACKUP_DIR = join(tmpdir(), 'hammer-test-backups');

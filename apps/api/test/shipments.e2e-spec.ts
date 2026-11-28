@@ -106,7 +106,7 @@ describe('Shipment registration (e2e)', () => {
           .api(ctx.ceoToken)
           .post('/api/clearers', {
             fullName: `Clearer ${nationalId}`,
-            phone: '0',
+            phone: `01${nationalId.slice(-9)}`,
             nationalId,
             importFinalBase: 3000,
             importTemporaryBase: 2600,

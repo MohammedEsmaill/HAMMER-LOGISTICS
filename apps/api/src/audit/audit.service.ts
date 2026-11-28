@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { isEncrypted } from '../common/crypto/personal-data';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 
 /** Fields that never go into the audit trail. */
-const SECRET_FIELDS = new Set(['passwordHash', 'sessionId']);
+const SECRET_FIELDS = new Set(['passwordHash', 'sessionId', 'nationalIdHash', 'phoneHash']);
+/** Personal numbers: the trail says they changed, never what they are. */
+const MASKED_FIELDS = new Set(['nationalId']);
 
 export interface AuditEntry {
   userId: number | null;
@@ -39,7 +42,9 @@ export class AuditService {
   ): Prisma.InputJsonValue | typeof Prisma.JsonNull {
     if (!value) return Prisma.JsonNull;
     const clean = Object.fromEntries(
-      Object.entries(value).filter(([k]) => !SECRET_FIELDS.has(k)),
+      Object.entries(value)
+        .filter(([k]) => !SECRET_FIELDS.has(k))
+        .map(([k, v]) => [k, MASKED_FIELDS.has(k) || (typeof v === 'string' && isEncrypted(v)) ? '***' : v]),
     );
     return JSON.parse(JSON.stringify(clean)) as Prisma.InputJsonValue;
   }

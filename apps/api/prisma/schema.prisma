@@ -263,23 +263,27 @@ model Role {
 }
 
 model Employee {
-  id          Int            @id @default(autoincrement())
-  code        String // = user id on the ZKTeco device
-  fullName    String         @map("full_name")
-  nationalId  String         @map("national_id")
-  phone       String
-  address     String?
-  department  Department
-  jobTitle    String         @map("job_title")
-  hireDate    DateTime       @map("hire_date") @db.Date
-  status      EmployeeStatus @default(ACTIVE)
-  leaveDate   DateTime?      @map("leave_date") @db.Date
-  basicSalary Decimal        @default(0) @map("basic_salary") @db.Decimal(14, 2)
-  notes       String?
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  deletedAt   DateTime?      @map("deleted_at")
-  deletedById Int?           @map("deleted_by")
+  id             Int            @id @default(autoincrement())
+  code           String // = user id on the ZKTeco device
+  fullName       String         @map("full_name")
+  nationalId     String         @map("national_id")
+  /// keyed hash of the national ID: unique, and how an exact number is found
+  nationalIdHash String?        @map("national_id_hash")
+  phone          String
+  /// keyed hash of the phone: unique, and how an exact number is found
+  phoneHash      String?        @map("phone_hash")
+  address        String?
+  department     Department
+  jobTitle       String         @map("job_title")
+  hireDate       DateTime       @map("hire_date") @db.Date
+  status         EmployeeStatus @default(ACTIVE)
+  leaveDate      DateTime?      @map("leave_date") @db.Date
+  basicSalary    Decimal        @default(0) @map("basic_salary") @db.Decimal(14, 2)
+  notes          String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  deletedAt      DateTime?      @map("deleted_at")
+  deletedById    Int?           @map("deleted_by")
 
   deletedBy         User?             @relation("EmployeeDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
   users             User[]            @relation("UserEmployee")
@@ -303,7 +307,11 @@ model Clearer {
   id                   Int       @id @default(autoincrement())
   fullName             String    @map("full_name")
   phone                String
+  /// keyed hash of the phone: unique, and how an exact number is found
+  phoneHash            String?   @map("phone_hash")
   nationalId           String    @map("national_id")
+  /// keyed hash of the national ID: unique, and how an exact number is found
+  nationalIdHash       String?   @map("national_id_hash")
   // fee prices — set and changed by the CEO only
   importFinalBase      Decimal   @map("import_final_base") @db.Decimal(14, 2)
   importTemporaryBase  Decimal   @map("import_temporary_base") @db.Decimal(14, 2)
@@ -345,7 +353,7 @@ model User {
   lastFailedAt   DateTime?   @map("last_failed_at")
   /// locks in a row (15 min, 1 hour, 4 hours, a day); reset by a good login or an unlock
   lockCount      Int         @default(0) @map("lock_count")
-  sessionId      String?     @map("session_id") // one active session; a new login replaces it
+  sessionId      String?     @map("session_id") // sha256 of the one active session; a new login replaces it
   lastLoginAt    DateTime?   @map("last_login_at")
   /// the name written in Ruqaa as the user's signature on the invoices they issue,
   /// review or approve (the employee's name when not set)

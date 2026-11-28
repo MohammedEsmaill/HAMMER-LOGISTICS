@@ -459,7 +459,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
         .api(ctx.ceoToken)
         .post('/api/clearers', {
           fullName: 'مستخلص تاني',
-          phone: '0',
+          phone: '01260080002',
           nationalId: '26010100080002',
           importFinalBase: 1,
           importTemporaryBase: 1,
@@ -663,7 +663,7 @@ describe('Finance: custodies, clearer fees, statements (e2e)', () => {
       b = await ship('MSKU870002');
       const other = await ctx
         .api(ctx.ceoToken)
-        .post('/api/clearers', { fullName: 'مستخلص تاني للعهد', phone: '0', nationalId: '26010100087001', ...CLEARER_PRICES })
+        .post('/api/clearers', { fullName: 'مستخلص تاني للعهد', phone: '01260087001', nationalId: '26010100087001', ...CLEARER_PRICES })
         .expect(201);
       otherClearerShipment = await ship('MSKU870003', { clearerId: other.body.id });
     });

@@ -20,6 +20,8 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: FIELD_ENCRYPTION_KEY # 32 random bytes, base64: encrypts national IDs and phones
+        generateValue: true
       - key: WEB_ORIGIN # the Vercel URL, e.g. https://hammer-logistics.vercel.app
         sync: false
       - key: COOKIE_SECURE

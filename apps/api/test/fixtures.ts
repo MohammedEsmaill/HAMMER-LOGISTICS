@@ -91,7 +91,7 @@ export async function shipmentFixtures(
     .api(ctx.ceoToken)
     .post('/api/clearers', {
       fullName: `Fixture clearer ${prefix}`,
-      phone: '0',
+      phone: `0126${prefix.padStart(7, '0')}`,
       nationalId: `260101000${prefix}0001`.slice(0, 14),
       ...CLEARER_PRICES,
     })

@@ -258,7 +258,7 @@ export default function EmployeesPage() {
         }
       />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <SearchInput value={query.search ?? ''} onChange={(search) => setList({ search })} placeholder="بحث بالاسم أو الكود أو الرقم القومي" />
+        <SearchInput value={query.search ?? ''} onChange={(search) => setList({ search })} placeholder="بحث بالاسم أو الكود أو الرقم القومي أو الموبايل كامل" />
         <select
           aria-label="القسم"
           value={query.department}

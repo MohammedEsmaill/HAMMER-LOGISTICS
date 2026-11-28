@@ -1,3 +1,5 @@
+import { assertContactFree, contactSearch } from '../common/crypto/contact-unique';
+import { openContact, sealContact } from '../common/crypto/personal-data';
 import {
   ConflictException,
   ForbiddenException,
@@ -60,7 +62,8 @@ export class EmployeesService {
             OR: [
               { fullName: { contains: query.search, mode: 'insensitive' } },
               { code: { contains: query.search } },
-              { nationalId: { contains: query.search } },
+              // national IDs and phones are encrypted: a whole number is found by its hash
+              ...(contactSearch(query.search) ? [contactSearch(query.search)!] : []),
             ],
           }
         : {}),
@@ -74,7 +77,7 @@ export class EmployeesService {
       }),
       this.prisma.employee.count({ where }),
     ]);
-    return { items, total, page: query.page, pageSize: query.pageSize };
+    return { items: items.map(openContact), total, page: query.page, pageSize: query.pageSize };
   }
 
   /** Active employees for dropdowns (e.g. a client's operation employee). */
@@ -92,16 +95,22 @@ export class EmployeesService {
       select: this.select(actor),
     });
     if (!employee) throw new NotFoundException('الموظف غير موجود');
-    return employee;
+    return openContact(employee);
   }
 
   async create(actor: AuthUser, dto: CreateEmployeeDto) {
     this.assertSalaryAccess(actor, dto.basicSalary);
     return this.prisma.$transaction(async (tx) => {
-      const employee = await tx.employee.create({
-        data: { ...dto, basicSalary: toDecimal(dto.basicSalary ?? 0) },
-        select: this.select(actor),
-      });
+      if (await tx.employee.findFirst({ where: { code: dto.code, deletedAt: null }, select: { id: true } })) {
+        throw new ConflictException('كود الموظف (رقم البصمة) متسجل لموظف تاني');
+      }
+      await assertContactFree(tx, dto);
+      const employee = openContact(
+        await tx.employee.create({
+          data: { ...dto, ...sealContact(dto), basicSalary: toDecimal(dto.basicSalary ?? 0) },
+          select: this.select(actor),
+        }),
+      );
       await this.audit.log(
         {
           userId: actor.id,
@@ -123,10 +132,12 @@ export class EmployeesService {
     const returning = dto.status === 'ACTIVE' && before.status === 'LEFT';
 
     return this.prisma.$transaction(async (tx) => {
-      const employee = await tx.employee.update({
+      await assertContactFree(tx, dto, { employeeId: id });
+      const employee = openContact(await tx.employee.update({
         where: { id },
         data: {
           ...dto,
+          ...sealContact(dto),
           basicSalary: toDecimal(dto.basicSalary),
           leaveDate: leaving
             ? (dto.leaveDate ?? new Date())
@@ -135,7 +146,7 @@ export class EmployeesService {
               : dto.leaveDate,
         },
         select: this.select(actor),
-      });
+      }));
       if (leaving) await this.closeAccounts(tx, id);
       // a reviewer who leaves or moves out of operation stops reviewing
       if (leaving || employee.department !== 'OPERATION') {

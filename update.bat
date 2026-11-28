@@ -46,6 +46,9 @@ git pull || goto rollback
 
 echo [3/6] API: packages, database changes, build...
 pushd apps\api
+rem the key that encrypts national IDs and phones: made once, never replaced
+findstr /b /c:"FIELD_ENCRYPTION_KEY=" .env >nul 2>&1
+if errorlevel 1 call :newkey
 call npm install --no-audit --no-fund || (popd & goto rollback)
 call npx prisma migrate deploy || (popd & goto rollback)
 call npx prisma db seed || (popd & goto rollback)
@@ -63,6 +66,18 @@ call :trystart || goto rollback
 
 echo [6/6] Done. Now run start.bat
 pause
+exit /b 0
+
+rem Adds a new random FIELD_ENCRYPTION_KEY to apps\api\.env (run from apps\api).
+:newkey
+powershell -NoProfile -Command ^
+  "$b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b);" ^
+  "$q = [char]34; Add-Content -Path '.env' -Value ([Environment]::NewLine + 'FIELD_ENCRYPTION_KEY=' + $q + [Convert]::ToBase64String($b) + $q)"
+echo.
+echo       A new encryption key was added to apps\api\.env (FIELD_ENCRYPTION_KEY).
+echo       Copy that line somewhere safe, away from this computer and its backups:
+echo       without it the national IDs and phones in a restored backup cannot be read.
+echo.
 exit /b 0
 
 rem Starts the API hidden, waits up to 2 minutes for it to answer, then stops it.

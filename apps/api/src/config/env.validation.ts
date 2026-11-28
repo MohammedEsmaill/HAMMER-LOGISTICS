@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Min,
   MinLength,
   validateSync,
@@ -21,6 +22,11 @@ class EnvironmentVariables {
   @IsString()
   @MinLength(32)
   JWT_REFRESH_SECRET!: string;
+
+  /** 32 random bytes, base64: encrypts the national IDs and phones. Keep a copy apart from the backups. */
+  @IsString()
+  @Matches(/^[A-Za-z0-9+/]{43}=$/, { message: 'FIELD_ENCRYPTION_KEY must be 32 bytes of base64 (update.bat makes one)' })
+  FIELD_ENCRYPTION_KEY!: string;
 
   @IsOptional()
   @IsInt()

@@ -4,7 +4,7 @@ const employeeBody = (code: string, extra: object = {}) => ({
   code,
   fullName: `Person ${code}`,
   nationalId: `2850505${code.padStart(7, '0')}`,
-  phone: '01111111111',
+  phone: `011${code.padStart(8, '0')}`,
   department: 'OPERATION',
   jobTitle: 'Operation',
   hireDate: '2025-01-01',
@@ -179,7 +179,7 @@ describe('Employees, clearers, clients (e2e)', () => {
       const shanghai = ports.find((p) => p.code === 'CNSHA');
       const zone = await ctx.prisma.freeZone.findFirstOrThrow();
       const clearer = await ctx.prisma.clearer.findFirstOrThrow({
-        where: { nationalId: '28001010000001' },
+        where: { fullName: 'Clearer One' },
       });
       if (shanghai) {
         await ctx
@@ -224,14 +224,14 @@ describe('Employees, clearers, clients (e2e)', () => {
         .api(ctx.ceoToken)
         .post('/api/clearers', {
           fullName: 'No prices',
-          phone: '0',
+          phone: '01280010003',
           nationalId: '28001010000003',
         })
         .expect(400));
 
     it('HR can still open a login account for a clearer', async () => {
       const clearer = await ctx.prisma.clearer.findFirstOrThrow({
-        where: { nationalId: '28001010000001' },
+        where: { fullName: 'Clearer One' },
       });
       const role = await ctx.prisma.role.findUniqueOrThrow({
         where: { name: 'CLEARER' },

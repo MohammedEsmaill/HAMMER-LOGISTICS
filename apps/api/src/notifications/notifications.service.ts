@@ -1,3 +1,4 @@
+import { openContact } from '../common/crypto/personal-data';
 import {
   Injectable,
   Logger,
@@ -120,7 +121,7 @@ export function whatsappNumber(
 
 /** "@201012345678" in the text with its id beside it, or the plain name when there is no number. */
 function mention(person: { fullName: string; phone: string | null }) {
-  const number = whatsappNumber(person.phone);
+  const number = whatsappNumber(openContact({ phone: person.phone ?? '' }).phone);
   return number
     ? { text: `@${number}`, jid: `${number}@s.whatsapp.net` }
     : { text: person.fullName, jid: null };
