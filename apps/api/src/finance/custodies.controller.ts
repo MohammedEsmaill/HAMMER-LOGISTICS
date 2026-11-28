@@ -50,7 +50,8 @@ const READ = [
 /** Issuing: cash custodies the treasury manager; by bank the accountant too (the service checks). */
 const ISSUE = ['finance.custody.manage', 'finance.bank.record'] as const;
 /** Settling a custody: the accountant (or the CEO after approval). */
-const SETTLE = ['finance.custody.settle', 'finance.approved.edit'] as const;
+// the treasury manager (custody.manage) settles the bank transfers only: the service checks
+const SETTLE = ['finance.custody.settle', 'finance.approved.edit', 'finance.custody.manage'] as const;
 /** Paying clearers' fees: the treasury manager and the accounts manager. */
 const PAY_FEES = [
   'finance.fees.pay',

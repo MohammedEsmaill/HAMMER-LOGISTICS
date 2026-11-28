@@ -22,6 +22,7 @@ describe("The accountant's journal (e2e)", () => {
   let shipmentId: number;
   let partyA: number;
   let partyB: number;
+  let transferId: number;
 
   beforeAll(async () => {
     ctx = await createTestContext();
@@ -59,6 +60,35 @@ describe("The accountant's journal (e2e)", () => {
     await ctx.api(accountant).post('/api/finance/custodies', { ...body, purpose: 'CLEARANCE' }).expect(400);
     const res = await ctx.api(accountant).post('/api/finance/custodies', { ...body, purpose: 'STORAGE' }).expect(201);
     expect(res.body).toMatchObject({ holderType: 'BANK_TRANSFER', purpose: 'STORAGE', status: 'OPEN' });
+    transferId = res.body.id;
+  });
+
+  it('the treasury manager settles a bank transfer, not an agent\'s custody', async () => {
+    const treasury = (await ctx.userWithRole('7312', 'TREASURY_MANAGER', 'ACCOUNTS')).token;
+    const version = async (id: number) => (await ctx.api(treasury).get(`/api/finance/custodies/${id}`).expect(200)).body.version;
+    const settled = await ctx
+      .api(treasury)
+      .post(`/api/finance/custodies/${transferId}/settlement`, {
+        version: await version(transferId),
+        items: [{ expenseType: 'رسوم صرف', amount: 18500, receiptNo: '9201' }],
+      })
+      .expect(201);
+    expect(settled.body.status).toBe('SETTLED');
+    // an agent's custody stays the accountant's to settle
+    const agent = await ctx.userWithRole('7313', 'AGENT', 'AGENTS');
+    const cash = await ctx.prisma.moneyAccount.findFirstOrThrow({ where: { type: 'CASH', currency: 'EGP' } });
+    await ctx.api(treasury).post('/api/finance/other-movements', { accountId: cash.id, kind: 'FUNDING', amount: 1000, reason: 'تمويل' }).expect(201);
+    const custody = await ctx
+      .api(treasury)
+      .post('/api/finance/custodies', { shipmentId, holderType: 'AGENT', agentEmployeeId: agent.employeeId, purpose: 'STORAGE', amount: 500 })
+      .expect(201);
+    await ctx
+      .api(treasury)
+      .post(`/api/finance/custodies/${custody.body.id}/settlement`, {
+        version: await version(custody.body.id),
+        items: [{ expenseType: 'رسوم صرف', amount: 500, receiptNo: '9202' }],
+      })
+      .expect(403);
   });
 
   it("adds a clearer's account from the users screen only, and a party's from the internal accounts", async () => {

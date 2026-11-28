@@ -24,3 +24,6 @@ SELECT (SELECT count(*) FROM "employees" WHERE "national_id_hash" IS NULL AND "n
        (SELECT count(*) FROM "employees" WHERE "national_id" LIKE 'enc:%')
      + (SELECT count(*) FROM "clearers" WHERE "national_id" LIKE 'enc:%') AS still_encrypted;
 COMMIT;
+
+-- dblink was needed only for this
+DROP EXTENSION IF EXISTS dblink;

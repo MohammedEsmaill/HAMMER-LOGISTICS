@@ -400,6 +400,10 @@ export class CustodiesService {
       await claimDocument(tx, 'CUSTODY', id, dto.version);
       const before = await tx.custody.findUniqueOrThrow({ where: { id } });
       if (before.cancelledAt) throw new BadRequestException('العهدة دي اتلغت، ومبقاش ليها تصفية');
+      // the treasury manager settles the bank transfers; the other custodies are the accountant's
+      if (!can(actor, 'finance.custody.settle') && !can(actor, 'finance.approved.edit') && before.holderType !== 'BANK_TRANSFER') {
+        throw new ForbiddenException('مدير الخزنة بيصفّي عهد التحويل البنكي بس');
+      }
       const resettle = before.status === 'SETTLED';
       // the client statement is frozen once the shipment account is finished
       await assertAccountOpen(tx, before.shipmentId);

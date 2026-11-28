@@ -313,7 +313,8 @@ export function CustodyDrawer({ custodyId, onClose }: { custodyId: number | null
   const canSettle =
     !!custody &&
     !custody.cancelledAt &&
-    (can('finance.custody.settle') || can('finance.approved.edit')) &&
+    // the treasury manager settles the bank transfers only
+    (can('finance.custody.settle') || can('finance.approved.edit') || (can('finance.custody.manage') && custody.holderType === 'BANK_TRANSFER')) &&
     (custody.approvalStatus === 'APPROVED' ? can('finance.approved.edit') : isSettler);
 
   const save = useAction(
