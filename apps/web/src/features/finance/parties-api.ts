@@ -75,6 +75,8 @@ export interface PartyMovementInput {
   amount: number;
   movementDate?: string;
   payee?: string;
+  /** PAYMENT: the party's own bank account */
+  beneficiaryId?: number;
   reference?: string;
   notes?: string;
   paymentMethod?: BankPaymentMethod;

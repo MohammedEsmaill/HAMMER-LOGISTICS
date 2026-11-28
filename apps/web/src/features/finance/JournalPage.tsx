@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, Building2, FileBarChart, HandCoins, Plus, Receipt, RotateCcw, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, CalendarDays, Banknote, Briefcase, Building2, FileBarChart, HandCoins, HardHat, Plus, Receipt, RotateCcw, Ship, Wallet, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '@/auth/auth-context';
@@ -15,6 +15,7 @@ import { SelectField } from '@/components/ui/SelectField';
 import { formatDate } from '@/lib/format';
 import { CURRENCIES, money, STATUS, today, useAccounts, type ApprovalStatus, type Currency } from './api';
 import { IssueCustodyDrawer } from './CustodyDrawers';
+import { AccountantExpenseDrawer, ClearerCustodyDrawer, InternalTransferDrawer, ShippingLineDrawer, type AccountantForm } from './AccountantForms';
 import { DocumentDrawers, type OpenDocument } from './DocumentDrawers';
 import { ExpenseDrawer } from './ExpensesPage';
 import { PartyMovementDrawer } from './PartyDrawers';
@@ -34,9 +35,17 @@ import { FormTabs } from '../shipments/FormTabs';
 import { OtherDrawer, TransferDrawer } from './MovementDrawers';
 import { AdvanceDrawer, SalaryDrawer } from './PayrollDrawers';
 
-type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANCE' | 'PARTY';
+type NewKind = 'TRANSFER' | 'OTHER' | 'EXPENSE' | 'CUSTODY' | 'SALARY' | 'ADVANCE' | 'PARTY' | AccountantForm;
 
 /** What can be recorded from the journal, each by who may record it (the accountant: from a bank). */
+/** The accountant (bank only): four forms of his own. */
+const ACCOUNTANT_KINDS: { kind: NewKind; label: string; icon: LucideIcon; any: Permission[] }[] = [
+  { kind: 'SHIP', label: 'تحويل لخط ملاحي', icon: Ship, any: ['finance.bank.record'] },
+  { kind: 'CLEARER', label: 'عهدة مستخلص', icon: HardHat, any: ['finance.bank.record'] },
+  { kind: 'EXPENSE' as NewKind, label: 'مصروف عمومي', icon: Receipt, any: ['finance.bank.record'] },
+  { kind: 'INTERNAL', label: 'تحويل داخلي', icon: Building2, any: ['finance.parties.record'] },
+];
+
 const NEW_KINDS: { kind: NewKind; label: string; icon: LucideIcon; any: Permission[] }[] = [
   { kind: 'TRANSFER', label: 'تحويل', icon: ArrowLeftRight, any: ['finance.movements.create', 'finance.bank.record'] },
   { kind: 'OTHER', label: 'معاملة أخرى', icon: Banknote, any: ['finance.movements.create'] },
@@ -146,7 +155,9 @@ export default function JournalPage() {
   const [creating, setCreating] = useState<NewKind | null>(null);
   const set = (patch: Partial<JournalQuery>) =>
     setList({ ...patch, ...(patch.types ? { types: patch.types.join(',') } : {}) } as Partial<typeof list>);
-  const newKinds = NEW_KINDS.filter((k) => k.any.some((p) => can(p)));
+  // the accountant records by bank only, and has his own four forms
+  const accountant = can('finance.bank.record') && !can('finance.movements.create') && !can('finance.custody.manage') && !can('finance.expenses.manage');
+  const newKinds = (accountant ? ACCOUNTANT_KINDS : NEW_KINDS).filter((k) => k.any.some((p) => can(p)));
   const typeOptions = (Object.keys(JOURNAL_TYPES) as JournalType[])
     .filter((t) => salaryData || !JOURNAL_TYPES[t].restricted)
     .map((t) => ({ value: t, label: JOURNAL_TYPES[t].label }));
@@ -312,7 +323,11 @@ export default function JournalPage() {
 
       <TransferDrawer transfer={null} open={creating === 'TRANSFER'} onClose={() => setCreating(null)} />
       <OtherDrawer movement={null} open={creating === 'OTHER'} onClose={() => setCreating(null)} />
-      <ExpenseDrawer expense={null} open={creating === 'EXPENSE'} onClose={() => setCreating(null)} />
+      <ExpenseDrawer expense={null} open={!accountant && creating === 'EXPENSE'} onClose={() => setCreating(null)} />
+      <ShippingLineDrawer open={creating === 'SHIP'} onClose={() => setCreating(null)} />
+      <ClearerCustodyDrawer open={creating === 'CLEARER'} onClose={() => setCreating(null)} />
+      <AccountantExpenseDrawer open={accountant && creating === 'EXPENSE'} onClose={() => setCreating(null)} />
+      <InternalTransferDrawer open={creating === 'INTERNAL'} onClose={() => setCreating(null)} />
       <IssueCustodyDrawer open={creating === 'CUSTODY'} onClose={() => setCreating(null)} />
       <SalaryDrawer salary={null} open={creating === 'SALARY'} onClose={() => setCreating(null)} />
       <AdvanceDrawer advance={null} open={creating === 'ADVANCE'} onClose={() => setCreating(null)} />

@@ -1,3 +1,4 @@
+import { ExpenseItemsTab } from './ExpenseItemsTab';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'motion/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
@@ -34,7 +35,7 @@ import {
   type TransportKind,
 } from './api';
 
-type Tab = 'ports' | SimpleLookup | 'countries' | PriceTab;
+type Tab = 'ports' | SimpleLookup | 'countries' | PriceTab | 'expense-items';
 /** The tabs that list lookup rows (not the countries or the price lists). */
 type LookupTab = 'ports' | SimpleLookup;
 
@@ -49,6 +50,7 @@ const TABS: { key: Tab; label: string; kinded?: boolean }[] = [
   { key: 'countries', label: 'الدول' },
   { key: 'fee-rates', label: 'أتعاب المستخلص' },
   { key: 'settlement-items', label: 'بنود التصفية' },
+  { key: 'expense-items', label: 'بنود المصروفات' },
 ];
 
 const SINGULAR: Record<LookupTab, string> = {
@@ -219,11 +221,13 @@ function LookupFormDrawer({
 }
 
 const isPriceTab = (tab: Tab): tab is PriceTab => tab === 'fee-rates' || tab === 'settlement-items';
+/** Tabs with a screen of their own (no lookup rows). */
+const isOwnTab = (tab: Tab) => isPriceTab(tab) || tab === 'expense-items';
 
 function useTabRows(tab: Tab) {
   const ports = usePorts();
   const countries = useCountries();
-  const simple = useLookup(tab === 'ports' || tab === 'countries' || isPriceTab(tab) ? 'carriers' : tab);
+  const simple = useLookup(tab === 'ports' || tab === 'countries' || isOwnTab(tab) ? 'carriers' : (tab as SimpleLookup));
   if (tab === 'ports') return ports;
   if (tab === 'countries') return countries;
   return simple;
@@ -327,7 +331,7 @@ export default function LookupsPage() {
         actions={
           add &&
           tab !== 'countries' &&
-          !isPriceTab(tab) && (
+          !isOwnTab(tab) && (
             <Button
               icon={<Plus className="size-4" />}
               onClick={() => {
@@ -359,7 +363,9 @@ export default function LookupsPage() {
         ))}
       </div>
 
-      {isPriceTab(tab) ? (
+      {tab === 'expense-items' ? (
+        <ExpenseItemsTab />
+      ) : isPriceTab(tab) ? (
         <PriceListsTab tab={tab} />
       ) : (
         <>
@@ -411,7 +417,7 @@ export default function LookupsPage() {
         </>
       )}
 
-      {tab !== 'countries' && !isPriceTab(tab) && <LookupFormDrawer tab={tab as LookupTab} row={editing} open={formOpen} onClose={() => setFormOpen(false)} />}
+      {tab !== 'countries' && !isOwnTab(tab) && <LookupFormDrawer tab={tab as LookupTab} row={editing} open={formOpen} onClose={() => setFormOpen(false)} />}
       <ConfirmDialog
         open={!!deleting}
         title="حذف من القائمة"

@@ -299,11 +299,12 @@ export const custodyApi = {
   adjustFee: (input: { feeId: number; amount: number; notes: string }) => api.post<Fee>('/finance/clearer-fees/adjustments', input),
 };
 
-export type BeneficiaryKind = 'SHIPPING_AGENCY' | 'CLEARER' | 'OTHER';
+export type BeneficiaryKind = 'SHIPPING_AGENCY' | 'CLEARER' | 'OTHER' | 'PARTY';
 export const BENEFICIARY_KINDS: Record<BeneficiaryKind, string> = {
   SHIPPING_AGENCY: 'توكيل ملاحي',
   CLEARER: 'مستخلص',
   OTHER: 'جهة تانية',
+  PARTY: 'حساب داخلي',
 };
 
 export interface Beneficiary {
@@ -311,13 +312,14 @@ export interface Beneficiary {
   name: string;
   kind: BeneficiaryKind;
   clearer: { id: number; fullName: string } | null;
+  party?: { id: number; name: string } | null;
   bankName: string;
   accountNumber: string;
   isActive: boolean;
   notes: string | null;
 }
 
-export const useBeneficiaries = (q: { clearerId?: number; kind?: BeneficiaryKind }, enabled = true) =>
+export const useBeneficiaries = (q: { clearerId?: number; partyId?: number; kind?: BeneficiaryKind; activeOnly?: boolean }, enabled = true) =>
   useQuery({
     queryKey: ['finance', 'beneficiaries', q],
     queryFn: () => api.get<Beneficiary[]>('/finance/beneficiaries', { ...q, pageSize: 200 }),
@@ -325,6 +327,8 @@ export const useBeneficiaries = (q: { clearerId?: number; kind?: BeneficiaryKind
   });
 
 export const beneficiariesApi = {
-  create: (input: { name: string; kind: BeneficiaryKind; clearerId?: number; bankName: string; accountNumber: string; notes?: string }) =>
+  create: (input: { name: string; kind: BeneficiaryKind; clearerId?: number; partyId?: number; bankName: string; accountNumber: string; notes?: string }) =>
     api.post<Beneficiary>('/finance/beneficiaries', input),
+  update: (id: number, input: { name?: string; bankName?: string; accountNumber?: string; isActive?: boolean }) =>
+    api.patch<Beneficiary>(`/finance/beneficiaries/${id}`, input),
 };

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Signature, Trash2, UserPlus } from 'lucide-react';
+import { Landmark, KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Signature, Trash2, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -21,6 +21,7 @@ import { toastError, useAction } from '@/lib/mutations';
 import { companyEmail, requiredId, strongPassword } from '@/lib/schemas';
 import { useRoleOptions } from '../roles/api';
 import { SignatureDrawer } from './SignatureDrawer';
+import { BankAccountsDrawer } from '../finance/BankAccountsDrawer';
 import {
   ownerName,
   useCandidates,
@@ -336,6 +337,7 @@ export default function UsersPage() {
   const [resetting, setResetting] = useState<User | null>(null);
   const [deleting, setDeleting] = useState<User | null>(null);
   const [signing, setSigning] = useState<User | null>(null);
+  const [banking, setBanking] = useState<{ id: number; name: string } | null>(null);
   const setActive = useAction((u: { id: number; isActive: boolean }) => usersApi.update(u.id, { isActive: u.isActive }), {
     invalidate: [userKeys.all],
   });
@@ -406,6 +408,12 @@ export default function UsersPage() {
       cell: (u) => (
         <div className="flex justify-end">
           {/* the signature on the invoices: the CEO and the moderator, for anyone (themselves too) */}
+          {/* a clearer's bank accounts: added here only (the accountant picks from them) */}
+          {u.clearer && can('users.manage') && (
+            <IconButton label="الحسابات البنكية" onClick={() => setBanking({ id: u.clearer!.id, name: u.clearer!.fullName })}>
+              <Landmark className="size-4" />
+            </IconButton>
+          )}
           {can('users.signatures') && (
             <IconButton label="التوقيع" onClick={() => setSigning(u)}>
               <Signature className={`size-4 ${u.signatureName ? 'text-gold' : ''}`} />
@@ -456,6 +464,7 @@ export default function UsersPage() {
       <EditUserDrawer user={editing} onClose={() => setEditing(null)} />
       <ResetPasswordDrawer user={resetting} onClose={() => setResetting(null)} />
       <SignatureDrawer user={signing} onClose={() => setSigning(null)} />
+      <BankAccountsDrawer owner={banking ? { kind: 'CLEARER', ...banking } : null} onClose={() => setBanking(null)} />
       <ConfirmDialog
         open={!!deleting}
         title="حذف الحساب"

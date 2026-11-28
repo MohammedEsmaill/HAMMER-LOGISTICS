@@ -1,4 +1,4 @@
-import { Building2, Pencil, Plus, UserRound } from 'lucide-react';
+import { Building2, Landmark, Pencil, Plus, UserRound } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -9,9 +9,10 @@ import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge, IconButton, PageHeader } from '@/components/ui/misc';
 import { money } from './api';
 import { PartyDrawer, PartyMovementDrawer } from './PartyDrawers';
+import { BankAccountsDrawer } from './BankAccountsDrawer';
 import { balanceSide, PARTY_KINDS, useParties, type Party } from './parties-api';
 
-function PartyCard({ party, index, onOpen, onEdit, figures }: { party: Party; index: number; onOpen: () => void; onEdit?: () => void; figures: boolean }) {
+function PartyCard({ party, index, onOpen, onEdit, onBanks, figures }: { party: Party; index: number; onOpen: () => void; onEdit?: () => void; onBanks?: () => void; figures: boolean }) {
   const Icon = party.kind === 'OWNER' ? UserRound : Building2;
   const balances = party.balances.filter((b) => Number(b.balance) !== 0);
   return (
@@ -38,6 +39,14 @@ function PartyCard({ party, index, onOpen, onEdit, figures }: { party: Party; in
           </div>
         </div>
         {!party.isActive && <Badge tone="muted">موقوفة</Badge>}
+        {onBanks && (
+          <IconButton
+            label={`الحسابات البنكية · ${party.name}`}
+            onClick={onBanks}
+          >
+            <Landmark className="size-4" />
+          </IconButton>
+        )}
         {onEdit && (
           <IconButton label={`تعديل ${party.name}`} onClick={onEdit}>
             <Pencil className="size-4" />
@@ -81,6 +90,7 @@ export default function InternalAccountsPage() {
   const [editing, setEditing] = useState<Party | null>(null);
   const [partyOpen, setPartyOpen] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [banking, setBanking] = useState<{ id: number; name: string } | null>(null);
   const manage = can('finance.parties.manage');
   const record = can('finance.parties.record');
   // who only sets the parties up (the moderator) sees no balances and no statements
@@ -137,6 +147,7 @@ export default function InternalAccountsPage() {
                     index={i}
                     figures={figures}
                     onOpen={() => figures && navigate(`/internal-accounts/${p.id}`)}
+                    onBanks={manage ? () => setBanking({ id: p.id, name: p.name }) : undefined}
                     onEdit={
                       manage
                         ? () => {
@@ -154,6 +165,7 @@ export default function InternalAccountsPage() {
 
       <PartyDrawer party={editing} open={partyOpen} onClose={() => setPartyOpen(false)} />
       <PartyMovementDrawer movement={null} open={recording} onClose={() => setRecording(false)} />
+      <BankAccountsDrawer owner={banking ? { kind: 'PARTY', ...banking } : null} onClose={() => setBanking(null)} />
     </>
   );
 }

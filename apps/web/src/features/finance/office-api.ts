@@ -200,7 +200,7 @@ export const officeApi = {
   createExpense: (input: {
     expenseType: string;
     category?: ExpenseCategory;
-    payee: string;
+    payee?: string;
     amount: number;
     receiptNo: string;
     expenseDate?: string;
