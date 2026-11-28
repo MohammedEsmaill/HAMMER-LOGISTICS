@@ -220,19 +220,20 @@ export class BeneficiariesController {
   constructor(private readonly beneficiaries: BeneficiariesService) {}
 
   @Get()
-  @RequireAnyPermission(...READ)
+  @RequireAnyPermission(...READ, 'users.manage', 'finance.parties.view', 'finance.parties.record', 'finance.parties.manage')
   list(@Query() q: BeneficiariesQueryDto) {
     return this.beneficiaries.list(q);
   }
 
+  /** Who may add which kind of account is checked by the service. */
   @Post()
-  @RequireAnyPermission('finance.custody.manage', 'finance.bank.record')
+  @RequireAnyPermission('finance.custody.manage', 'finance.bank.record', 'users.manage', 'finance.fees.pay', 'finance.parties.manage')
   create(@CurrentUser() actor: AuthUser, @Body() dto: CreateBeneficiaryDto) {
     return this.beneficiaries.create(actor, dto);
   }
 
   @Patch(':id')
-  @RequireAnyPermission('finance.custody.manage', 'finance.bank.record')
+  @RequireAnyPermission('finance.custody.manage', 'finance.bank.record', 'users.manage', 'finance.fees.pay', 'finance.parties.manage')
   update(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,

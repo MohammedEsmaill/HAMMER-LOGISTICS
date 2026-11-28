@@ -116,6 +116,14 @@ describe('Finance: bank payments, bank charges, cash vs bank (e2e)', () => {
       ...extra,
     });
 
+    it('the accountant picks the item from the fixed list: only the CEO or the moderator adds one', async () => {
+      const refused = await ctx.api(accountant).post('/api/finance/expenses', expense({ accountId: bankEgp, paymentMethod: 'TRANSFER', reference: 'ib-5500' })).expect(400);
+      expect(refused.body.message).toContain('القوائم الثابتة');
+      await ctx.api(accountant).post('/api/finance/expenses/types', { name: 'إنترنت المكتب', category: 'BILLS_UTILITIES' }).expect(403);
+      await ctx.api(ctx.ceoToken).post('/api/finance/expenses/types', { name: 'إنترنت المكتب', category: 'BILLS_UTILITIES' }).expect(201);
+      await ctx.api(ctx.ceoToken).post('/api/finance/expenses/types', { name: 'إنترنت المكتب', category: 'BILLS_UTILITIES' }).expect(400);
+    });
+
     it('the accountant may not pay from the cash box', async () => {
       const res = await ctx
         .api(accountant)

@@ -206,12 +206,23 @@ export class PartiesService {
     return { party, opening, lines, closing: this.balances(sums) };
   }
 
+  /** A payment into the party's own bank account: one of its accounts, still active. */
+  private async partyAccount(tx: Tx, partyId: number, kind: string, beneficiaryId?: number) {
+    if (!beneficiaryId) return null;
+    if (kind !== 'PAYMENT') throw new BadRequestException('حساب الجهة للصرف بس');
+    const b = await tx.beneficiary.findUnique({ where: { id: beneficiaryId } });
+    if (!b || b.kind !== 'PARTY' || b.partyId !== partyId) throw new BadRequestException('الحساب ده مش من حسابات الجهة');
+    if (!b.isActive) throw new BadRequestException(`حساب ${b.bankName} موقوف`);
+    return b.id;
+  }
+
   async get(id: number) {
     const movement = await this.prisma.partyMovement.findUnique({
       where: { id },
       include: {
         party: { select: { id: true, name: true, kind: true } },
         account: ACCOUNT,
+        beneficiary: { select: { id: true, name: true, bankName: true, accountNumber: true } },
         ...DOCUMENT_INCLUDE,
       },
     });
@@ -232,6 +243,7 @@ export class PartiesService {
       assertMayRecordOn(actor, account, 'finance.movements.create');
       const direction = DIRECTION[dto.kind];
       const bank = this.payment(direction, account, dto);
+      const beneficiaryId = await this.partyAccount(tx, party.id, dto.kind, dto.beneficiaryId);
       const movement = await tx.partyMovement.create({
         data: {
           partyId: party.id,
@@ -242,6 +254,7 @@ export class PartiesService {
           amount: decimal(dto.amount),
           movementDate: await openDate(tx, dto.movementDate, 'تاريخ الحركة'),
           payee,
+          beneficiaryId,
           ...bank,
           notes: dto.notes,
           createdById: actor.id,

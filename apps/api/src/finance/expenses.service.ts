@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { ExpenseCategory, ExpenseScope, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, can } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { APPROVAL_RESET, assertCanEdit } from './approvals/approval.service';
 import { claimDocument } from './document-version';
@@ -58,15 +58,32 @@ export class ExpensesService {
     });
   }
 
-  /** Moves a general expense type under another main item. */
-  async setCategory(actor: AuthUser, id: number, category: ExpenseCategory) {
+  /** A new item on the fixed list of general expenses (the fixed lists screen). */
+  async createType(actor: AuthUser, name: string, category: ExpenseCategory) {
+    return this.prisma.$transaction(async (tx) => {
+      const clean = name.replace(/\s+/g, ' ').trim();
+      const exists = await tx.expenseType.findUnique({ where: { scope_name: { scope: 'GENERAL', name: clean } } });
+      if (exists) throw new BadRequestException(`«${clean}» موجود في القايمة`);
+      const created = await tx.expenseType.create({ data: { scope: 'GENERAL', name: clean, category }, select: TYPE.select });
+      await this.audit.log({ userId: actor.id, action: 'CREATE', entity: 'expense_type', entityId: created.id, after: created }, tx);
+      return created;
+    });
+  }
+
+  /** Moves a general expense type under another main item, or renames it. */
+  async setCategory(actor: AuthUser, id: number, category?: ExpenseCategory, name?: string) {
     return this.prisma.$transaction(async (tx) => {
       const before = await tx.expenseType.findUnique({ where: { id } });
       if (!before || before.scope !== 'GENERAL')
         throw new NotFoundException('نوع المصروف غير موجود');
+      const clean = name?.replace(/\s+/g, ' ').trim();
+      if (clean && clean !== before.name) {
+        const taken = await tx.expenseType.findUnique({ where: { scope_name: { scope: 'GENERAL', name: clean } } });
+        if (taken) throw new BadRequestException(`«${clean}» موجود في القايمة`);
+      }
       const after = await tx.expenseType.update({
         where: { id },
-        data: { category },
+        data: { category, name: clean || undefined },
         select: TYPE.select,
       });
       await this.audit.log(
@@ -218,7 +235,7 @@ export class ExpensesService {
         : await egpCashBox(tx);
       assertMayRecordOn(actor, account, 'finance.expenses.manage');
       const bank = bankPayment(account, dto);
-      const type = await this.typeFor(tx, dto.expenseType, dto.category);
+      const type = await this.typeFor(tx, dto.expenseType, dto.category, can(actor, 'finance.expenses.manage'));
       const expense = await tx.generalExpense.create({
         data: {
           expenseTypeId: type.id,
@@ -285,7 +302,7 @@ export class ExpensesService {
         where: { id },
         data: {
           expenseTypeId: dto.expenseType
-            ? (await this.typeFor(tx, dto.expenseType, dto.category)).id
+            ? (await this.typeFor(tx, dto.expenseType, dto.category, can(actor, 'finance.expenses.manage'))).id
             : undefined,
           payee: dto.payee,
           amount,
@@ -316,12 +333,15 @@ export class ExpensesService {
    * The type by name (spacing ignored). A new name joins the list under the main item
    * given with it; an existing one keeps its own.
    */
-  private async typeFor(tx: Tx, name: string, category?: ExpenseCategory) {
+  /** A type by its name; a new one is added only by who may write free text (not the accountant). */
+  private async typeFor(tx: Tx, name: string, category?: ExpenseCategory, mayAdd = true) {
     const clean = name.replace(/\s+/g, ' ').trim();
     const found = await tx.expenseType.findUnique({
       where: { scope_name: { scope: 'GENERAL', name: clean } },
     });
     if (found) return found;
+    if (!mayAdd)
+      throw new BadRequestException(`«${clean}» مش في قايمة بنود المصروفات. البنود بتتضاف من «القوائم الثابتة»`);
     if (!category) {
       throw new BadRequestException(
         `«${clean}» نوع جديد: اختار البند الرئيسي بتاعه`,

@@ -18,6 +18,7 @@ import {
   CreateExpenseDto,
   ExpensesQueryDto,
   UpdateExpenseDto,
+  CreateExpenseTypeDto,
   UpdateExpenseTypeDto,
 } from './dto/expense.dto';
 import { ExpensesService } from './expenses.service';
@@ -42,15 +43,22 @@ export class ExpensesController {
     return this.expenses.types();
   }
 
-  /** Moves a type under another main item. */
+  /** A new item on the fixed list (the CEO and the moderator, from the fixed lists). */
+  @Post('types')
+  @RequirePermissions('lookups.manage')
+  createType(@CurrentUser() actor: AuthUser, @Body() dto: CreateExpenseTypeDto) {
+    return this.expenses.createType(actor, dto.name, dto.category);
+  }
+
+  /** Moves a type under another main item, or renames it (the fixed lists). */
   @Patch('types/:id')
-  @RequireAnyPermission('finance.expenses.manage', 'finance.approved.edit')
+  @RequireAnyPermission('finance.expenses.manage', 'finance.approved.edit', 'lookups.manage')
   setCategory(
     @CurrentUser() actor: AuthUser,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateExpenseTypeDto,
   ) {
-    return this.expenses.setCategory(actor, id, dto.category);
+    return this.expenses.setCategory(actor, id, dto.category, dto.name);
   }
 
   @Get('report')

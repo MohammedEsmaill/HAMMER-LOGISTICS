@@ -55,7 +55,13 @@ async function assertAccountOpen(tx: Tx, shipmentId: number) {
 /** What each holder type may be used for, paid from, and whether it may overspend (spec section 11). */
 const HOLDERS: Record<
   CustodyHolder,
-  { purposes: CustodyPurpose[] | null; overspend: boolean; label: string }
+  {
+    purposes: CustodyPurpose[] | null;
+    /** false: a purpose may be given (from the list) but need not be */
+    purposeRequired?: boolean;
+    overspend: boolean;
+    label: string;
+  }
 > = {
   AGENT: {
     purposes: ['UNLOADING', 'RELEASE', 'STORAGE'],
@@ -72,7 +78,13 @@ const HOLDERS: Record<
     overspend: true,
     label: 'مستخلص',
   },
-  BANK_TRANSFER: { purposes: null, overspend: false, label: 'تحويل بنكي' },
+  // a transfer to a shipping line: unloading, storage or release charges
+  BANK_TRANSFER: {
+    purposes: ['UNLOADING', 'STORAGE', 'RELEASE'],
+    purposeRequired: false,
+    overspend: false,
+    label: 'تحويل بنكي',
+  },
 };
 
 const INCLUDE = {
@@ -230,7 +242,9 @@ export class CustodiesService {
       if (dto.holderType === 'CLEARER') await this.assertNoClearerCustody(tx, shipment.id);
       if (
         rule.purposes &&
-        (!dto.purpose || !rule.purposes.includes(dto.purpose))
+        (dto.purpose
+          ? !rule.purposes.includes(dto.purpose)
+          : rule.purposeRequired !== false)
       ) {
         throw new BadRequestException(
           `اختار الغرض المناسب لعهدة ${rule.label}`,

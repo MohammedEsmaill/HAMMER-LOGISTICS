@@ -1,11 +1,12 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BeneficiaryKind, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, can } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import {
   BeneficiariesQueryDto,
@@ -21,6 +22,7 @@ const SELECT = {
   name: true,
   kind: true,
   clearer: { select: { id: true, fullName: true } },
+  party: { select: { id: true, name: true, kind: true } },
   bankName: true,
   accountNumber: true,
   isActive: true,
@@ -39,6 +41,7 @@ export class BeneficiariesService {
     const where: Prisma.BeneficiaryWhereInput = {
       kind: q.kind,
       clearerId: q.clearerId,
+      partyId: q.partyId,
       isActive: q.activeOnly === false ? undefined : true,
       ...(q.search
         ? {
@@ -60,11 +63,14 @@ export class BeneficiariesService {
 
   async create(actor: AuthUser, dto: CreateBeneficiaryDto) {
     return this.prisma.$transaction(async (tx) => {
+      assertMayKeep(actor, dto.kind);
       await this.checkClearer(tx, dto.kind, dto.clearerId);
+      await this.checkParty(tx, dto.kind, dto.partyId);
       const created = await tx.beneficiary.create({
         data: {
           ...dto,
           clearerId: dto.kind === 'CLEARER' ? dto.clearerId : null,
+          partyId: dto.kind === 'PARTY' ? dto.partyId : null,
           accountNumber: normalise(dto.accountNumber),
           createdById: actor.id,
         },
@@ -88,6 +94,7 @@ export class BeneficiariesService {
     return this.prisma.$transaction(async (tx) => {
       const before = await tx.beneficiary.findUnique({ where: { id } });
       if (!before) throw new NotFoundException('المستفيد غير موجود');
+      assertMayKeep(actor, before.kind);
       const after = await tx.beneficiary.update({
         where: { id },
         data: {
@@ -113,6 +120,16 @@ export class BeneficiariesService {
     });
   }
 
+  private async checkParty(tx: Tx, kind: string, partyId?: number) {
+    if (kind !== 'PARTY') {
+      if (partyId) throw new BadRequestException('الجهة للحساب اللي نوعه حساب داخلي بس');
+      return;
+    }
+    if (!partyId) throw new BadRequestException('اختار الجهة صاحبة الحساب');
+    const party = await tx.internalParty.findUnique({ where: { id: partyId } });
+    if (!party) throw new BadRequestException('الجهة غير موجودة');
+  }
+
   private async checkClearer(tx: Tx, kind: string, clearerId?: number) {
     if (kind !== 'CLEARER') {
       if (clearerId)
@@ -125,6 +142,27 @@ export class BeneficiariesService {
     });
     if (!clearer) throw new BadRequestException('المستخلص غير موجود');
   }
+}
+
+/**
+ * Who keeps which accounts: a clearer's from the users screen (or with his fees), a
+ * sister company's or owner's from the internal accounts, the rest with the payment.
+ */
+function assertMayKeep(actor: AuthUser, kind: BeneficiaryKind) {
+  const ok =
+    kind === 'CLEARER'
+      ? can(actor, 'users.manage') || can(actor, 'finance.fees.pay')
+      : kind === 'PARTY'
+        ? can(actor, 'finance.parties.manage')
+        : can(actor, 'finance.custody.manage') || can(actor, 'finance.bank.record');
+  if (!ok)
+    throw new ForbiddenException(
+      kind === 'CLEARER'
+        ? 'حسابات المستخلص بتتضاف من «المستخدمين»'
+        : kind === 'PARTY'
+          ? 'حسابات الجهات بتتضاف من «الحسابات الداخلية»'
+          : 'ليس لديك صلاحية لهذا الإجراء',
+    );
 }
 
 /** An active external account to pay into; for a clearer, it must be theirs. */

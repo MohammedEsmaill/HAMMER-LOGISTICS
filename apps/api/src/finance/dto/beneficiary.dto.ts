@@ -35,6 +35,12 @@ export class CreateBeneficiaryDto {
   @Min(1)
   clearerId?: number;
 
+  /** kind PARTY: the sister company or owner whose account it is. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  partyId?: number;
+
   @Trim()
   @IsString()
   @MinLength(2, { message: 'اكتب اسم البنك' })
@@ -93,6 +99,12 @@ export class BeneficiariesQueryDto extends ListQueryDto {
   @IsInt()
   @Min(1)
   clearerId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  partyId?: number;
 
   /** false lists the stopped ones too. */
   @IsOptional()

@@ -119,6 +119,8 @@ enum BeneficiaryKind {
   SHIPPING_AGENCY
   CLEARER
   OTHER
+  /// a sister company's or an owner's own bank account (internal accounts)
+  PARTY
 }
 
 /// The document a settlement line stands for; it sets the line printed on the statement.
@@ -1085,7 +1087,7 @@ model ExpenseType {
 model GeneralExpense {
   id            Int                @id @default(autoincrement())
   expenseTypeId Int                @map("expense_type_id")
-  payee         String
+  payee         String?
   amount        Decimal            @db.Decimal(14, 2)
   receiptNo     String             @map("receipt_no")
   expenseDate   DateTime           @map("expense_date") @db.Date
@@ -1349,6 +1351,7 @@ model Beneficiary {
   name          String
   kind          BeneficiaryKind
   clearerId     Int?            @map("clearer_id") // kind CLEARER: whose account it is
+  partyId       Int?            @map("party_id") // kind PARTY: the sister company or owner
   bankName      String          @map("bank_name")
   accountNumber String          @map("account_number") // account number or IBAN
   isActive      Boolean         @default(true) @map("is_active")
@@ -1358,6 +1361,8 @@ model Beneficiary {
   updatedAt     DateTime        @updatedAt @map("updated_at")
 
   clearer     Clearer?            @relation(fields: [clearerId], references: [id], onDelete: Restrict)
+  party       InternalParty?      @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  partyPaid   PartyMovement[]
   createdBy   User                @relation("BeneficiaryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   custodies   Custody[]
   feePayments ClearerFeePayment[]
@@ -1782,6 +1787,7 @@ model InternalParty {
 
   movements        PartyMovement[]
   personalAccounts MoneyAccount[]
+  bankAccounts     Beneficiary[]
 
   @@map("internal_parties")
 }
@@ -1798,6 +1804,8 @@ model PartyMovement {
   movementDate  DateTime           @map("movement_date") @db.Date
   /// SHARED_DEBT: who was paid.
   payee         String?
+  /// PAYMENT: the party's own bank account it was paid into
+  beneficiaryId Int?               @map("beneficiary_id")
   reference     String?
   notes         String?
   /// Paid from a bank: by transfer or cheque (null when paid in cash).
@@ -1820,14 +1828,15 @@ model PartyMovement {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  party      InternalParty   @relation(fields: [partyId], references: [id], onDelete: Restrict)
-  account    MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
-  movements  MoneyMovement[]
-  createdBy  User            @relation("PartyMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  reviewedBy User?           @relation("PartyMovementReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
-  managerBy  User?           @relation("PartyMovementManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
-  approvedBy User?           @relation("PartyMovementApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
-  rejectedBy User?           @relation("PartyMovementRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
+  party       InternalParty   @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  account     MoneyAccount    @relation(fields: [accountId, currency], references: [id, currency], onDelete: Restrict)
+  beneficiary Beneficiary?    @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  movements   MoneyMovement[]
+  createdBy   User            @relation("PartyMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy  User?           @relation("PartyMovementReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  managerBy   User?           @relation("PartyMovementManagerBy", fields: [managerById], references: [id], onDelete: Restrict)
+  approvedBy  User?           @relation("PartyMovementApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  rejectedBy  User?           @relation("PartyMovementRejectedBy", fields: [rejectedById], references: [id], onDelete: Restrict)
 
   @@index([partyId, movementDate])
   @@index([approvalStatus])

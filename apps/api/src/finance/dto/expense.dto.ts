@@ -46,11 +46,13 @@ export class CreateExpenseDto extends BankPaymentDto {
   })
   reference?: string;
 
+  /** optional: the accountant's form has none */
+  @IsOptional()
   @Trim()
   @IsString()
   @MinLength(2, { message: 'اكتب الجهة اللي اتدفعلها' })
   @MaxLength(150)
-  payee!: string;
+  payee?: string;
 
   @PositiveMoney()
   amount!: number;
@@ -162,6 +164,27 @@ export class ExpensesQueryDto extends ListQueryDto {
 
 /** Moves a general expense type under another main item. */
 export class UpdateExpenseTypeDto {
+  @IsOptional()
+  @IsEnum(ExpenseCategory)
+  category?: ExpenseCategory;
+
+  /** renamed from the fixed lists */
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  name?: string;
+}
+
+/** A new expense item on the fixed list. */
+export class CreateExpenseTypeDto {
+  @Trim()
+  @IsString()
+  @MinLength(2, { message: 'اكتب اسم البند' })
+  @MaxLength(100)
+  name!: string;
+
   @IsEnum(ExpenseCategory)
   category!: ExpenseCategory;
 }
