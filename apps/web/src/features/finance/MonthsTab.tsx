@@ -3,7 +3,7 @@ import { CircleAlert, Lock, LockOpen, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { useAuth, useIsCeo } from '@/auth/auth-context';
+import { useAuth, useIsTopManager } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
 import { ErrorBox } from '@/components/ui/ErrorBox';
@@ -181,7 +181,7 @@ function ReopenDrawer({ month, onClose }: { month: FiscalMonth | null; onClose: 
 /** The months: their figures, who closed them, and the next one to close. */
 export function MonthsTab() {
   const { can } = useAuth();
-  const isCeo = useIsCeo();
+  const isCeo = useIsTopManager();
   const mayClose = can('finance.months.close');
   const { data = [], error, isLoading } = useMonths();
   const [closing, setClosing] = useState<string | null>(null);

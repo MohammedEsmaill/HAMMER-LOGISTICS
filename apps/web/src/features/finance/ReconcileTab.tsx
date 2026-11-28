@@ -3,7 +3,7 @@ import { ArrowRight, Check, CheckCircle2, FileUp, Plus, Printer, Trash2, Triangl
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
-import { useAuth, useIsCeo } from '@/auth/auth-context';
+import { useAuth, useIsTopManager } from '@/auth/auth-context';
 import { Button } from '@/components/ui/Button';
 import { ErrorBox } from '@/components/ui/ErrorBox';
 import { Badge } from '@/components/ui/misc';
@@ -234,7 +234,7 @@ interface Quick {
 function ReconEditor({ id, onBack }: { id: number | null; onBack: () => void }) {
   const queryClient = useQueryClient();
   const { can } = useAuth();
-  const isCeo = useIsCeo();
+  const isCeo = useIsTopManager();
   const mayReconcile = can('finance.bank.reconcile');
   const { data: accounts = [] } = useReconAccounts();
   const { data: saved, error: savedError } = useReconciliation(id);

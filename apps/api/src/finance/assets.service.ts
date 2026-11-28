@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { AssetTransaction, FixedAsset, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, isTopManager } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { APPROVAL_RESET, assertCanEdit } from './approvals/approval.service';
 import { assertMayRecordOn, bankPayment, postBankCharges } from './bank-payment';
@@ -218,13 +218,13 @@ export class AssetsService {
       // its depreciation runs through the months since it entered the books: once one of
       // them is closed, its cost, date and life are the CEO's to change
       const figures = dto.cost !== undefined || dto.acquiredOn !== undefined || dto.usefulLifeMonths !== undefined;
-      if (figures && !actor.role.isSystem) {
+      if (figures && !isTopManager(actor)) {
         const since = before.acquisition === 'EXISTING' ? before.createdAt : before.acquiredOn;
         const closed = await tx.fiscalMonth.findFirst({
           where: { status: 'CLOSED', month: { gte: new Date(Date.UTC(since.getUTCFullYear(), since.getUTCMonth(), 1)) } },
         });
         if (closed)
-          throw new BadRequestException('في شهر مقفول من وقت ما الجهاز دخل الدفاتر: التكلفة والتاريخ والعمر بيعدّلهم المدير التنفيذي بس');
+          throw new BadRequestException('في شهر مقفول من وقت ما الجهاز دخل الدفاتر: التكلفة والتاريخ والعمر بيعدّلهم المدير التنفيذي أو المدير العام بس');
       }
       if (dto.custodianEmployeeId) await this.assertEmployee(tx, dto.custodianEmployeeId);
       const after = await tx.fixedAsset.update({

@@ -86,10 +86,25 @@ export const MODERATOR_PERMISSIONS: ReadonlySet<Permission> = new Set([
   'users.signatures',
 ]);
 
+/**
+ * The head manager (second after the CEO) holds everything but managing roles and
+ * approving: he sees the financial operations and their approvals, and approves none.
+ */
+export const HEAD_MANAGER_ROLE = 'HEAD_MANAGER';
+export const NOT_HEAD_MANAGER: ReadonlySet<Permission> = new Set([
+  'roles.manage',
+  'finance.review',
+  'finance.manager_approve',
+  'finance.approve',
+  'finance.approved.edit',
+]);
+
 /** Whether a role may hold a permission (the CEO role holds them all). */
 export const mayHold = (roleName: string, p: Permission) =>
-  !CEO_ONLY_PERMISSIONS.has(p) &&
-  (!MODERATOR_PERMISSIONS.has(p) || roleName === MODERATOR_ROLE);
+  roleName === HEAD_MANAGER_ROLE
+    ? !NOT_HEAD_MANAGER.has(p)
+    : !CEO_ONLY_PERMISSIONS.has(p) &&
+      (!MODERATOR_PERMISSIONS.has(p) || roleName === MODERATOR_ROLE);
 
 /** Held only by the system (CEO) role: no other role may be given these. */
 export const CEO_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set([

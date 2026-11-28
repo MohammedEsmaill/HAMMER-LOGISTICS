@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { HEAD_MANAGER_ROLE, useIsCeo } from '@/auth/auth-context';
 import { Lock, Pencil, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useMemo, useState } from 'react';
@@ -29,6 +30,9 @@ const schema = z.object({
 type Form = z.infer<typeof schema>;
 
 /** The two shipment-view permissions are alternatives: ticking one clears the other. */
+/** What the head manager never holds. */
+const NOT_HEAD_MANAGER = new Set(['roles.manage', 'finance.review', 'finance.manager_approve', 'finance.approve', 'finance.approved.edit']);
+
 const EXCLUSIVE: Record<string, string> = {
   'shipments.view.all': 'shipments.view.own',
   'shipments.view.own': 'shipments.view.all',
@@ -39,12 +43,15 @@ function PermissionChecklist({
   value,
   onChange,
   isModerator,
+  isHead = false,
 }: {
   catalog: CatalogEntry[];
   value: string[];
   onChange: (next: string[]) => void;
   /** the MODERATOR role may hold the five permissions reserved to it and the CEO */
   isModerator: boolean;
+  /** the head manager holds everything but managing roles and approving */
+  isHead?: boolean;
 }) {
   const groups = useMemo(() => {
     const map = new Map<string, CatalogEntry[]>();
@@ -75,7 +82,7 @@ function PermissionChecklist({
           </legend>
           <div className="space-y-1">
             {entries.map((entry) => {
-              const locked = entry.ceoOnly || (entry.moderatorOnly && !isModerator);
+              const locked = isHead ? NOT_HEAD_MANAGER.has(entry.key) : entry.ceoOnly || (entry.moderatorOnly && !isModerator);
               return (
                 <label
                   key={entry.key}
@@ -89,9 +96,9 @@ function PermissionChecklist({
                     onChange={() => toggle(entry.key)}
                   />
                   <span className="flex-1 text-sm">{entry.label}</span>
-                  {(entry.ceoOnly || entry.moderatorOnly) && (
+                  {(isHead ? locked : entry.ceoOnly || entry.moderatorOnly) && (
                     <span className="flex items-center gap-1 text-xs text-muted">
-                      <Lock className="size-3" /> {entry.ceoOnly ? 'للـ CEO بس' : 'للـ CEO والموديريتور بس'}
+                      <Lock className="size-3" /> {isHead ? 'للـ CEO بس' : entry.ceoOnly ? 'للـ CEO بس' : 'للـ CEO والموديريتور بس'}
                     </span>
                   )}
                 </label>
@@ -147,8 +154,8 @@ function RoleDrawer({ role, open, onClose }: { role: Role | null; open: boolean;
       >
         <TextField
           label="اسم الدور"
-          readOnly={role?.name === 'MODERATOR'}
-          title={role?.name === 'MODERATOR' ? 'اسم دور الموديريتور مبيتغيرش' : undefined}
+          readOnly={role?.name === 'MODERATOR' || role?.name === HEAD_MANAGER_ROLE}
+          title={role?.name === 'MODERATOR' || role?.name === HEAD_MANAGER_ROLE ? 'اسم الدور ده مبيتغيرش' : undefined}
           error={formState.errors.name?.message}
           {...register('name')}
         />
@@ -157,7 +164,7 @@ function RoleDrawer({ role, open, onClose }: { role: Role | null; open: boolean;
           control={control}
           name="permissions"
           render={({ field }) => (
-            <PermissionChecklist catalog={catalog} value={field.value} onChange={field.onChange} isModerator={role?.name === 'MODERATOR'} />
+            <PermissionChecklist catalog={catalog} value={field.value} onChange={field.onChange} isModerator={role?.name === 'MODERATOR'} isHead={role?.name === HEAD_MANAGER_ROLE} />
           )}
         />
         {save.error ? <ErrorBox error={save.error} /> : null}
@@ -168,6 +175,7 @@ function RoleDrawer({ role, open, onClose }: { role: Role | null; open: boolean;
 
 export default function RolesPage() {
   const { data: roles, isLoading, error } = useRoles();
+  const isCeo = useIsCeo();
   const [editing, setEditing] = useState<Role | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState<Role | null>(null);
@@ -220,14 +228,16 @@ export default function RolesPage() {
                 </div>
                 <p className="mt-0.5 line-clamp-2 text-sm text-muted">{role.description ?? '—'}</p>
               </div>
-              {!role.isSystem && (
+              {!role.isSystem && (role.name !== HEAD_MANAGER_ROLE || isCeo) && (
                 <div className="flex">
                   <IconButton label="تعديل" onClick={() => open(role)}>
                     <Pencil className="size-4" />
                   </IconButton>
-                  <IconButton label="حذف" tone="danger" onClick={() => setDeleting(role)}>
-                    <Trash2 className="size-4" />
-                  </IconButton>
+                  {role.name !== HEAD_MANAGER_ROLE && (
+                    <IconButton label="حذف" tone="danger" onClick={() => setDeleting(role)}>
+                      <Trash2 className="size-4" />
+                    </IconButton>
+                  )}
                 </div>
               )}
             </div>

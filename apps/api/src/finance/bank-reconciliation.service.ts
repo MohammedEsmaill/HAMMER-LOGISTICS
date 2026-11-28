@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, isTopManager } from '../auth/auth-user';
 import { PrismaService, Tx } from '../prisma/prisma.service';
 import { todayCairo } from './money';
 import { OtherMovementsService } from './other-movements.service';
@@ -190,8 +190,8 @@ export class BankReconciliationService {
       const before = await tx.bankReconciliation.findUnique({ where: { id } });
       if (!before) throw new NotFoundException('التسوية غير موجودة');
       await this.assertLatest(tx, before.accountId, id);
-      if (before.status === 'MATCHED' && !actor.role.isSystem)
-        throw new ForbiddenException('التسوية المتطابقة متقفلة، وتعديلها للمدير التنفيذي بس');
+      if (before.status === 'MATCHED' && !isTopManager(actor))
+        throw new ForbiddenException('التسوية المتطابقة متقفلة، وتعديلها للمدير التنفيذي أو المدير العام بس');
       if (before.version !== version) throw new BadRequestException('التسوية اتعدلت من حد تاني، حدّث الصفحة');
       await tx.bankReconciliationItem.deleteMany({ where: { reconciliationId: id } });
       const full = { ...input, accountId: before.accountId, from: before.fromDate, to: before.toDate };
@@ -214,7 +214,7 @@ export class BankReconciliationService {
 
   /** The CEO removes the latest reconciliation of an account, to do it again. */
   async remove(actor: AuthUser, id: number) {
-    if (!actor.role.isSystem) throw new ForbiddenException('حذف تسوية للمدير التنفيذي بس');
+    if (!isTopManager(actor)) throw new ForbiddenException('حذف تسوية للمدير التنفيذي أو المدير العام بس');
     await this.prisma.$transaction(async (tx) => {
       const before = await tx.bankReconciliation.findUnique({ where: { id } });
       if (!before) throw new NotFoundException('التسوية غير موجودة');

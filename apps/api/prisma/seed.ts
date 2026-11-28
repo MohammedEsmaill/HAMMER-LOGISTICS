@@ -9,7 +9,7 @@ import { ARGON2_OPTIONS } from '../src/auth/password.service';
 import countries from 'i18n-iso-countries';
 import arabic from 'i18n-iso-countries/langs/ar.json';
 import english from 'i18n-iso-countries/langs/en.json';
-import { mayHold, isPermission, Permission } from '../src/auth/permissions';
+import { ALL_PERMISSIONS, HEAD_MANAGER_ROLE, mayHold, isPermission, Permission } from '../src/auth/permissions';
 import {
   AIRLINES,
   EGYPT_AIRPORTS,
@@ -204,6 +204,17 @@ const ROLES: {
       'finance.parties.manage',
       'settings.manage',
     ],
+  },
+  {
+    // second after the CEO: everything but managing roles and approving
+    name: HEAD_MANAGER_ROLE,
+    description: 'المدير العام: كل الصلاحيات ما عدا إدارة الأدوار والاعتماد المالي',
+    permissions: ALL_PERMISSIONS.filter(
+      (p) =>
+        mayHold(HEAD_MANAGER_ROLE, p) &&
+        // the "own" views are for who sees part only
+        !['shipments.view.own', 'documents.view.own', 'finance.ledger.own'].includes(p),
+    ),
   },
   {
     name: 'GENERAL_AUDITOR',

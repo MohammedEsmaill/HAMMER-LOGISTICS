@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Currency, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
-import { AuthUser } from '../auth/auth-user';
+import { AuthUser, isTopManager } from '../auth/auth-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { FinancialStatementsService } from './financial-statements.service';
 import { GeneralLedgerService } from './general-ledger.service';
@@ -215,7 +215,7 @@ export class FiscalMonthsService {
 
   /** The CEO reopens the last closed month, with a reason. */
   async reopen(actor: AuthUser, monthText: string, reason: string) {
-    if (!actor.role.isSystem) throw new ForbiddenException('فتح شهر مقفول للمدير التنفيذي بس');
+    if (!isTopManager(actor)) throw new ForbiddenException('فتح شهر مقفول للمدير التنفيذي أو المدير العام بس');
     const start = monthStart(monthText);
     await this.prisma.$transaction(async (tx) => {
       const before = await tx.fiscalMonth.findUnique({ where: { month: start } });

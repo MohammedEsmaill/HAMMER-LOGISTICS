@@ -21,3 +21,12 @@ export function useAuth(): AuthContextValue {
 }
 /** The CEO (the system role): not just anyone who may manage roles, like the moderator. */
 export const useIsCeo = () => !!useAuth().user?.role.isSystem;
+
+/** The head manager's role: second after the CEO, given by the CEO only. */
+export const HEAD_MANAGER_ROLE = 'HEAD_MANAGER';
+
+/** The CEO or the head manager: the CEO's own actions outside approving and roles. */
+export function useIsTopManager() {
+  const { user } = useAuth();
+  return !!user?.role.isSystem || !!user?.roles?.includes(HEAD_MANAGER_ROLE);
+}

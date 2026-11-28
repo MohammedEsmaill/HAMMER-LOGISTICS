@@ -3,7 +3,7 @@ import { Landmark, KeyRound, Lock, LockOpen, Mail, Pencil, Plus, Signature, Tras
 import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
-import { useAuth, useIsCeo } from '@/auth/auth-context';
+import { HEAD_MANAGER_ROLE, useAuth, useIsCeo } from '@/auth/auth-context';
 import { useListState } from '@/lib/use-list-state';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -63,7 +63,7 @@ function ExtraRoles({
   isCeo: boolean;
 }) {
   // the clearer role belongs to clearer accounts only
-  const choices = roles.filter((r) => r.id !== Number(mainRoleId) && r.name !== 'CLEARER' && (!r.isSystem || isCeo));
+  const choices = roles.filter((r) => r.id !== Number(mainRoleId) && r.name !== 'CLEARER' && (!(r.isSystem || r.name === HEAD_MANAGER_ROLE) || isCeo));
   const toggle = (id: number) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
   return (
     <fieldset className="space-y-2">
@@ -185,7 +185,7 @@ function CreateUserDrawer({ open, onClose }: { open: boolean; onClose: () => voi
         />
         <SelectField
           label="الدور"
-          options={roles.filter((r) => !r.isSystem || isCeo).map((r) => ({ value: r.id, label: r.name }))}
+          options={roles.filter((r) => !(r.isSystem || r.name === HEAD_MANAGER_ROLE) || isCeo).map((r) => ({ value: r.id, label: r.name }))}
           error={formState.errors.roleId?.message}
           {...register('roleId')}
         />
@@ -251,7 +251,7 @@ function EditUserDrawer({ user, onClose }: { user: User | null; onClose: () => v
         <TextField label="إيميل الدخول" type="email" dir="ltr" error={formState.errors.email?.message} {...register('email')} />
         <SelectField
           label="الدور"
-          options={roles.filter((r) => !r.isSystem || isCeo).map((r) => ({ value: r.id, label: r.name }))}
+          options={roles.filter((r) => !(r.isSystem || r.name === HEAD_MANAGER_ROLE) || isCeo).map((r) => ({ value: r.id, label: r.name }))}
           error={formState.errors.roleId?.message}
           {...register('roleId')}
         />
@@ -347,6 +347,10 @@ export default function UsersPage() {
   });
 
   const unlock = useAction((id: number) => usersApi.unlock(id), { success: 'اتفك قفل الحساب', invalidate: [userKeys.all] });
+  // the CEO's and the head manager's accounts: the CEO's to change
+  const isCeo = useIsCeo();
+  const guarded = (u: User) =>
+    !isCeo && (u.role.isSystem || u.role.name === HEAD_MANAGER_ROLE || u.extraRoles.some((r) => r.role.name === HEAD_MANAGER_ROLE));
   const q = search.toLowerCase();
   const rows = users?.filter(
     (u) => !q || u.email.includes(q) || ownerName(u).toLowerCase().includes(q) || u.role.name.toLowerCase().includes(q),
@@ -390,7 +394,7 @@ export default function UsersPage() {
           <Switch
             checked={u.isActive}
             label={u.isActive ? 'إيقاف الحساب' : 'تفعيل الحساب'}
-            disabled={u.id === me?.id || setActive.isPending}
+            disabled={u.id === me?.id || guarded(u) || setActive.isPending}
             onChange={(isActive) => setActive.mutateAsync({ id: u.id, isActive }).catch(toastError)}
           />
           <span className={`text-xs ${u.isActive ? 'text-success' : 'text-muted'}`}>{u.isActive ? 'شغال' : 'موقوف'}</span>
@@ -419,7 +423,7 @@ export default function UsersPage() {
               <Signature className={`size-4 ${u.signatureName ? 'text-gold' : ''}`} />
             </IconButton>
           )}
-          {u.id !== me?.id && (
+          {u.id !== me?.id && !guarded(u) && (
             <>
             <IconButton label="تعديل" onClick={() => setEditing(u)}>
               <Pencil className="size-4" />

@@ -46,7 +46,7 @@ export const SECTIONS: Record<string, string[]> = {
 
 /** Salaries and advances: only the CEO, HR, the treasury manager and the accounts manager. */
 const PAY_ENTITIES = ['salary_payment', 'employee_advance'];
-const PAY_ROLES = new Set(['HR', 'TREASURY_MANAGER', 'ACCOUNTS_MANAGER']);
+const PAY_ROLES = new Set(['HR', 'TREASURY_MANAGER', 'ACCOUNTS_MANAGER', 'HEAD_MANAGER']);
 const PAY_FIELDS = new Set(['basicSalary', 'salary', 'netSalary']);
 const KEEP_YEARS = 2;
 const USER = {

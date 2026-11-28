@@ -12,6 +12,8 @@ import {
   isPermission,
   MODERATOR_PERMISSIONS,
   MODERATOR_ROLE,
+  HEAD_MANAGER_ROLE,
+  mayHold,
   Permission,
   PERMISSIONS,
 } from '../auth/permissions';
@@ -72,14 +74,15 @@ export class RolesService {
   }
 
   async update(actor: AuthUser, id: number, dto: UpdateRoleDto) {
-    const before = await this.findEditable(id);
-    // the moderator's own permissions hang on its name
-    if (
-      before.name === MODERATOR_ROLE &&
-      dto.name !== undefined &&
-      dto.name !== MODERATOR_ROLE
-    ) {
-      throw new BadRequestException('اسم دور الموديريتور مبيتغيرش');
+    const before = await this.findEditable(id, actor);
+    // the moderator's and the head manager's permissions hang on their names
+    for (const fixed of [MODERATOR_ROLE, HEAD_MANAGER_ROLE]) {
+      if (before.name === fixed && dto.name !== undefined && dto.name !== fixed) {
+        throw new BadRequestException(`اسم دور ${fixed} مبيتغيرش`);
+      }
+    }
+    if (dto.name === HEAD_MANAGER_ROLE && before.name !== HEAD_MANAGER_ROLE) {
+      throw new BadRequestException('الاسم ده محجوز لدور المدير العام');
     }
     const permissions =
       dto.permissions === undefined
@@ -106,7 +109,8 @@ export class RolesService {
   }
 
   async remove(actor: AuthUser, id: number) {
-    const before = await this.findEditable(id);
+    const before = await this.findEditable(id, actor);
+    if (before.name === HEAD_MANAGER_ROLE) throw new BadRequestException('دور المدير العام مبيتمسحش');
     const users = await this.prisma.user.count({
       where: {
         deletedAt: null,
@@ -133,11 +137,14 @@ export class RolesService {
     });
   }
 
-  private async findEditable(id: number) {
+  private async findEditable(id: number, actor: AuthUser) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new NotFoundException('الدور غير موجود');
     if (role.isSystem) {
       throw new ForbiddenException('دور الـ CEO ميتعدلش ولا يتمسح');
+    }
+    if (role.name === HEAD_MANAGER_ROLE && !actor.role.isSystem) {
+      throw new ForbiddenException('دور المدير العام يعدّله الـ CEO بس');
     }
     return role;
   }
@@ -150,6 +157,11 @@ export class RolesService {
       );
     }
     const permissions = input as Permission[];
+    if (roleName === HEAD_MANAGER_ROLE) {
+      const not = permissions.filter((p) => !mayHold(roleName, p));
+      if (not.length) throw new BadRequestException(`المدير العام مبياخدش: ${not.map((p) => PERMISSIONS[p]).join('، ')}`);
+      return permissions;
+    }
     const reserved = permissions.filter((p) => CEO_ONLY_PERMISSIONS.has(p));
     if (reserved.length) {
       throw new BadRequestException(

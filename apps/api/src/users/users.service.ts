@@ -1,3 +1,4 @@
+import { HEAD_MANAGER_ROLE } from '../auth/permissions';
 import {
   BadRequestException,
   ConflictException,
@@ -232,6 +233,11 @@ export class UsersService {
     if (user.role.isSystem && !actor.role.isSystem) {
       throw new ForbiddenException('حسابات الـ CEO يعدلها الـ CEO بس');
     }
+    const head =
+      user.role.name === HEAD_MANAGER_ROLE || user.extraRoles.some((r) => r.role.name === HEAD_MANAGER_ROLE);
+    if (head && !actor.role.isSystem) {
+      throw new ForbiddenException('حساب المدير العام يعدله الـ CEO بس');
+    }
     return user;
   }
 
@@ -251,6 +257,9 @@ export class UsersService {
     if (!role) throw new BadRequestException('الدور غير موجود');
     if (role.isSystem && !actor.role.isSystem) {
       throw new ForbiddenException('دور الـ CEO يديه الـ CEO بس');
+    }
+    if (role.name === HEAD_MANAGER_ROLE && !actor.role.isSystem) {
+      throw new ForbiddenException('دور المدير العام يديه الـ CEO بس');
     }
   }
 
