@@ -1,3 +1,4 @@
+import './config/field-key'; // first: makes the encryption key if the .env has none
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
