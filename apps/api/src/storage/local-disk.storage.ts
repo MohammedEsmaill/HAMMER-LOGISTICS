@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 import { AppConfig } from '../config/env.validation';
 import { FileExt, FileStorage, StoredFile } from './file-storage';
@@ -28,11 +28,21 @@ export class LocalDiskStorage implements FileStorage {
     await mkdir(this.root, { recursive: true });
     const key = `${randomUUID()}.${options?.ext ?? 'pdf'}`;
     await writeFile(join(this.root, key), file);
-    return { url: `/api/files/${key}`, publicId: `local:${key}` };
+    return { url: LocalDiskStorage.url(key), publicId: `local:${key}`, localKey: key };
   }
 
-  async remove(publicId: string): Promise<void> {
-    const key = publicId.replace(/^local:/, '');
+  static url(key: string) {
+    return `/api/files/${key}`;
+  }
+
+  /** A stored file's bytes, or null when it is not on disk. */
+  async read(key: string): Promise<Buffer | null> {
+    const path = this.path(key);
+    return path ? readFile(path).catch(() => null) : null;
+  }
+
+  async remove(publicId: string, localKey?: string | null): Promise<void> {
+    const key = localKey ?? publicId.replace(/^local:/, '');
     if (!LOCAL_FILE_KEY.test(key)) return;
     await rm(join(this.root, key), { force: true }).catch((e: unknown) =>
       this.logger.error(`Could not remove ${key}: ${String(e)}`),

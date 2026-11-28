@@ -1,3 +1,4 @@
+import { partyFolder } from '../storage/folders';
 import {
   BadRequestException,
   ForbiddenException,
@@ -278,14 +279,18 @@ export class PartyDocumentsService {
     return { factoryId: factoryIds.length > 1 ? input.factoryId! : null };
   }
 
-  private async store(file: UploadedFile | undefined, clientId: number) {
+  private async store(file: UploadedFile | undefined, clientId: number, factoryId: number | null) {
     if (!file || file.size === 0)
       throw new BadRequestException('اختار ملف المستند');
     if (file.size > MAX_PARTY_DOCUMENT_BYTES)
       throw new BadRequestException('حجم الملف أكبر من 10 ميجا');
     const kind = fileKind(file);
+    const [client, factory] = await Promise.all([
+      this.prisma.client.findUniqueOrThrow({ where: { id: clientId }, select: { name: true } }),
+      factoryId ? this.prisma.factory.findUnique({ where: { id: factoryId }, select: { name: true } }) : null,
+    ]);
     const stored = await this.storage.upload(file.buffer, {
-      folder: `clients/${clientId}`,
+      folder: partyFolder(client, factory),
       fileName: randomUUID(),
       ext: kind.ext,
     });
@@ -295,15 +300,17 @@ export class PartyDocumentsService {
         fileName: decodeFileName(file.originalname),
         url: stored.url,
         publicId: stored.publicId,
+        localKey: stored.localKey ?? null,
         mimeType: kind.mime,
         size: file.size,
       },
     };
   }
 
-  private async discard(publicId: string) {
+  private async discard(file: { publicId: string; localKey?: string | null }) {
+    const publicId = file.publicId;
     await this.storage
-      .remove(publicId)
+      .remove(publicId, file.localKey)
       .catch((e: unknown) =>
         this.logger.error(`Orphan file ${publicId}: ${String(e)}`),
       );
@@ -315,7 +322,7 @@ export class PartyDocumentsService {
     file: UploadedFile | undefined,
   ) {
     const { factoryId } = await this.check(actor, input);
-    const { stored, data } = await this.store(file, input.clientId);
+    const { stored, data } = await this.store(file, input.clientId, factoryId);
     try {
       return await this.prisma.$transaction(async (tx) => {
         const doc = await tx.partyDocument.create({
@@ -346,7 +353,7 @@ export class PartyDocumentsService {
         return doc;
       });
     } catch (error) {
-      await this.discard(stored.publicId);
+      await this.discard(stored);
       throw error;
     }
   }
@@ -366,7 +373,7 @@ export class PartyDocumentsService {
       ...input,
       clientId: before.clientId,
     });
-    const replaced = file ? await this.store(file, before.clientId) : null;
+    const replaced = file ? await this.store(file, before.clientId, factoryId) : null;
     try {
       const doc = await this.prisma.$transaction(async (tx) => {
         const after = await tx.partyDocument.update({
@@ -397,10 +404,10 @@ export class PartyDocumentsService {
         );
         return after;
       });
-      if (replaced) await this.discard(before.publicId);
+      if (replaced) await this.discard(before);
       return doc;
     } catch (error) {
-      if (replaced) await this.discard(replaced.stored.publicId);
+      if (replaced) await this.discard(replaced.stored);
       throw error;
     }
   }
@@ -424,6 +431,6 @@ export class PartyDocumentsService {
         tx,
       );
     });
-    await this.discard(before.publicId);
+    await this.discard(before);
   }
 }

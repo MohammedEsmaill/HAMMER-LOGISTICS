@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Patch,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,7 +19,7 @@ import {
   RequireAnyPermission,
   RequirePermissions,
 } from '../auth/decorators/permissions.decorator';
-import { UploadDocumentDto } from './dto/document.dto';
+import { MoveDocumentDto, UploadDocumentDto } from './dto/document.dto';
 import {
   MAX_DOCUMENT_BYTES,
   ShipmentDocumentsService,
@@ -35,7 +36,7 @@ export class ShipmentDocumentsController {
     return this.documents.list(actor, id);
   }
 
-  /** multipart/form-data: "file" (PDF) + "name" + "category". */
+  /** multipart/form-data: "file" (PDF) + "name" + "section". */
   @Post()
   @RequirePermissions('shipments.documents.upload')
   @UseInterceptors(
@@ -53,9 +54,20 @@ export class ShipmentDocumentsController {
     return this.documents.upload(
       actor,
       id,
-      { name: dto.name, category: dto.category },
+      { name: dto.name, section: dto.section },
       file,
     );
+  }
+
+  @Patch(':documentId')
+  @RequirePermissions('shipments.documents.upload')
+  move(
+    @CurrentUser() actor: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('documentId', ParseIntPipe) documentId: number,
+    @Body() dto: MoveDocumentDto,
+  ) {
+    return this.documents.move(actor, id, documentId, dto.section);
   }
 
   @Delete(':documentId')

@@ -737,27 +737,30 @@ model BillNumber {
   @@map("bill_numbers")
 }
 
-/// مستند / تسوية / إيصال
-enum DocumentCategory {
-  DOCUMENT
-  SETTLEMENT
-  RECEIPT
+/// The shipment's document sections: توكيلات ملاحية / جمارك / نقل / الصور الضوئية
+enum DocumentSection {
+  SHIPPING_AGENCY
+  CUSTOMS
+  TRANSPORT
+  SCANS
 }
 
 model ShipmentDocument {
-  id           Int              @id @default(autoincrement())
-  shipmentId   Int              @map("shipment_id")
+  id           Int             @id @default(autoincrement())
+  shipmentId   Int             @map("shipment_id")
   name         String // typed by the uploader
-  category     DocumentCategory @default(DOCUMENT)
-  fileName     String           @map("file_name")
+  section      DocumentSection
+  fileName     String          @map("file_name")
   url          String
-  publicId     String           @map("public_id") // Cloudinary
-  mimeType     String           @map("mime_type")
+  publicId     String          @map("public_id") // Cloudinary, or local:<key> while waiting to go up
+  /// the copy kept on this server's disk (a backup, and what is served until it is uploaded)
+  localKey     String?         @map("local_key")
+  mimeType     String          @map("mime_type")
   size         Int
-  uploadedById Int              @map("uploaded_by")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  deletedAt    DateTime?        @map("deleted_at")
-  deletedById  Int?             @map("deleted_by")
+  uploadedById Int             @map("uploaded_by")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  deletedAt    DateTime?       @map("deleted_at")
+  deletedById  Int?            @map("deleted_by")
 
   shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
   uploadedBy User     @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
@@ -1749,6 +1752,8 @@ model PartyDocument {
   fileName    String   @map("file_name")
   url         String
   publicId    String   @map("public_id")
+  /// the copy kept on this server's disk (a backup, and what is served until it is uploaded)
+  localKey    String?  @map("local_key")
   mimeType    String   @map("mime_type")
   size        Int
   createdById Int      @map("created_by")

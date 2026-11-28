@@ -15,7 +15,7 @@ import { FileExt, FileStorage, StoredFile } from './file-storage';
 @Injectable()
 export class CloudinaryStorage implements FileStorage {
   private readonly logger = new Logger(CloudinaryStorage.name);
-  private readonly configured: boolean;
+  readonly configured: boolean;
 
   constructor(config: ConfigService<AppConfig, true>) {
     const url = config.get('CLOUDINARY_URL', { infer: true });
@@ -48,6 +48,8 @@ export class CloudinaryStorage implements FileStorage {
               : options.fileName,
           use_filename: false,
           unique_filename: true,
+          // offline, give up soon: the file waits on disk and goes up later
+          timeout: 30_000,
         },
         (error, response) =>
           error || !response
@@ -62,7 +64,7 @@ export class CloudinaryStorage implements FileStorage {
     return { url: result.secure_url, publicId: result.public_id };
   }
 
-  async remove(publicId: string): Promise<void> {
+  async remove(publicId: string, _localKey?: string | null): Promise<void> {
     this.assertConfigured();
     await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
   }

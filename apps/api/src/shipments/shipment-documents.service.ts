@@ -5,12 +5,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DocumentCategory, Prisma } from '@prisma/client';
+import { DocumentSection, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { AuthUser } from '../auth/auth-user';
 import { PrismaService } from '../prisma/prisma.service';
 import { FILE_STORAGE, type FileStorage } from '../storage/file-storage';
+import { shipmentFolder } from '../storage/folders';
 import { shipmentScope } from './access-scope';
 
 export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
@@ -18,7 +19,7 @@ export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const DOCUMENT_SELECT = {
   id: true,
   name: true,
-  category: true,
+  section: true,
   fileName: true,
   url: true,
   mimeType: true,
@@ -33,7 +34,7 @@ export interface UploadedFile {
   size: number;
 }
 
-/** Shipment documents: PDF only, up to 10 MB, any number per shipment. */
+/** Shipment documents: PDF only, up to 10 MB, filed in four sections. */
 @Injectable()
 export class ShipmentDocumentsService {
   private readonly logger = new Logger(ShipmentDocumentsService.name);
@@ -56,14 +57,14 @@ export class ShipmentDocumentsService {
   async upload(
     actor: AuthUser,
     shipmentId: number,
-    input: { name: string; category: DocumentCategory },
+    input: { name: string; section: DocumentSection },
     file: UploadedFile | undefined,
   ) {
     const shipment = await this.findShipment(actor, shipmentId);
     this.assertPdf(file);
 
     const stored = await this.storage.upload(file.buffer, {
-      folder: `shipments/${shipment.fileNo}`,
+      folder: shipmentFolder(shipment.fileNo, input.section),
       fileName: randomUUID(),
     });
     try {
@@ -72,10 +73,11 @@ export class ShipmentDocumentsService {
           data: {
             shipmentId,
             name: input.name,
-            category: input.category,
+            section: input.section,
             fileName: decodeFileName(file.originalname),
             url: stored.url,
             publicId: stored.publicId,
+            localKey: stored.localKey,
             mimeType: 'application/pdf',
             size: file.size,
             uploadedById: actor.id,
@@ -97,12 +99,34 @@ export class ShipmentDocumentsService {
     } catch (error) {
       // the row was not saved: do not leave an orphan file behind
       await this.storage
-        .remove(stored.publicId)
+        .remove(stored.publicId, stored.localKey)
         .catch((e: unknown) =>
           this.logger.error(`Orphan file ${stored.publicId}: ${String(e)}`),
         );
       throw error;
     }
+  }
+
+  /** Moves a document to another section (its file stays where it is). */
+  async move(actor: AuthUser, shipmentId: number, documentId: number, section: DocumentSection) {
+    await this.findShipment(actor, shipmentId);
+    const before = await this.prisma.shipmentDocument.findFirst({
+      where: { id: documentId, shipmentId, deletedAt: null },
+      select: DOCUMENT_SELECT,
+    });
+    if (!before) throw new NotFoundException('المستند غير موجود');
+    return this.prisma.$transaction(async (tx) => {
+      const after = await tx.shipmentDocument.update({
+        where: { id: documentId },
+        data: { section },
+        select: DOCUMENT_SELECT,
+      });
+      await this.audit.log(
+        { userId: actor.id, action: 'UPDATE', entity: 'shipment_document', entityId: documentId, before, after },
+        tx,
+      );
+      return after;
+    });
   }
 
   /** Soft delete: the row and the file stay, hidden from the shipment. */

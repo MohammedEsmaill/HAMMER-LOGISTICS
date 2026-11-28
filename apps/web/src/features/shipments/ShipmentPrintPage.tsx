@@ -8,7 +8,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { AR } from '@/lib/format';
 import { useLookup } from '../lookups/api';
 import { useCompany, type CompanySettings } from '../finance/account-api';
-import { DOCUMENT_CATEGORIES, useShipment, type Shipment } from './api';
+import { DOCUMENT_SECTIONS, useShipment, type Shipment } from './api';
 import { CONTAINER_TYPES, CUSTOMS_LABELS, partyLabels, REGIMES, SHIPMENT_TYPES } from './rules';
 
 const INK = '#141414';
@@ -224,8 +224,8 @@ function ShipmentDocument({ s, company, printedBy, authorities }: { s: Shipment;
       {s.documents.length > 0 && (
         <Section n={++n} title={`المستندات المرفوعة (${s.documents.length})`}>
           <Table
-            head={['م', 'اسم المستند', 'التصنيف', 'تاريخ الرفع']}
-            rows={s.documents.map((d, i) => [i + 1, d.name, DOCUMENT_CATEGORIES[d.category].label, day(d.createdAt)])}
+            head={['م', 'اسم المستند', 'الخانة', 'تاريخ الرفع']}
+            rows={s.documents.map((d, i) => [i + 1, d.name, DOCUMENT_SECTIONS[d.section], day(d.createdAt)])}
           />
         </Section>
       )}

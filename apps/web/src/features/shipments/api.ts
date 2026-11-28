@@ -44,19 +44,20 @@ export interface Container {
   weight: string;
 }
 
-export type DocumentCategory = 'DOCUMENT' | 'SETTLEMENT' | 'RECEIPT';
+export type DocumentSection = 'SHIPPING_AGENCY' | 'CUSTOMS' | 'TRANSPORT' | 'SCANS';
 
-/** What a shipment file is filed under (more can be added later). */
-export const DOCUMENT_CATEGORIES: Record<DocumentCategory, { label: string; plural: string }> = {
-  DOCUMENT: { label: 'مستند', plural: 'مستندات' },
-  SETTLEMENT: { label: 'تسوية', plural: 'تسويات' },
-  RECEIPT: { label: 'إيصال', plural: 'إيصالات' },
+/** The sections of a shipment's files. */
+export const DOCUMENT_SECTIONS: Record<DocumentSection, string> = {
+  SHIPPING_AGENCY: 'توكيلات ملاحية',
+  CUSTOMS: 'جمارك',
+  TRANSPORT: 'نقل',
+  SCANS: 'الصور الضوئية',
 };
 
 export interface ShipmentDocument {
   id: number;
   name: string;
-  category: DocumentCategory;
+  section: DocumentSection;
   fileName: string;
   url: string;
   mimeType: string;
@@ -286,12 +287,14 @@ export const shipmentsApi = {
     api.delete<Shipment>(path(id, `/inspections/${itemId}`), { version }),
   moveStage: (id: number, input: { version: number; to: string; occurredAt?: string; reason?: string }) =>
     api.post<Shipment>(path(id, '/stage'), input),
-  uploadDocument: (id: number, name: string, category: DocumentCategory, file: File) => {
+  uploadDocument: (id: number, name: string, section: DocumentSection, file: File) => {
     const form = new FormData();
     form.append('name', name);
-    form.append('category', category);
+    form.append('section', section);
     form.append('file', file);
     return api.upload<ShipmentDocument>(path(id, '/documents'), form);
   },
+  moveDocument: (id: number, documentId: number, section: DocumentSection) =>
+    api.patch<ShipmentDocument>(path(id, `/documents/${documentId}`), { section }),
   removeDocument: (id: number, documentId: number) => api.delete(path(id, `/documents/${documentId}`)),
 };

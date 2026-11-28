@@ -15,10 +15,12 @@ describe('Shipment documents (e2e)', () => {
     fileName: string,
     name?: string,
     id = shipmentId,
+    section = 'CUSTOMS',
   ) => {
     const req = request(ctx.app.getHttpServer())
       .post(`/api/shipments/${id}/documents`)
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${token}`)
+      .field('section', section);
     if (name !== undefined) void req.field('name', name);
     return req.attach('file', file, {
       filename: fileName,
@@ -47,9 +49,10 @@ describe('Shipment documents (e2e)', () => {
       'فاتورة تجارية',
     ).expect(201);
     expect(res.body.name).toBe('فاتورة تجارية');
-    expect(res.body.category).toBe('DOCUMENT');
+    expect(res.body.section).toBe('CUSTOMS');
     expect(res.body.fileName).toBe('فاتورة تجارية.pdf');
-    expect(res.body.url).toMatch(/^https:\/\/files\.test\/shipments\/HL/);
+    // its section is its folder
+    expect(decodeURI(res.body.url)).toMatch(/^https:\/\/files\.test\/hammer\/shipments\/HL[\w-]+\/جمارك\//);
     expect(ctx.storage.files.size).toBe(1);
 
     const detail = await ctx
@@ -59,28 +62,21 @@ describe('Shipment documents (e2e)', () => {
     expect(detail.body.documents).toHaveLength(1);
   });
 
-  it('files a document as a document, a settlement or a receipt', async () => {
-    const res = await request(ctx.app.getHttpServer())
-      .post(`/api/shipments/${shipmentId}/documents`)
-      .set('Authorization', `Bearer ${fx.tokens.scan}`)
-      .field('name', 'إيصال سداد الرسوم')
-      .field('category', 'RECEIPT')
-      .attach('file', PDF, {
-        filename: 'r.pdf',
-        contentType: 'application/pdf',
-      })
-      .expect(201);
-    expect(res.body.category).toBe('RECEIPT');
+  it('files a document in one of the four sections, and moves it to another', async () => {
+    const res = await upload(fx.tokens.scan, PDF, 'r.pdf', 'إذن التسليم', shipmentId, 'SHIPPING_AGENCY').expect(201);
+    expect(res.body.section).toBe('SHIPPING_AGENCY');
+    await upload(fx.tokens.scan, PDF, 'r.pdf', 'ملف', shipmentId, 'RECEIPT').expect(400);
     await request(ctx.app.getHttpServer())
       .post(`/api/shipments/${shipmentId}/documents`)
       .set('Authorization', `Bearer ${fx.tokens.scan}`)
-      .field('name', 'ملف')
-      .field('category', 'PHOTO')
-      .attach('file', PDF, {
-        filename: 'r.pdf',
-        contentType: 'application/pdf',
-      })
+      .field('name', 'من غير خانة')
+      .attach('file', PDF, { filename: 'r.pdf', contentType: 'application/pdf' })
       .expect(400);
+    const moved = await ctx
+      .api(fx.tokens.scan)
+      .patch(`/api/shipments/${shipmentId}/documents/${res.body.id}`, { section: 'TRANSPORT' })
+      .expect(200);
+    expect(moved.body.section).toBe('TRANSPORT');
   });
 
   it('checks the content, not the extension', async () => {

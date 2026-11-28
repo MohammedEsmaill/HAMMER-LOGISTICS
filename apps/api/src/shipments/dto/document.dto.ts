@@ -1,7 +1,6 @@
-import { DocumentCategory } from '@prisma/client';
+import { DocumentSection } from '@prisma/client';
 import {
   IsEnum,
-  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -16,8 +15,12 @@ export class UploadDocumentDto {
   @MaxLength(120)
   name!: string;
 
-  /** مستند / تسوية / إيصال; a document when not given. */
-  @IsOptional()
-  @IsEnum(DocumentCategory, { message: 'اختار نوع المستند' })
-  category: DocumentCategory = DocumentCategory.DOCUMENT;
+  /** توكيلات ملاحية / جمارك / نقل / الصور الضوئية */
+  @IsEnum(DocumentSection, { message: 'اختار الخانة' })
+  section!: DocumentSection;
+}
+
+export class MoveDocumentDto {
+  @IsEnum(DocumentSection, { message: 'اختار الخانة' })
+  section!: DocumentSection;
 }
