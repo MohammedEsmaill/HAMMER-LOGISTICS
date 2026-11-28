@@ -3,18 +3,8 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 
-/**
- * Tunnel domains allowed to reach the dev / preview server when sharing a local run:
- * the temporary links, the company's own domain, and PUBLIC_HOST (start.bat sets it
- * from public-url.txt for the fixed link).
- */
-const TUNNEL_HOSTS = [
-  '.trycloudflare.com',
-  '.ngrok-free.app',
-  '.ngrok.app',
-  '.hammerline.com',
-  ...(process.env.PUBLIC_HOST ? [process.env.PUBLIC_HOST] : []),
-];
+/** Tunnel domains allowed to reach the dev / preview server when sharing a local run. */
+const TUNNEL_HOSTS = ['.trycloudflare.com', '.ngrok-free.app', '.ngrok.app'];
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
